@@ -9,11 +9,11 @@
       <nav class="nav">
         <router-link to="/creator" class="nav-link">
           <span class="nav-icon">✨</span>
-          Creator
+          <span class="nav-text">Creator</span>
         </router-link>
         <router-link to="/inbox" class="nav-link">
           <span class="nav-icon">📬</span>
-          Inbox
+          <span class="nav-text">Inbox</span>
           <span v-if="badgesStore.pendingCount > 0" class="badge-count">
             {{ badgesStore.pendingCount }}
           </span>
@@ -23,15 +23,26 @@
       <div class="header-actions">
         <template v-if="authStore.isAuthenticated">
           <router-link :to="`/profile/${authStore.npub}`" class="profile-link">
-            {{ authStore.shortNpub }}
+            <img 
+              v-if="authStore.profilePicture" 
+              :src="authStore.profilePicture" 
+              :alt="authStore.displayName"
+              class="profile-avatar"
+              @error="handleAvatarError"
+            />
+            <div v-else class="profile-avatar-placeholder">👤</div>
+            <div class="profile-info">
+              <span class="profile-name">{{ authStore.displayName }}</span>
+              <span class="profile-npub">{{ authStore.shortNpub }}</span>
+            </div>
           </router-link>
-          <button @click="handleLogout" class="btn-logout">
-            Logout
+          <button @click="handleLogout" class="btn-logout" title="Logout">
+            ⬅️
           </button>
         </template>
         <template v-else>
           <router-link to="/login" class="btn-login">
-            Login
+            🔐 Login
           </router-link>
         </template>
       </div>
@@ -40,6 +51,7 @@
 </template>
 
 <script setup>
+import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useBadgesStore } from '@/stores/badges'
@@ -49,6 +61,12 @@ const router = useRouter()
 const authStore = useAuthStore()
 const badgesStore = useBadgesStore()
 const uiStore = useUIStore()
+
+const avatarError = ref(false)
+
+function handleAvatarError() {
+  avatarError.value = true
+}
 
 function handleLogout() {
   authStore.logout()
@@ -71,7 +89,7 @@ function handleLogout() {
 .header-content {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 1rem 2rem;
+  padding: 0.75rem 2rem;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -135,23 +153,62 @@ function handleLogout() {
 .header-actions {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 0.75rem;
 }
 
 .profile-link {
-  font-family: var(--font-mono);
-  font-size: 0.875rem;
-  color: var(--color-text-muted);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
   text-decoration: none;
-  padding: 0.5rem 0.75rem;
+  padding: 0.375rem 0.75rem;
   background: var(--color-surface-elevated);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   transition: all 0.2s ease;
 }
 
 .profile-link:hover {
-  color: var(--color-text);
   background: var(--color-surface-hover);
+}
+
+.profile-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.profile-avatar-placeholder {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--color-surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+}
+
+.profile-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.profile-name {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-text);
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile-npub {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  color: var(--color-text-muted);
 }
 
 .btn-login {
@@ -170,13 +227,17 @@ function handleLogout() {
 }
 
 .btn-logout {
-  padding: 0.5rem 1rem;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: transparent;
   color: var(--color-text-muted);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   cursor: pointer;
-  font-weight: 500;
+  font-size: 1rem;
   transition: all 0.2s ease;
 }
 
@@ -188,16 +249,19 @@ function handleLogout() {
 
 @media (max-width: 768px) {
   .header-content {
-    padding: 1rem;
+    padding: 0.75rem 1rem;
   }
   
   .logo-text {
     display: none;
   }
   
-  .nav-link span:not(.nav-icon):not(.badge-count) {
+  .nav-text {
+    display: none;
+  }
+  
+  .profile-info {
     display: none;
   }
 }
 </style>
-

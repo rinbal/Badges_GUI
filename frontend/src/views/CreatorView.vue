@@ -9,7 +9,7 @@
       <!-- Templates Section -->
       <section class="section">
         <h2>Select Template</h2>
-        <div v-if="badgesStore.isLoading" class="loading-state">
+        <div v-if="badgesStore.isLoading && !isSubmitting" class="loading-state">
           <LoadingSpinner text="Loading templates..." />
         </div>
         <div v-else-if="badgesStore.templates.length === 0" class="empty-state">
@@ -23,7 +23,7 @@
             @click="selectTemplate(template)"
           >
             <div class="template-image">
-              <img v-if="template.image" :src="template.image" :alt="template.name" />
+              <img v-if="template.image" :src="template.image" :alt="template.name" @error="handleTemplateImageError" />
               <span v-else class="placeholder">🏅</span>
             </div>
             <div class="template-info">
@@ -34,10 +34,18 @@
         </div>
       </section>
       
-      <!-- Create New Template -->
+      <!-- Create/Award Form -->
       <section class="section">
         <h2>{{ selectedTemplate ? 'Edit Badge' : 'Create New Badge' }}</h2>
-        <form @submit.prevent="handleSubmit" class="badge-form">
+        
+        <!-- Submission Progress -->
+        <div v-if="isSubmitting" class="submission-progress">
+          <LoadingSpinner size="lg" />
+          <h3>{{ submissionStatus }}</h3>
+          <p>This may take up to a minute while publishing to Nostr relays...</p>
+        </div>
+        
+        <form v-else @submit.prevent="handleSubmit" class="badge-form">
           <div class="form-row">
             <div class="form-group">
               <label for="identifier">Identifier *</label>
@@ -49,6 +57,7 @@
                 class="input"
                 required
               />
+              <p class="input-hint">Unique ID (lowercase, no spaces)</p>
             </div>
             <div class="form-group">
               <label for="name">Name *</label>
@@ -76,13 +85,18 @@
           
           <div class="form-group">
             <label for="image">Image URL</label>
-            <input
-              id="image"
-              v-model="form.image"
-              type="url"
-              placeholder="https://example.com/badge.png"
-              class="input"
-            />
+            <div class="image-input-row">
+              <input
+                id="image"
+                v-model="form.image"
+                type="url"
+                placeholder="https://example.com/badge.png"
+                class="input"
+              />
+              <div v-if="form.image" class="image-preview">
+                <img :src="form.image" alt="Badge preview" @error="handlePreviewError" />
+              </div>
+            </div>
           </div>
           
           <div class="form-group">
@@ -90,12 +104,15 @@
             <textarea
               id="recipients"
               v-model="recipientsText"
-              placeholder="Enter npub or hex keys (one per line)"
-              class="input textarea"
+              placeholder="npub1abc123...&#10;npub1def456...&#10;(one per line)"
+              class="input textarea mono"
               rows="4"
               required
             ></textarea>
-            <p class="input-hint">Enter one public key per line (npub1... or hex format)</p>
+            <p class="input-hint">
+              Enter one public key per line (npub1... or hex format) • 
+              <strong>{{ recipients.length }}</strong> recipient(s)
+            </p>
           </div>
           
           <div class="form-actions">
@@ -108,11 +125,10 @@
             </button>
             <button 
               type="submit" 
-              class="btn btn-primary"
-              :disabled="isSubmitting || !isFormValid"
+              class="btn btn-primary btn-lg"
+              :disabled="!isFormValid"
             >
-              <LoadingSpinner v-if="isSubmitting" size="sm" />
-              <span v-else>Create & Award Badge</span>
+              🎯 Create & Award Badge
             </button>
           </div>
         </form>
@@ -120,8 +136,20 @@
       
       <!-- Issuer Info -->
       <section class="section issuer-info">
-        <h3>Issuing as</h3>
-        <code class="npub">{{ authStore.npub }}</code>
+        <div class="issuer-header">
+          <img 
+            v-if="authStore.profilePicture" 
+            :src="authStore.profilePicture" 
+            alt="Your avatar"
+            class="issuer-avatar"
+          />
+          <div v-else class="issuer-avatar-placeholder">👤</div>
+          <div class="issuer-details">
+            <span class="issuer-label">Issuing as</span>
+            <span class="issuer-name">{{ authStore.displayName }}</span>
+            <code class="issuer-npub">{{ authStore.shortNpub }}</code>
+          </div>
+        </div>
       </section>
     </div>
   </div>
@@ -140,6 +168,7 @@ const uiStore = useUIStore()
 
 const selectedTemplate = ref(null)
 const isSubmitting = ref(false)
+const submissionStatus = ref('')
 const recipientsText = ref('')
 
 const form = ref({
@@ -182,21 +211,35 @@ function resetForm() {
   recipientsText.value = ''
 }
 
+function handleTemplateImageError(e) {
+  e.target.style.display = 'none'
+}
+
+function handlePreviewError(e) {
+  e.target.style.display = 'none'
+}
+
 async function handleSubmit() {
   if (!isFormValid.value) return
   
   isSubmitting.value = true
+  submissionStatus.value = '📝 Creating badge definition...'
+  
+  // Small delay to show UI update
+  await new Promise(r => setTimeout(r, 100))
+  
+  submissionStatus.value = '📡 Publishing to Nostr relays...'
   
   const result = await badgesStore.createAndAwardBadge(form.value, recipients.value)
   
   isSubmitting.value = false
   
   if (result.success) {
-    uiStore.showSuccess(`Badge awarded to ${result.data.recipients_count} recipient(s)!`)
+    uiStore.showSuccess(`🎉 Badge "${form.value.name}" awarded to ${result.data.recipients_count} recipient(s)!`)
     resetForm()
     badgesStore.fetchTemplates()
   } else {
-    uiStore.showError(result.error || 'Failed to create badge')
+    uiStore.showError(result.error || 'Failed to create badge. Please try again.')
   }
 }
 </script>
@@ -245,9 +288,25 @@ async function handleSubmit() {
   color: var(--color-text-muted);
 }
 
+.submission-progress {
+  text-align: center;
+  padding: 3rem 2rem;
+}
+
+.submission-progress h3 {
+  margin: 1.5rem 0 0.5rem 0;
+  color: var(--color-text);
+  font-size: 1.125rem;
+}
+
+.submission-progress p {
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
 .template-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
   gap: 1rem;
 }
 
@@ -270,8 +329,8 @@ async function handleSubmit() {
 }
 
 .template-image {
-  width: 60px;
-  height: 60px;
+  width: 56px;
+  height: 56px;
   border-radius: var(--radius-sm);
   background: var(--color-surface);
   display: flex;
@@ -288,18 +347,21 @@ async function handleSubmit() {
 }
 
 .template-image .placeholder {
-  font-size: 2rem;
+  font-size: 1.75rem;
 }
 
 .template-info h3 {
-  font-size: 0.9375rem;
+  font-size: 0.875rem;
   font-weight: 600;
   color: var(--color-text);
   margin: 0 0 0.25rem 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .template-info p {
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
   color: var(--color-text-muted);
   margin: 0;
   overflow: hidden;
@@ -347,6 +409,11 @@ async function handleSubmit() {
   box-shadow: 0 0 0 3px var(--color-primary-soft);
 }
 
+.input.mono {
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+}
+
 .textarea {
   resize: vertical;
   font-family: inherit;
@@ -354,9 +421,34 @@ async function handleSubmit() {
 }
 
 .input-hint {
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
   color: var(--color-text-muted);
   margin: 0;
+}
+
+.image-input-row {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+.image-input-row .input {
+  flex: 1;
+}
+
+.image-preview {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--color-surface-elevated);
+  flex-shrink: 0;
+}
+
+.image-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .form-actions {
@@ -379,6 +471,11 @@ async function handleSubmit() {
   border: none;
 }
 
+.btn-lg {
+  padding: 0.875rem 2rem;
+  font-size: 1rem;
+}
+
 .btn-primary {
   background: var(--color-primary);
   color: white;
@@ -386,6 +483,7 @@ async function handleSubmit() {
 
 .btn-primary:hover:not(:disabled) {
   background: var(--color-primary-hover);
+  transform: translateY(-1px);
 }
 
 .btn-secondary {
@@ -399,7 +497,7 @@ async function handleSubmit() {
 }
 
 .btn:disabled {
-  opacity: 0.6;
+  opacity: 0.5;
   cursor: not-allowed;
 }
 
@@ -407,18 +505,53 @@ async function handleSubmit() {
   background: var(--color-surface-elevated);
 }
 
-.issuer-info h3 {
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: var(--color-text-muted);
-  margin: 0 0 0.5rem 0;
+.issuer-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
 }
 
-.npub {
+.issuer-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.issuer-avatar-placeholder {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--color-surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+}
+
+.issuer-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.issuer-label {
+  font-size: 0.6875rem;
+  color: var(--color-text-subtle);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.issuer-name {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.issuer-npub {
   font-family: var(--font-mono);
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
   color: var(--color-primary);
-  word-break: break-all;
 }
 
 @media (max-width: 640px) {
@@ -427,4 +560,3 @@ async function handleSubmit() {
   }
 }
 </style>
-
