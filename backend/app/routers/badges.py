@@ -67,6 +67,27 @@ async def create_template(
     return BadgeTemplateResponse(**request.model_dump())
 
 
+@router.delete("/templates/{identifier}")
+async def delete_template(
+    identifier: str,
+    x_nsec: Optional[str] = Header(None)
+):
+    """
+    Delete a badge template
+    
+    Removes the template JSON file.
+    Requires authentication.
+    """
+    get_nsec_from_header(x_nsec)  # Validate auth
+    
+    success = BadgeService.delete_template(identifier)
+    
+    if not success:
+        raise HTTPException(status_code=404, detail="Template not found")
+    
+    return {"success": True, "message": f"Template '{identifier}' deleted"}
+
+
 @router.post("/create-definition", response_model=CreateDefinitionResponse)
 async def create_definition(
     request: CreateBadgeDefinitionRequest,

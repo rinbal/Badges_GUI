@@ -49,6 +49,22 @@ export const useBadgesStore = defineStore('badges', () => {
     }
   }
 
+  async function deleteTemplate(identifier) {
+    isLoading.value = true
+    error.value = null
+    
+    try {
+      await api.deleteTemplate(identifier)
+      templates.value = templates.value.filter(t => t.identifier !== identifier)
+      return { success: true }
+    } catch (err) {
+      error.value = err.response?.data?.detail || err.message
+      return { success: false, error: error.value }
+    } finally {
+      isLoading.value = false
+    }
+  }
+
   async function createAndAwardBadge(badge, recipients) {
     isLoading.value = true
     error.value = null
@@ -153,6 +169,7 @@ export const useBadgesStore = defineStore('badges', () => {
     // Actions
     fetchTemplates,
     createTemplate,
+    deleteTemplate,
     createAndAwardBadge,
     fetchPendingBadges,
     fetchAcceptedBadges,

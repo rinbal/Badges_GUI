@@ -90,6 +90,22 @@ class BadgeService:
             print(f"Error saving template: {e}")
             return False
     
+    @staticmethod
+    def delete_template(identifier: str) -> bool:
+        """Delete a badge template JSON file"""
+        try:
+            definitions_dir = settings.badge_definitions_path
+            file_path = definitions_dir / f"{identifier}.json"
+            
+            if not file_path.exists():
+                return False
+            
+            file_path.unlink()
+            return True
+        except Exception as e:
+            print(f"Error deleting template: {e}")
+            return False
+    
     async def create_definition(self, badge_data: Dict[str, Any]) -> Dict[str, Any]:
         """Create and publish a badge definition (kind 30009)"""
         try:

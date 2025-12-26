@@ -53,6 +53,9 @@ export const api = {
   createTemplate: (template) => 
     apiClient.post('/badges/templates', template),
   
+  deleteTemplate: (identifier) => 
+    apiClient.delete(`/badges/templates/${identifier}`),
+  
   createDefinition: (badge) => 
     apiClient.post('/badges/create-definition', badge),
   
