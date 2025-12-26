@@ -1,0 +1,12 @@
+{
+  "timestamp": 1765645902,
+  "event_id": "pre_merge_1765645902",
+  "recipient_hex": "dcfd1eb10a8e48ca33d898a088695a58665c71a5639e99a4dfdb33cd5baed2ae",
+  "badge_pairs": [
+    [
+      "30009:83fefcd1237ce4722c413179755f59a154bd215d7e82c74c78e7e10cf3643b5c:badgecreator",
+      "eaa7cc5cf6d34af9a053150d424e480472693178e16c752b8365e084c137498e"
+    ]
+  ],
+  "total_badges": 1
+}
