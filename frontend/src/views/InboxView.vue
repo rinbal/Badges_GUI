@@ -48,6 +48,7 @@
             :badge="badge"
             :is-pending="true"
             :loading="loadingBadge === badge.award_event_id"
+            @click="openBadgeDetail(badge, true)"
             @accept="handleAccept"
           />
         </div>
@@ -67,6 +68,7 @@
             :badge="badge"
             :is-pending="false"
             :loading="loadingBadge === badge.award_event_id"
+            @click="openBadgeDetail(badge, false)"
             @remove="handleRemove"
           />
         </div>
@@ -81,6 +83,17 @@
     >
       🔄 Refresh
     </button>
+    
+    <!-- Badge Detail Modal -->
+    <BadgeDetailModal
+      :is-open="showDetailModal"
+      :badge="selectedBadge"
+      :is-pending="selectedBadgeIsPending"
+      :loading="loadingBadge === selectedBadge?.award_event_id"
+      @close="closeDetailModal"
+      @accept="handleAcceptFromModal"
+      @remove="handleRemoveFromModal"
+    />
   </div>
 </template>
 
@@ -90,12 +103,18 @@ import { useBadgesStore } from '@/stores/badges'
 import { useUIStore } from '@/stores/ui'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 import BadgeCard from '@/components/badges/BadgeCard.vue'
+import BadgeDetailModal from '@/components/badges/BadgeDetailModal.vue'
 
 const badgesStore = useBadgesStore()
 const uiStore = useUIStore()
 
 const activeTab = ref('pending')
 const loadingBadge = ref(null)
+
+// Modal state
+const showDetailModal = ref(false)
+const selectedBadge = ref(null)
+const selectedBadgeIsPending = ref(false)
 
 onMounted(() => {
   refreshBadges()
@@ -106,6 +125,17 @@ async function refreshBadges() {
     badgesStore.fetchPendingBadges(),
     badgesStore.fetchAcceptedBadges()
   ])
+}
+
+function openBadgeDetail(badge, isPending) {
+  selectedBadge.value = badge
+  selectedBadgeIsPending.value = isPending
+  showDetailModal.value = true
+}
+
+function closeDetailModal() {
+  showDetailModal.value = false
+  selectedBadge.value = null
 }
 
 async function handleAccept(badge) {
@@ -122,6 +152,13 @@ async function handleAccept(badge) {
   }
 }
 
+async function handleAcceptFromModal(badge) {
+  await handleAccept(badge)
+  if (loadingBadge.value === null) {
+    closeDetailModal()
+  }
+}
+
 async function handleRemove(badge) {
   if (!confirm(`Are you sure you want to remove "${badge.badge_name}"?`)) {
     return
@@ -135,6 +172,25 @@ async function handleRemove(badge) {
   
   if (result.success) {
     uiStore.showSuccess(`Badge "${badge.badge_name}" removed`)
+  } else {
+    uiStore.showError(result.error || 'Failed to remove badge')
+  }
+}
+
+async function handleRemoveFromModal(badge) {
+  if (!confirm(`Are you sure you want to remove "${badge.badge_name}"?`)) {
+    return
+  }
+  
+  loadingBadge.value = badge.award_event_id
+  
+  const result = await badgesStore.removeBadge(badge.a_tag, badge.award_event_id)
+  
+  loadingBadge.value = null
+  
+  if (result.success) {
+    uiStore.showSuccess(`Badge "${badge.badge_name}" removed`)
+    closeDetailModal()
   } else {
     uiStore.showError(result.error || 'Failed to remove badge')
   }
@@ -274,4 +330,3 @@ async function handleRemove(badge) {
   cursor: not-allowed;
 }
 </style>
-

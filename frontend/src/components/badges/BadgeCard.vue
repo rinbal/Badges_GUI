@@ -1,5 +1,8 @@
 <template>
-  <div :class="['badge-card', { 'badge-card-pending': isPending }]">
+  <div 
+    :class="['badge-card', { 'badge-card-pending': isPending, 'clickable': clickable }]"
+    @click="handleCardClick"
+  >
     <div class="badge-image-container">
       <img 
         v-if="badgeImage" 
@@ -37,7 +40,7 @@
       </div>
     </div>
     
-    <div class="badge-actions" v-if="showActions">
+    <div class="badge-actions" v-if="showActions" @click.stop>
       <slot name="actions">
         <button 
           v-if="isPending" 
@@ -56,6 +59,12 @@
           {{ loading ? 'Removing...' : 'Remove' }}
         </button>
       </slot>
+    </div>
+    
+    <!-- Click hint -->
+    <div v-if="clickable" class="click-hint">
+      <span>View Details</span>
+      <span class="hint-arrow">→</span>
     </div>
   </div>
 </template>
@@ -79,10 +88,20 @@ const props = defineProps({
   loading: {
     type: Boolean,
     default: false
+  },
+  clickable: {
+    type: Boolean,
+    default: true
   }
 })
 
-defineEmits(['accept', 'remove'])
+const emit = defineEmits(['accept', 'remove', 'click'])
+
+function handleCardClick() {
+  if (props.clickable) {
+    emit('click', props.badge)
+  }
+}
 
 const imageError = ref(false)
 const avatarError = ref(false)
@@ -127,6 +146,7 @@ function handleAvatarError(e) {
 
 <style scoped>
 .badge-card {
+  position: relative;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
@@ -136,9 +156,22 @@ function handleAvatarError(e) {
   transition: all 0.2s ease;
 }
 
+.badge-card.clickable {
+  cursor: pointer;
+}
+
 .badge-card:hover {
   border-color: var(--color-primary-soft);
   box-shadow: var(--shadow-md);
+}
+
+.badge-card.clickable:hover {
+  transform: translateY(-2px);
+}
+
+.badge-card.clickable:hover .click-hint {
+  opacity: 1;
+  transform: translateX(0);
 }
 
 .badge-card-pending {
@@ -281,6 +314,29 @@ function handleAvatarError(e) {
   background: var(--color-danger-soft);
 }
 
+/* Click hint */
+.click-hint {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  background: var(--color-primary);
+  color: white;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  border-radius: var(--radius-full);
+  opacity: 0;
+  transform: translateX(8px);
+  transition: all 0.2s ease;
+}
+
+.hint-arrow {
+  font-size: 0.75rem;
+}
+
 @media (max-width: 640px) {
   .badge-card {
     flex-direction: column;
@@ -301,6 +357,17 @@ function handleAvatarError(e) {
   
   .badge-actions {
     justify-content: center;
+  }
+  
+  .click-hint {
+    top: auto;
+    bottom: 1rem;
+    right: 50%;
+    transform: translateX(50%);
+  }
+  
+  .badge-card.clickable:hover .click-hint {
+    transform: translateX(50%);
   }
 }
 </style>

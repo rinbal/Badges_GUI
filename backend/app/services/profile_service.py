@@ -73,6 +73,10 @@ class ProfileService:
         
         Args:
             pubkey: npub or hex format
+            
+        Returns full Nostr kind 0 profile data including:
+        - name, display_name, picture, banner, about
+        - nip05 (verified address), lud16 (lightning), website
         """
         try:
             hex_key = KeyService.normalize_pubkey(pubkey)
@@ -86,7 +90,7 @@ class ProfileService:
             "limit": 1
         }
         
-        for relay in self.relay_urls:
+        for relay in self.relay_urls[:5]:  # Query fewer relays for speed
             events = await self._query_relay(relay, f"profile_{hex_key[:8]}", filter_params)
             if events:
                 try:
@@ -94,10 +98,18 @@ class ProfileService:
                     return {
                         "npub": npub,
                         "hex": hex_key,
+                        # Core identity
                         "name": meta.get("name"),
                         "display_name": meta.get("display_name"),
                         "picture": meta.get("picture"),
-                        "about": meta.get("about")
+                        "banner": meta.get("banner"),
+                        "about": meta.get("about"),
+                        # Verification & contacts
+                        "nip05": meta.get("nip05"),
+                        "lud16": meta.get("lud16"),  # Lightning address
+                        "website": meta.get("website"),
+                        # Additional info
+                        "created_at": events[0].get("created_at")
                     }
                 except:
                     pass
@@ -109,7 +121,12 @@ class ProfileService:
             "name": None,
             "display_name": None,
             "picture": None,
-            "about": None
+            "banner": None,
+            "about": None,
+            "nip05": None,
+            "lud16": None,
+            "website": None,
+            "created_at": None
         }
     
     async def get_profile_badges(self, pubkey: str) -> Dict[str, List[Dict]]:

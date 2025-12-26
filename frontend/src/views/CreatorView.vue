@@ -9,6 +9,8 @@
       <!-- Templates Section -->
       <section class="section">
         <h2>Select Template</h2>
+        <p class="section-desc">Use a predefined badge template or create a custom one below</p>
+        
         <div v-if="badgesStore.isLoading && !isSubmitting" class="loading-state">
           <LoadingSpinner text="Loading templates..." />
         </div>
@@ -22,6 +24,9 @@
             :class="['template-card', { selected: selectedTemplate?.identifier === template.identifier }]"
             @click="selectTemplate(template)"
           >
+            <div class="template-check" v-if="selectedTemplate?.identifier === template.identifier">
+              ✓
+            </div>
             <div class="template-image">
               <img v-if="template.image" :src="template.image" :alt="template.name" @error="handleTemplateImageError" />
               <span v-else class="placeholder">🏅</span>
@@ -36,7 +41,22 @@
       
       <!-- Create/Award Form -->
       <section class="section">
-        <h2>{{ selectedTemplate ? 'Edit Badge' : 'Create New Badge' }}</h2>
+        <div class="section-header">
+          <h2>{{ selectedTemplate ? 'Award Template Badge' : 'Create Custom Badge' }}</h2>
+          <button 
+            v-if="selectedTemplate"
+            @click="clearTemplate"
+            class="btn-clear-template"
+          >
+            ✕ Clear Template
+          </button>
+        </div>
+        
+        <!-- Template Notice -->
+        <div v-if="selectedTemplate" class="template-notice">
+          <span class="notice-icon">🔒</span>
+          <span>Template fields are locked. Only add recipients below.</span>
+        </div>
         
         <!-- Submission Progress -->
         <div v-if="isSubmitting" class="submission-progress">
@@ -48,55 +68,79 @@
         <form v-else @submit.prevent="handleSubmit" class="badge-form">
           <div class="form-row">
             <div class="form-group">
-              <label for="identifier">Identifier *</label>
+              <label for="identifier">
+                Identifier *
+                <span v-if="selectedTemplate" class="lock-icon">🔒</span>
+              </label>
               <input
                 id="identifier"
                 v-model="form.identifier"
                 type="text"
                 placeholder="my-awesome-badge"
-                class="input"
+                :class="['input', { locked: isFieldLocked }]"
+                :readonly="isFieldLocked"
+                :tabindex="isFieldLocked ? -1 : 0"
                 required
               />
               <p class="input-hint">Unique ID (lowercase, no spaces)</p>
             </div>
             <div class="form-group">
-              <label for="name">Name *</label>
+              <label for="name">
+                Name *
+                <span v-if="selectedTemplate" class="lock-icon">🔒</span>
+              </label>
               <input
                 id="name"
                 v-model="form.name"
                 type="text"
                 placeholder="My Awesome Badge"
-                class="input"
+                :class="['input', { locked: isFieldLocked }]"
+                :readonly="isFieldLocked"
+                :tabindex="isFieldLocked ? -1 : 0"
                 required
               />
             </div>
           </div>
           
           <div class="form-group">
-            <label for="description">Description</label>
+            <label for="description">
+              Description
+              <span v-if="selectedTemplate" class="lock-icon">🔒</span>
+            </label>
             <textarea
               id="description"
               v-model="form.description"
               placeholder="Describe what this badge represents..."
-              class="input textarea"
+              :class="['input', 'textarea', { locked: isFieldLocked }]"
+              :readonly="isFieldLocked"
+              :tabindex="isFieldLocked ? -1 : 0"
               rows="3"
             ></textarea>
           </div>
           
           <div class="form-group">
-            <label for="image">Image URL</label>
+            <label for="image">
+              Image URL
+              <span v-if="selectedTemplate" class="lock-icon">🔒</span>
+            </label>
             <div class="image-input-row">
               <input
                 id="image"
                 v-model="form.image"
                 type="url"
                 placeholder="https://example.com/badge.png"
-                class="input"
+                :class="['input', { locked: isFieldLocked }]"
+                :readonly="isFieldLocked"
+                :tabindex="isFieldLocked ? -1 : 0"
               />
               <div v-if="form.image" class="image-preview">
                 <img :src="form.image" alt="Badge preview" @error="handlePreviewError" />
               </div>
             </div>
+          </div>
+          
+          <div class="form-divider">
+            <span>Recipients</span>
           </div>
           
           <div class="form-group">
@@ -121,14 +165,14 @@
               @click="resetForm"
               class="btn btn-secondary"
             >
-              Reset
+              Reset All
             </button>
             <button 
               type="submit" 
               class="btn btn-primary btn-lg"
               :disabled="!isFormValid"
             >
-              🎯 Create & Award Badge
+              🎯 {{ selectedTemplate ? 'Award Badge' : 'Create & Award Badge' }}
             </button>
           </div>
         </form>
@@ -178,6 +222,9 @@ const form = ref({
   image: ''
 })
 
+// Lock fields when template is selected
+const isFieldLocked = computed(() => !!selectedTemplate.value)
+
 const recipients = computed(() => {
   return recipientsText.value
     .split('\n')
@@ -198,6 +245,16 @@ onMounted(() => {
 function selectTemplate(template) {
   selectedTemplate.value = template
   form.value = { ...template }
+}
+
+function clearTemplate() {
+  selectedTemplate.value = null
+  form.value = {
+    identifier: '',
+    name: '',
+    description: '',
+    image: ''
+  }
 }
 
 function resetForm() {
@@ -278,7 +335,54 @@ async function handleSubmit() {
   font-size: 1.25rem;
   font-weight: 600;
   color: var(--color-text);
-  margin: 0 0 1.25rem 0;
+  margin: 0;
+}
+
+.section-desc {
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+  margin: 0.25rem 0 1.25rem 0;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.btn-clear-template {
+  padding: 0.375rem 0.75rem;
+  background: var(--color-surface-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-clear-template:hover {
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+  border-color: var(--color-danger);
+}
+
+.template-notice {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background: var(--color-warning-soft);
+  border: 1px solid var(--color-warning);
+  border-radius: var(--radius-md);
+  margin-bottom: 1.25rem;
+  font-size: 0.875rem;
+  color: var(--color-text);
+}
+
+.notice-icon {
+  font-size: 1rem;
 }
 
 .loading-state,
@@ -311,6 +415,7 @@ async function handleSubmit() {
 }
 
 .template-card {
+  position: relative;
   background: var(--color-surface-elevated);
   border: 2px solid transparent;
   border-radius: var(--radius-md);
@@ -326,6 +431,23 @@ async function handleSubmit() {
 .template-card.selected {
   border-color: var(--color-primary);
   background: var(--color-primary-soft);
+}
+
+.template-check {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 24px;
+  height: 24px;
+  background: var(--color-primary);
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  box-shadow: var(--shadow-md);
 }
 
 .template-image {
@@ -388,9 +510,17 @@ async function handleSubmit() {
 }
 
 .form-group label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
   font-weight: 500;
   color: var(--color-text);
   font-size: 0.9375rem;
+}
+
+.lock-icon {
+  font-size: 0.75rem;
+  opacity: 0.7;
 }
 
 .input {
@@ -407,6 +537,18 @@ async function handleSubmit() {
   outline: none;
   border-color: var(--color-primary);
   box-shadow: 0 0 0 3px var(--color-primary-soft);
+}
+
+.input.locked {
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  cursor: not-allowed;
+  border-style: dashed;
+}
+
+.input.locked:focus {
+  border-color: var(--color-border);
+  box-shadow: none;
 }
 
 .input.mono {
@@ -449,6 +591,24 @@ async function handleSubmit() {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+.form-divider {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.form-divider::before,
+.form-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--color-border);
 }
 
 .form-actions {

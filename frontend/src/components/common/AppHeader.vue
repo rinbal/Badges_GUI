@@ -22,23 +22,7 @@
       
       <div class="header-actions">
         <template v-if="authStore.isAuthenticated">
-          <router-link :to="`/profile/${authStore.npub}`" class="profile-link">
-            <img 
-              v-if="authStore.profilePicture" 
-              :src="authStore.profilePicture" 
-              :alt="authStore.displayName"
-              class="profile-avatar"
-              @error="handleAvatarError"
-            />
-            <div v-else class="profile-avatar-placeholder">👤</div>
-            <div class="profile-info">
-              <span class="profile-name">{{ authStore.displayName }}</span>
-              <span class="profile-npub">{{ authStore.shortNpub }}</span>
-            </div>
-          </router-link>
-          <button @click="handleLogout" class="btn-logout" title="Logout">
-            ⬅️
-          </button>
+          <ProfileDropdown />
         </template>
         <template v-else>
           <router-link to="/login" class="btn-login">
@@ -51,29 +35,12 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
-import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useBadgesStore } from '@/stores/badges'
-import { useUIStore } from '@/stores/ui'
+import ProfileDropdown from '@/components/common/ProfileDropdown.vue'
 
-const router = useRouter()
 const authStore = useAuthStore()
 const badgesStore = useBadgesStore()
-const uiStore = useUIStore()
-
-const avatarError = ref(false)
-
-function handleAvatarError() {
-  avatarError.value = true
-}
-
-function handleLogout() {
-  authStore.logout()
-  badgesStore.clearBadges()
-  uiStore.showInfo('Logged out successfully')
-  router.push('/')
-}
 </script>
 
 <style scoped>
@@ -156,61 +123,6 @@ function handleLogout() {
   gap: 0.75rem;
 }
 
-.profile-link {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  text-decoration: none;
-  padding: 0.375rem 0.75rem;
-  background: var(--color-surface-elevated);
-  border-radius: var(--radius-lg);
-  transition: all 0.2s ease;
-}
-
-.profile-link:hover {
-  background: var(--color-surface-hover);
-}
-
-.profile-avatar {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  object-fit: cover;
-}
-
-.profile-avatar-placeholder {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: var(--color-surface);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1rem;
-}
-
-.profile-info {
-  display: flex;
-  flex-direction: column;
-  gap: 0.125rem;
-}
-
-.profile-name {
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: var(--color-text);
-  max-width: 120px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.profile-npub {
-  font-family: var(--font-mono);
-  font-size: 0.6875rem;
-  color: var(--color-text-muted);
-}
-
 .btn-login {
   padding: 0.5rem 1.25rem;
   background: var(--color-primary);
@@ -226,27 +138,6 @@ function handleLogout() {
   transform: translateY(-1px);
 }
 
-.btn-logout {
-  width: 36px;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  color: var(--color-text-muted);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  font-size: 1rem;
-  transition: all 0.2s ease;
-}
-
-.btn-logout:hover {
-  background: var(--color-danger-soft);
-  color: var(--color-danger);
-  border-color: var(--color-danger);
-}
-
 @media (max-width: 768px) {
   .header-content {
     padding: 0.75rem 1rem;
@@ -257,10 +148,6 @@ function handleLogout() {
   }
   
   .nav-text {
-    display: none;
-  }
-  
-  .profile-info {
     display: none;
   }
 }
