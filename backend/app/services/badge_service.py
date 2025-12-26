@@ -23,7 +23,8 @@ class BadgeService:
     def __init__(self, issuer_nsec: str):
         """Initialize with issuer's private key"""
         self.badge_creator = BadgeCreator(issuer_nsec)
-        self.relay_urls = settings.relay_urls
+        # Use only first 5 relays for faster operations
+        self.relay_urls = settings.relay_urls[:5]
     
     def get_issuer_info(self) -> Dict[str, str]:
         """Get issuer public key info"""

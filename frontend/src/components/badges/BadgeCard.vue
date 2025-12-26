@@ -2,9 +2,9 @@
   <div :class="['badge-card', { 'badge-card-pending': isPending }]">
     <div class="badge-image-container">
       <img 
-        v-if="badge.image" 
-        :src="badge.image" 
-        :alt="badge.badge_name || badge.name"
+        v-if="badgeImage" 
+        :src="badgeImage" 
+        :alt="badgeName"
         class="badge-image"
         @error="handleImageError"
       />
@@ -14,14 +14,26 @@
     </div>
     
     <div class="badge-content">
-      <h3 class="badge-name">{{ badge.badge_name || badge.name }}</h3>
-      <p v-if="badge.badge_description || badge.description" class="badge-description">
-        {{ badge.badge_description || badge.description }}
+      <h3 class="badge-name">{{ badgeName }}</h3>
+      <p v-if="badgeDescription" class="badge-description">
+        {{ badgeDescription }}
       </p>
       
       <div class="badge-issuer">
-        <span class="issuer-label">Issued by</span>
-        <span class="issuer-name">{{ badge.issuer_name || 'Unknown' }}</span>
+        <img 
+          v-if="issuerPicture" 
+          :src="issuerPicture" 
+          :alt="issuerDisplayName"
+          class="issuer-avatar"
+          @error="handleAvatarError"
+        />
+        <div v-else class="issuer-avatar-placeholder">👤</div>
+        
+        <div class="issuer-info">
+          <span class="issuer-label">Issued by</span>
+          <span class="issuer-name">{{ issuerDisplayName }}</span>
+          <span class="issuer-npub">{{ shortNpub }}</span>
+        </div>
       </div>
     </div>
     
@@ -49,7 +61,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 
 const props = defineProps({
   badge: {
@@ -72,9 +84,44 @@ const props = defineProps({
 
 defineEmits(['accept', 'remove'])
 
+const imageError = ref(false)
+const avatarError = ref(false)
+
+// Computed properties for flexible data access
+const badgeName = computed(() => 
+  props.badge.badge_name || props.badge.name || 'Unknown Badge'
+)
+
+const badgeDescription = computed(() => 
+  props.badge.badge_description || props.badge.description || ''
+)
+
+const badgeImage = computed(() => {
+  if (imageError.value) return null
+  return props.badge.badge_image || props.badge.image || null
+})
+
+const issuerPicture = computed(() => {
+  if (avatarError.value) return null
+  return props.badge.issuer_picture || null
+})
+
+const issuerDisplayName = computed(() => 
+  props.badge.issuer_name || 'Unknown'
+)
+
+const shortNpub = computed(() => {
+  const npub = props.badge.issuer_npub
+  if (!npub) return ''
+  return `${npub.slice(0, 8)}...${npub.slice(-4)}`
+})
+
 function handleImageError(e) {
-  e.target.style.display = 'none'
-  e.target.parentElement.innerHTML = '<div class="badge-placeholder">🏅</div>'
+  imageError.value = true
+}
+
+function handleAvatarError(e) {
+  avatarError.value = true
 }
 </script>
 
@@ -137,22 +184,62 @@ function handleImageError(e) {
   color: var(--color-text-muted);
   margin: 0 0 0.75rem 0;
   line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .badge-issuer {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  font-size: 0.8125rem;
+  gap: 0.75rem;
+}
+
+.issuer-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.issuer-avatar-placeholder {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--color-surface-elevated);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+
+.issuer-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  min-width: 0;
 }
 
 .issuer-label {
-  color: var(--color-text-muted);
+  font-size: 0.6875rem;
+  color: var(--color-text-subtle);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .issuer-name {
+  font-size: 0.875rem;
   color: var(--color-primary);
   font-weight: 500;
+}
+
+.issuer-npub {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  color: var(--color-text-muted);
 }
 
 .badge-actions {
@@ -208,9 +295,12 @@ function handleImageError(e) {
     justify-content: center;
   }
   
+  .issuer-info {
+    align-items: center;
+  }
+  
   .badge-actions {
     justify-content: center;
   }
 }
 </style>
-

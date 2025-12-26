@@ -68,9 +68,11 @@ class PendingBadgeResponse(BaseModel):
     a_tag: str
     badge_name: str
     badge_description: str
+    badge_image: Optional[str] = None
     issuer_hex: str
     issuer_npub: str
     issuer_name: Optional[str] = None
+    issuer_picture: Optional[str] = None
 
 
 class AcceptedBadgeResponse(BaseModel):
@@ -78,9 +80,12 @@ class AcceptedBadgeResponse(BaseModel):
     a_tag: str
     award_event_id: str
     badge_name: str
+    badge_description: Optional[str] = None
+    badge_image: Optional[str] = None
     issuer_hex: str
     issuer_npub: str
     issuer_name: Optional[str] = None
+    issuer_picture: Optional[str] = None
 
 
 class AcceptBadgeResultResponse(BaseModel):

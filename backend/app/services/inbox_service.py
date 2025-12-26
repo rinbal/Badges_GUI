@@ -126,17 +126,20 @@ class InboxService:
             
             issuer_npub = PublicKey(bytes.fromhex(issuer_hex)).bech32()
             
-            # Get badge name
-            badge_name = await self._get_badge_name(issuer_hex, identifier)
-            issuer_name = await self._get_profile_name(issuer_hex)
+            # Get badge info and issuer profile
+            badge_info = await self._get_badge_info(issuer_hex, identifier)
+            issuer_info = await self._get_profile_info(issuer_hex)
             
             accepted_badges.append({
                 "a_tag": a_tag,
                 "award_event_id": award_event_id,
-                "badge_name": badge_name,
+                "badge_name": badge_info["name"],
+                "badge_description": badge_info["description"],
+                "badge_image": badge_info["image"],
                 "issuer_hex": issuer_hex,
                 "issuer_npub": issuer_npub,
-                "issuer_name": issuer_name
+                "issuer_name": issuer_info["name"],
+                "issuer_picture": issuer_info["picture"]
             })
         
         return accepted_badges
@@ -198,18 +201,21 @@ class InboxService:
                 continue
             
             issuer_npub = PublicKey(bytes.fromhex(issuer_hex)).bech32()
-            badge_name = await self._get_badge_name(issuer_hex, identifier)
-            badge_desc = await self._get_badge_description(issuer_hex, identifier)
-            issuer_name = await self._get_profile_name(issuer_hex)
+            
+            # Get badge info and issuer profile
+            badge_info = await self._get_badge_info(issuer_hex, identifier)
+            issuer_info = await self._get_profile_info(issuer_hex)
             
             pending_badges.append({
                 "award_event_id": ev["id"],
                 "a_tag": a_tag,
-                "badge_name": badge_name,
-                "badge_description": badge_desc,
+                "badge_name": badge_info["name"],
+                "badge_description": badge_info["description"],
+                "badge_image": badge_info["image"],
                 "issuer_hex": issuer_hex,
                 "issuer_npub": issuer_npub,
-                "issuer_name": issuer_name
+                "issuer_name": issuer_info["name"],
+                "issuer_picture": issuer_info["picture"]
             })
         
         return pending_badges
@@ -278,13 +284,19 @@ class InboxService:
                 "error": str(e)
             }
     
-    async def _get_badge_name(self, issuer_hex: str, identifier: str) -> str:
-        """Fetch badge name from definition"""
+    async def _get_badge_info(self, issuer_hex: str, identifier: str) -> Dict[str, str]:
+        """Fetch badge info (name, description, image) from definition"""
         filter_params = {
             "kinds": [30009],
             "authors": [issuer_hex],
             "#d": [identifier],
             "limit": 1
+        }
+        
+        result = {
+            "name": "(unknown badge)",
+            "description": "",
+            "image": ""
         }
         
         for relay in self.relay_urls[:3]:  # Only try first 3 relays
@@ -292,36 +304,38 @@ class InboxService:
             if events:
                 for tag in events[0].get("tags", []):
                     if tag[0] == "name":
-                        return tag[1]
+                        result["name"] = tag[1]
+                    elif tag[0] == "description":
+                        result["description"] = tag[1]
+                    elif tag[0] == "image":
+                        result["image"] = tag[1]
+                    elif tag[0] == "thumb" and not result["image"]:
+                        result["image"] = tag[1]
                 break
         
-        return "(unknown badge)"
+        return result
+    
+    async def _get_badge_name(self, issuer_hex: str, identifier: str) -> str:
+        """Fetch badge name from definition"""
+        info = await self._get_badge_info(issuer_hex, identifier)
+        return info["name"]
     
     async def _get_badge_description(self, issuer_hex: str, identifier: str) -> str:
         """Fetch badge description from definition"""
-        filter_params = {
-            "kinds": [30009],
-            "authors": [issuer_hex],
-            "#d": [identifier],
-            "limit": 1
-        }
-        
-        for relay in self.relay_urls[:3]:
-            events = await self._query_relay(relay, f"desc_{identifier}", filter_params)
-            if events:
-                for tag in events[0].get("tags", []):
-                    if tag[0] == "description":
-                        return tag[1]
-                break
-        
-        return ""
+        info = await self._get_badge_info(issuer_hex, identifier)
+        return info["description"]
     
-    async def _get_profile_name(self, pubkey_hex: str) -> str:
-        """Fetch profile name (kind 0)"""
+    async def _get_profile_info(self, pubkey_hex: str) -> Dict[str, str]:
+        """Fetch profile info (name, picture) from kind 0"""
         filter_params = {
             "kinds": [0],
             "authors": [pubkey_hex],
             "limit": 1
+        }
+        
+        result = {
+            "name": "(no name)",
+            "picture": ""
         }
         
         for relay in self.relay_urls[:3]:
@@ -329,10 +343,16 @@ class InboxService:
             if events:
                 try:
                     meta = json.loads(events[0]["content"])
-                    return meta.get("name") or meta.get("display_name") or "(no name)"
+                    result["name"] = meta.get("name") or meta.get("display_name") or "(no name)"
+                    result["picture"] = meta.get("picture") or ""
                 except:
                     pass
                 break
         
-        return "(no name)"
+        return result
+    
+    async def _get_profile_name(self, pubkey_hex: str) -> str:
+        """Fetch profile name (kind 0)"""
+        info = await self._get_profile_info(pubkey_hex)
+        return info["name"]
 
