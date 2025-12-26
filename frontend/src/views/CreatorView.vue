@@ -1,8 +1,20 @@
 <template>
   <div class="creator">
     <header class="page-header">
-      <h1>✨ Badge Creator</h1>
-      <p>Design badges and award them to anyone on Nostr</p>
+      <div class="header-top">
+        <div class="header-text">
+          <h1>✨ Badge Creator</h1>
+          <p>Design badges and award them to anyone on Nostr</p>
+        </div>
+        <button 
+          @click="refreshTemplates"
+          class="refresh-btn"
+          :disabled="badgesStore.isLoading"
+          title="Refresh templates"
+        >
+          <span :class="['refresh-icon', { spinning: badgesStore.isLoading && !isSubmitting }]">🔄</span>
+        </button>
+      </div>
     </header>
     
     <div class="creator-content">
@@ -24,7 +36,8 @@
         <div v-else-if="badgesStore.templates.length === 0" class="templates-empty">
           <div class="empty-icon">🎨</div>
           <h3>No templates yet</h3>
-          <p>Create your first badge below. Once created, it will appear here for easy re-use.</p>
+          <p>Design your first badge below — it will be saved here for easy re-use.</p>
+          <a href="#badge-form" class="scroll-link">↓ Start designing</a>
         </div>
         
         <!-- Templates Grid -->
@@ -51,7 +64,7 @@
       </section>
       
       <!-- Create/Award Form -->
-      <section class="section">
+      <section class="section" id="badge-form">
         <div class="section-header">
           <h2>{{ selectedTemplate ? 'Award This Badge' : 'Create a New Badge' }}</h2>
           <button 
@@ -264,6 +277,10 @@ onMounted(() => {
   badgesStore.fetchTemplates()
 })
 
+function refreshTemplates() {
+  badgesStore.fetchTemplates()
+}
+
 function selectTemplate(template) {
   selectedTemplate.value = template
   form.value = { ...template }
@@ -349,16 +366,61 @@ async function handleSubmit() {
   margin-bottom: 2rem;
 }
 
-.page-header h1 {
+.header-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.header-text h1 {
   font-size: 2rem;
   font-weight: 700;
   color: var(--color-text);
   margin: 0 0 0.5rem 0;
 }
 
-.page-header p {
+.header-text p {
   color: var(--color-text-muted);
   margin: 0;
+}
+
+.refresh-btn {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.refresh-btn:hover:not(:disabled) {
+  background: var(--color-surface-hover);
+  border-color: var(--color-primary);
+}
+
+.refresh-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.refresh-icon {
+  font-size: 1.25rem;
+  display: inline-block;
+}
+
+.refresh-icon.spinning {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
 .section {
@@ -444,9 +506,27 @@ async function handleSubmit() {
 .templates-empty p {
   font-size: 0.875rem;
   color: var(--color-text-muted);
-  margin: 0;
+  margin: 0 auto 1rem auto;
   max-width: 300px;
-  margin: 0 auto;
+}
+
+.scroll-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.5rem 1rem;
+  background: var(--color-primary);
+  color: white;
+  text-decoration: none;
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.scroll-link:hover {
+  background: var(--color-primary-hover);
+  transform: translateY(-2px);
 }
 
 /* Template Skeletons */
