@@ -40,15 +40,17 @@
       </div>
     </div>
     
-    <div class="badge-actions" v-if="showActions" @click.stop>
-      <slot name="actions">
+    <div class="badge-actions-column">
+      <!-- Action Buttons -->
+      <div class="badge-actions" v-if="showActions" @click.stop>
         <button 
           v-if="isPending" 
           @click="$emit('accept', badge)"
           class="btn btn-primary"
           :disabled="loading"
         >
-          {{ loading ? 'Accepting...' : 'Accept' }}
+          <span v-if="loading" class="btn-spinner"></span>
+          {{ loading ? 'Adding...' : '✓ Accept' }}
         </button>
         <button 
           v-else 
@@ -56,15 +58,15 @@
           class="btn btn-danger-outline"
           :disabled="loading"
         >
+          <span v-if="loading" class="btn-spinner"></span>
           {{ loading ? 'Removing...' : 'Remove' }}
         </button>
-      </slot>
-    </div>
-    
-    <!-- Click hint -->
-    <div v-if="clickable" class="click-hint">
-      <span>View Details</span>
-      <span class="hint-arrow">→</span>
+      </div>
+      
+      <!-- View Details Link -->
+      <button v-if="clickable" class="view-details-btn">
+        View details →
+      </button>
     </div>
   </div>
 </template>
@@ -97,7 +99,9 @@ const props = defineProps({
 
 const emit = defineEmits(['accept', 'remove', 'click'])
 
-function handleCardClick() {
+function handleCardClick(e) {
+  // Don't trigger if clicking on action buttons area
+  if (e.target.closest('.badge-actions')) return
   if (props.clickable) {
     emit('click', props.badge)
   }
@@ -169,9 +173,8 @@ function handleAvatarError(e) {
   transform: translateY(-2px);
 }
 
-.badge-card.clickable:hover .click-hint {
-  opacity: 1;
-  transform: translateX(0);
+.badge-card.clickable:hover .view-details-btn {
+  color: var(--color-primary);
 }
 
 .badge-card-pending {
@@ -275,12 +278,24 @@ function handleAvatarError(e) {
   color: var(--color-text-muted);
 }
 
+/* Actions Column */
+.badge-actions-column {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.75rem;
+  flex-shrink: 0;
+}
+
 .badge-actions {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
 }
 
 .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
   padding: 0.5rem 1rem;
   border-radius: var(--radius-md);
   font-weight: 500;
@@ -288,11 +303,25 @@ function handleAvatarError(e) {
   transition: all 0.2s ease;
   border: none;
   font-size: 0.875rem;
+  white-space: nowrap;
 }
 
 .btn:disabled {
-  opacity: 0.6;
+  opacity: 0.7;
   cursor: not-allowed;
+}
+
+.btn-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
 .btn-primary {
@@ -314,27 +343,19 @@ function handleAvatarError(e) {
   background: var(--color-danger-soft);
 }
 
-/* Click hint */
-.click-hint {
-  position: absolute;
-  top: 1rem;
-  right: 1rem;
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-  padding: 0.25rem 0.5rem;
-  background: var(--color-primary);
-  color: white;
-  font-size: 0.6875rem;
-  font-weight: 500;
-  border-radius: var(--radius-full);
-  opacity: 0;
-  transform: translateX(8px);
-  transition: all 0.2s ease;
+/* View Details Link */
+.view-details-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: color 0.2s ease;
 }
 
-.hint-arrow {
-  font-size: 0.75rem;
+.view-details-btn:hover {
+  color: var(--color-primary);
 }
 
 @media (max-width: 640px) {
@@ -355,19 +376,13 @@ function handleAvatarError(e) {
     align-items: center;
   }
   
+  .badge-actions-column {
+    align-items: center;
+    width: 100%;
+  }
+  
   .badge-actions {
     justify-content: center;
-  }
-  
-  .click-hint {
-    top: auto;
-    bottom: 1rem;
-    right: 50%;
-    transform: translateX(50%);
-  }
-  
-  .badge-card.clickable:hover .click-hint {
-    transform: translateX(50%);
   }
 }
 </style>
