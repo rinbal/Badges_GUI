@@ -1,5 +1,8 @@
 <template>
-  <div :class="['badge-card', { 'badge-card-pending': isPending }]">
+  <div 
+    :class="['badge-card', { 'badge-card-pending': isPending, 'clickable': clickable }]"
+    @click="handleCardClick"
+  >
     <div class="badge-image-container">
       <img 
         v-if="badgeImage" 
@@ -37,15 +40,17 @@
       </div>
     </div>
     
-    <div class="badge-actions" v-if="showActions">
-      <slot name="actions">
+    <div class="badge-actions-column">
+      <!-- Action Buttons -->
+      <div class="badge-actions" v-if="showActions" @click.stop>
         <button 
           v-if="isPending" 
           @click="$emit('accept', badge)"
           class="btn btn-primary"
           :disabled="loading"
         >
-          {{ loading ? 'Accepting...' : 'Accept' }}
+          <span v-if="loading" class="btn-spinner"></span>
+          {{ loading ? 'Adding...' : '✓ Accept' }}
         </button>
         <button 
           v-else 
@@ -53,9 +58,15 @@
           class="btn btn-danger-outline"
           :disabled="loading"
         >
+          <span v-if="loading" class="btn-spinner"></span>
           {{ loading ? 'Removing...' : 'Remove' }}
         </button>
-      </slot>
+      </div>
+      
+      <!-- View Details Link -->
+      <button v-if="clickable" class="view-details-btn">
+        View details →
+      </button>
     </div>
   </div>
 </template>
@@ -79,10 +90,22 @@ const props = defineProps({
   loading: {
     type: Boolean,
     default: false
+  },
+  clickable: {
+    type: Boolean,
+    default: true
   }
 })
 
-defineEmits(['accept', 'remove'])
+const emit = defineEmits(['accept', 'remove', 'click'])
+
+function handleCardClick(e) {
+  // Don't trigger if clicking on action buttons area
+  if (e.target.closest('.badge-actions')) return
+  if (props.clickable) {
+    emit('click', props.badge)
+  }
+}
 
 const imageError = ref(false)
 const avatarError = ref(false)
@@ -127,6 +150,7 @@ function handleAvatarError(e) {
 
 <style scoped>
 .badge-card {
+  position: relative;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
@@ -136,9 +160,21 @@ function handleAvatarError(e) {
   transition: all 0.2s ease;
 }
 
+.badge-card.clickable {
+  cursor: pointer;
+}
+
 .badge-card:hover {
   border-color: var(--color-primary-soft);
   box-shadow: var(--shadow-md);
+}
+
+.badge-card.clickable:hover {
+  transform: translateY(-2px);
+}
+
+.badge-card.clickable:hover .view-details-btn {
+  color: var(--color-primary);
 }
 
 .badge-card-pending {
@@ -242,12 +278,24 @@ function handleAvatarError(e) {
   color: var(--color-text-muted);
 }
 
+/* Actions Column */
+.badge-actions-column {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.75rem;
+  flex-shrink: 0;
+}
+
 .badge-actions {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
 }
 
 .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
   padding: 0.5rem 1rem;
   border-radius: var(--radius-md);
   font-weight: 500;
@@ -255,11 +303,25 @@ function handleAvatarError(e) {
   transition: all 0.2s ease;
   border: none;
   font-size: 0.875rem;
+  white-space: nowrap;
 }
 
 .btn:disabled {
-  opacity: 0.6;
+  opacity: 0.7;
   cursor: not-allowed;
+}
+
+.btn-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
 .btn-primary {
@@ -281,6 +343,21 @@ function handleAvatarError(e) {
   background: var(--color-danger-soft);
 }
 
+/* View Details Link */
+.view-details-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.view-details-btn:hover {
+  color: var(--color-primary);
+}
+
 @media (max-width: 640px) {
   .badge-card {
     flex-direction: column;
@@ -297,6 +374,11 @@ function handleAvatarError(e) {
   
   .issuer-info {
     align-items: center;
+  }
+  
+  .badge-actions-column {
+    align-items: center;
+    width: 100%;
   }
   
   .badge-actions {
