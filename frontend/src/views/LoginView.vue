@@ -61,8 +61,10 @@
           <span class="help-icon">❓</span>
           <p>
             Don't have a Nostr key? You can create one with apps like 
-            <a href="https://getalby.com" target="_blank">Alby</a> or 
-            <a href="https://nostrudel.ninja" target="_blank">noStrudel</a>.
+            <a href="https://nostrid.mybuho.de" target="_blank">NostrID</a>, 
+            <a href="https://nostrudel.ninja" target="_blank">noStrudel</a>,
+            <a href="https://www.amethyst.social/" target="_blank">Amethyst</a> or
+            <a href="https://zap-tracker.vercel.app" target="_blank">ZapTracker</a>.
           </p>
         </div>
       </div>
