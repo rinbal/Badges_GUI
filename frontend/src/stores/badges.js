@@ -4,11 +4,20 @@
  * Template Types:
  * - App Templates: Official templates provided by the app (read-only, from backend)
  * - User Templates: Custom templates created by the user (editable/deletable)
+ *
+ * Supports both NIP-07 (extension signing) and nsec (backend signing) flows.
  */
 
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { api } from '@/api/client'
+import { useAuthStore } from '@/stores/auth'
+import {
+  createBadgeDefinitionEvent,
+  createBadgeAwardEvent,
+  signEvent,
+  npubToHex
+} from '@/utils/nip07'
 
 // Template source constants
 const TEMPLATE_SOURCE = Object.freeze({
@@ -147,15 +156,54 @@ export const useBadgesStore = defineStore('badges', () => {
     }
   }
 
+  /**
+   * Create and award a badge
+   * Automatically handles signing for NIP-07 or delegates to backend for nsec
+   */
   async function createAndAwardBadge(badge, recipients) {
     isLoading.value = true
     error.value = null
 
     try {
-      const response = await api.createAndAward({
-        ...badge,
-        recipients
-      })
+      const authStore = useAuthStore()
+      let signedDefinitionEvent = null
+      let signedAwardEvent = null
+
+      // NIP-07 flow: sign events in browser
+      if (authStore.isNip07) {
+        console.log('🔐 NIP-07 flow: Signing events with extension')
+
+        // Sign badge definition
+        const definitionEvent = createBadgeDefinitionEvent(badge)
+        signedDefinitionEvent = await signEvent(definitionEvent)
+
+        if (!signedDefinitionEvent) {
+          throw new Error('Failed to sign badge definition')
+        }
+
+        // Build a_tag from signed definition
+        const aTag = `30009:${signedDefinitionEvent.pubkey}:${badge.identifier}`
+
+        // Convert recipients to hex
+        const hexRecipients = recipients.map(r =>
+          r.startsWith('npub1') ? npubToHex(r) : r
+        )
+
+        // Sign badge award
+        const awardEvent = createBadgeAwardEvent(aTag, hexRecipients)
+        signedAwardEvent = await signEvent(awardEvent)
+
+        if (!signedAwardEvent) {
+          throw new Error('Failed to sign badge award')
+        }
+      }
+
+      // Call API with signed events (NIP-07) or without (nsec)
+      const response = await api.createAndAward(
+        { ...badge, recipients },
+        signedDefinitionEvent,
+        signedAwardEvent
+      )
 
       // Extract error from response if not successful
       if (!response.data.success) {
@@ -165,8 +213,9 @@ export const useBadgesStore = defineStore('badges', () => {
 
       return { success: true, data: response.data }
     } catch (err) {
-      error.value = err.response?.data?.detail || err.message
-      return { success: false, error: error.value }
+      const errMessage = err.message || err.response?.data?.detail || 'Unknown error'
+      error.value = errMessage
+      return { success: false, error: errMessage }
     } finally {
       isLoading.value = false
     }

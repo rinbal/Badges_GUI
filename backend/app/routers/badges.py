@@ -1,5 +1,9 @@
 """
 Badges Router - Badge creation and awarding endpoints
+
+Supports two authentication flows:
+- NIP-07: Frontend signs events, sends signed_event in request body
+- nsec: Backend signs events using X-Nsec header
 """
 
 from typing import List, Optional
@@ -19,20 +23,73 @@ from ..models.responses import (
 from ..services.badge_service import BadgeService
 from ..services.key_service import KeyService
 from ..services.profile_service import ProfileService
+from ..config import settings
 
 router = APIRouter(prefix="/badges", tags=["Badges"])
 
 
-def get_nsec_from_header(x_nsec: Optional[str]) -> str:
-    """Validate and return nsec from header"""
+def get_nsec_from_header(x_nsec: Optional[str], required: bool = True) -> Optional[str]:
+    """Validate and return nsec from header
+
+    Args:
+        x_nsec: The X-Nsec header value
+        required: If True, raises 401 if missing. If False, returns None if missing.
+    """
     if not x_nsec:
-        raise HTTPException(status_code=401, detail="Missing X-Nsec header")
-    
+        if required:
+            raise HTTPException(status_code=401, detail="Missing X-Nsec header")
+        return None
+
     is_valid, _, error = KeyService.validate_nsec(x_nsec)
     if not is_valid:
         raise HTTPException(status_code=401, detail=f"Invalid key: {error}")
-    
+
     return x_nsec
+
+
+def get_badge_service_for_publish() -> BadgeService:
+    """Get a BadgeService instance for publish-only operations (NIP-07 flow)"""
+    # Use a dummy nsec since we won't be signing - just publishing
+    # The BadgeService only needs nsec for signing; publish_signed_event doesn't use it
+    return BadgeService.__new__(BadgeService)
+
+
+class PublishOnlyBadgeService:
+    """Minimal service for publishing pre-signed events (NIP-07 flow)"""
+
+    def __init__(self):
+        from relay_manager import RelayManager
+        self.relay_urls = settings.relay_urls
+
+    async def publish_signed_event(self, signed_event: dict) -> dict:
+        """Publish a pre-signed event to relays"""
+        from relay_manager import RelayManager
+        try:
+            print(f"  → Publishing pre-signed event (kind {signed_event.get('kind')}) to {len(self.relay_urls)} relays")
+
+            relay_manager = RelayManager()
+            results = await relay_manager.publish_event(signed_event, self.relay_urls)
+            relay_manager.print_summary()
+
+            published_count = sum(1 for r in results if r.published or r.verified)
+            verified_count = sum(1 for r in results if r.verified)
+
+            if published_count > 0:
+                return {
+                    "success": True,
+                    "event_id": signed_event.get("id"),
+                    "published_relays": published_count,
+                    "verified_relays": verified_count
+                }
+            else:
+                return {
+                    "success": False,
+                    "event_id": signed_event.get("id"),
+                    "error": "No relay accepted the event"
+                }
+        except Exception as e:
+            print(f"  ❌ Exception publishing signed event: {e}")
+            return {"success": False, "error": str(e)}
 
 
 @router.get("/templates/app", response_model=List[BadgeTemplateResponse])
@@ -127,23 +184,47 @@ async def create_definition(
 ):
     """
     Create and publish a badge definition (kind 30009)
-    
-    This publishes the badge definition to Nostr relays.
-    Requires authentication.
+
+    Supports two flows:
+    - NIP-07: Include signed_event in request body (no X-Nsec header needed)
+    - nsec: Omit signed_event, include X-Nsec header (backend signs)
     """
+    # NIP-07 flow: signed event provided
+    if request.signed_event:
+        print(f"📝 NIP-07 flow: Publishing pre-signed badge definition")
+        service = PublishOnlyBadgeService()
+        result = await service.publish_signed_event(request.signed_event.model_dump())
+
+        # Extract a_tag from the signed event tags
+        a_tag = None
+        for tag in request.signed_event.tags:
+            if tag[0] == "d" and len(tag) > 1:
+                a_tag = f"30009:{request.signed_event.pubkey}:{tag[1]}"
+                break
+
+        return CreateDefinitionResponse(
+            success=result.get("success", False),
+            a_tag=a_tag,
+            event_id=result.get("event_id"),
+            verified_relays=result.get("verified_relays", 0),
+            error=result.get("error")
+        )
+
+    # nsec flow: backend signs
     nsec = get_nsec_from_header(x_nsec)
-    
+    print(f"📝 nsec flow: Creating and signing badge definition")
+
     badge_service = BadgeService(nsec)
-    
+
     badge_data = {
         "identifier": request.identifier,
         "name": request.name,
         "description": request.description,
         "image": request.image
     }
-    
+
     result = await badge_service.create_definition(badge_data)
-    
+
     return CreateDefinitionResponse(
         success=result.get("success", False),
         a_tag=result.get("a_tag"),
@@ -160,16 +241,36 @@ async def award_badge(
 ):
     """
     Award a badge to recipients (kind 8)
-    
-    Awards an existing badge definition to one or more recipients.
-    Requires authentication.
+
+    Supports two flows:
+    - NIP-07: Include signed_event in request body (no X-Nsec header needed)
+    - nsec: Omit signed_event, include X-Nsec header (backend signs)
     """
+    # NIP-07 flow: signed event provided
+    if request.signed_event:
+        print(f"🏅 NIP-07 flow: Publishing pre-signed badge award")
+        service = PublishOnlyBadgeService()
+        result = await service.publish_signed_event(request.signed_event.model_dump())
+
+        # Count recipients from tags
+        recipients_count = sum(1 for tag in request.signed_event.tags if tag[0] == "p")
+
+        return AwardBadgeResponse(
+            success=result.get("success", False),
+            award_event_id=result.get("event_id"),
+            recipients_count=recipients_count,
+            verified_relays=result.get("verified_relays", 0),
+            error=result.get("error")
+        )
+
+    # nsec flow: backend signs
     nsec = get_nsec_from_header(x_nsec)
-    
+    print(f"🏅 nsec flow: Creating and signing badge award")
+
     badge_service = BadgeService(nsec)
-    
+
     result = await badge_service.award_badge(request.a_tag, request.recipients)
-    
+
     return AwardBadgeResponse(
         success=result.get("success", False),
         award_event_id=result.get("award_event_id"),
@@ -186,23 +287,61 @@ async def create_and_award(
 ):
     """
     Create badge definition and award in one call
-    
-    Convenience endpoint that creates the definition and immediately awards it.
-    Requires authentication.
+
+    Supports two flows:
+    - NIP-07: Include signed_definition_event and signed_award_event (no X-Nsec needed)
+    - nsec: Omit signed events, include X-Nsec header (backend signs both)
     """
+    # NIP-07 flow: both signed events provided
+    if request.signed_definition_event and request.signed_award_event:
+        print(f"🎯 NIP-07 flow: Publishing pre-signed definition and award")
+        service = PublishOnlyBadgeService()
+
+        # Publish definition
+        def_result = await service.publish_signed_event(request.signed_definition_event.model_dump())
+        if not def_result.get("success"):
+            return {
+                "success": False,
+                "error": def_result.get("error", "Failed to publish badge definition")
+            }
+
+        # Extract a_tag
+        a_tag = None
+        for tag in request.signed_definition_event.tags:
+            if tag[0] == "d" and len(tag) > 1:
+                a_tag = f"30009:{request.signed_definition_event.pubkey}:{tag[1]}"
+                break
+
+        # Publish award
+        award_result = await service.publish_signed_event(request.signed_award_event.model_dump())
+        recipients_count = sum(1 for tag in request.signed_award_event.tags if tag[0] == "p")
+
+        return {
+            "success": award_result.get("success", False),
+            "a_tag": a_tag,
+            "definition_event_id": def_result.get("event_id"),
+            "award_event_id": award_result.get("event_id"),
+            "recipients_count": recipients_count,
+            "published_relays": award_result.get("published_relays", 0),
+            "verified_relays": award_result.get("verified_relays", 0),
+            "error": award_result.get("error")
+        }
+
+    # nsec flow: backend signs
     nsec = get_nsec_from_header(x_nsec)
-    
+    print(f"🎯 nsec flow: Creating and signing definition and award")
+
     badge_service = BadgeService(nsec)
-    
+
     badge_data = {
         "identifier": request.identifier,
         "name": request.name,
         "description": request.description,
         "image": request.image
     }
-    
+
     result = await badge_service.create_and_award(badge_data, request.recipients)
-    
+
     return {
         "success": result.get("success", False),
         "a_tag": result.get("a_tag"),

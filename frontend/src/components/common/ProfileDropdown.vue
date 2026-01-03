@@ -57,6 +57,18 @@
               {{ copied ? '✓' : '📋' }}
             </button>
           </div>
+
+          <!-- Auth Method Indicator -->
+          <div class="auth-method">
+            <span v-if="authStore.isNip07" class="auth-badge auth-extension">
+              <span class="auth-icon">&#129418;</span>
+              <span>Extension</span>
+            </span>
+            <span v-else-if="authStore.isNsec" class="auth-badge auth-nsec">
+              <span class="auth-icon">🔑</span>
+              <span>Private Key</span>
+            </span>
+          </div>
           
           <!-- Quick Links -->
           <div class="quick-links">
@@ -360,6 +372,39 @@ onUnmounted(() => {
 .copy-btn:hover {
   background: var(--color-surface-hover);
   border-color: var(--color-primary);
+}
+
+/* Auth Method Indicator */
+.auth-method {
+  display: flex;
+  justify-content: center;
+  margin-top: 0.75rem;
+}
+
+.auth-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.25rem 0.625rem;
+  border-radius: var(--radius-full);
+  font-size: 0.6875rem;
+  font-weight: 500;
+}
+
+.auth-icon {
+  font-size: 0.75rem;
+}
+
+.auth-extension {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.15) 0%, rgba(124, 58, 237, 0.15) 100%);
+  color: #a78bfa;
+  border: 1px solid rgba(139, 92, 246, 0.3);
+}
+
+.auth-nsec {
+  background: var(--color-surface-elevated);
+  color: var(--color-text-muted);
+  border: 1px solid var(--color-border);
 }
 
 .quick-links {

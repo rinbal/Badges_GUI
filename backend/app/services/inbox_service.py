@@ -21,7 +21,7 @@ from ..config import settings
 
 class InboxService:
     """Service for badge inbox operations (receiver side)"""
-    
+
     def __init__(self, recipient_nsec: str):
         """Initialize with recipient's private key"""
         self.recipient_pk = PrivateKey.from_nsec(recipient_nsec)
@@ -29,6 +29,20 @@ class InboxService:
         self.recipient_npub = self.recipient_pk.public_key.bech32()
         self.acceptance_manager = BadgeAcceptanceManager(recipient_nsec)
         self.relay_urls = settings.relay_urls
+
+    @classmethod
+    def from_pubkey(cls, pubkey_hex: str) -> 'InboxService':
+        """
+        Create a read-only InboxService from a public key (for NIP-07 flow).
+        Only supports read operations (get_pending_badges, get_accepted_badges).
+        """
+        instance = cls.__new__(cls)
+        instance.recipient_pk = None
+        instance.recipient_hex = pubkey_hex
+        instance.recipient_npub = PublicKey(bytes.fromhex(pubkey_hex)).bech32()
+        instance.acceptance_manager = None  # Not available for NIP-07
+        instance.relay_urls = settings.relay_urls
+        return instance
     
     def get_recipient_info(self) -> Dict[str, str]:
         """Get recipient public key info"""
