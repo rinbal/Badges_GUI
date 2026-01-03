@@ -2,233 +2,359 @@
   <div class="creator">
     <!-- Header -->
     <header class="page-header">
-      <h1>✨ Badge Creator</h1>
-      <p>Design and award badges to anyone on Nostr</p>
+      <h1>Badge Creator</h1>
+      <p class="subtitle">Create and award badges to anyone on Nostr</p>
     </header>
 
-    <div class="main-layout">
-      <!-- Left: Form -->
-      <div class="form-column">
-        <section class="card">
-          <div class="card-header">
-            <h2>{{ formTitle }}</h2>
-            <button v-if="selectedAppTemplate" @click="clearAppTemplate" class="clear-btn">
-              ✕ Clear
-            </button>
+    <!-- Mode Selection -->
+    <section v-if="!activeMode" class="mode-selection animate-fadeIn">
+      <h2 class="section-title">What would you like to do?</h2>
+
+      <div class="mode-cards">
+        <button class="mode-card" @click="selectMode('award')">
+          <div class="mode-icon official">
+            <span>🏅</span>
           </div>
-
-          <!-- App Template Notice -->
-          <div v-if="selectedAppTemplate" class="notice info">
-            🔒 Using app template — fields are locked. Add recipients below.
+          <div class="mode-content">
+            <h3>Award an Official Badge</h3>
+            <p>Choose from curated badges and award them instantly</p>
+            <span class="mode-badge">{{ appTemplateCount }} available</span>
           </div>
+          <span class="mode-arrow">→</span>
+        </button>
 
-          <!-- Progress -->
-          <div v-if="isSubmitting" class="progress-state">
-            <div class="spinner"></div>
-            <strong>{{ submissionStatus }}</strong>
-            <p>{{ submissionDetail }}</p>
-            <div class="progress-track">
-              <div class="progress-fill" :style="{ width: progressPercent + '%' }"></div>
-            </div>
+        <button class="mode-card" @click="selectMode('create')">
+          <div class="mode-icon custom">
+            <span>✨</span>
           </div>
-
-          <!-- Form -->
-          <form v-else @submit.prevent="handleSubmit" class="form">
-            <div class="form-row">
-              <div class="field">
-                <label>
-                  Identifier *
-                  <span v-if="selectedAppTemplate" class="lock">🔒</span>
-                </label>
-                <input
-                  v-model="form.identifier"
-                  type="text"
-                  placeholder="my-badge"
-                  :readonly="!!selectedAppTemplate"
-                  :class="{ locked: !!selectedAppTemplate }"
-                  required
-                />
-                <small>Unique ID (lowercase, no spaces)</small>
-              </div>
-              <div class="field">
-                <label>
-                  Name *
-                  <span v-if="selectedAppTemplate" class="lock">🔒</span>
-                </label>
-                <input
-                  v-model="form.name"
-                  type="text"
-                  placeholder="My Badge"
-                  :readonly="!!selectedAppTemplate"
-                  :class="{ locked: !!selectedAppTemplate }"
-                  required
-                />
-                <small>Display name</small>
-              </div>
-            </div>
-
-            <div class="field">
-              <label>
-                Description
-                <span v-if="selectedAppTemplate" class="lock">🔒</span>
-              </label>
-              <textarea
-                v-model="form.description"
-                placeholder="What does this badge represent?"
-                :readonly="!!selectedAppTemplate"
-                :class="{ locked: !!selectedAppTemplate }"
-                rows="2"
-              ></textarea>
-            </div>
-
-            <div class="field">
-              <label>
-                Image URL
-                <span v-if="selectedAppTemplate" class="lock">🔒</span>
-              </label>
-              <div class="image-field">
-                <input
-                  v-model="form.image"
-                  type="url"
-                  placeholder="https://..."
-                  :readonly="!!selectedAppTemplate"
-                  :class="{ locked: !!selectedAppTemplate }"
-                />
-                <div v-if="form.image" class="image-preview">
-                  <img :src="form.image" alt="" @error="handleImageError" />
-                </div>
-              </div>
-            </div>
-
-            <div class="divider"><span>Recipients</span></div>
-
-            <div class="field">
-              <label>Receiver of this badge *</label>
-              <textarea
-                v-model="recipientsText"
-                placeholder="Paste npubs, one per line..."
-                class="mono"
-                rows="4"
-              ></textarea>
-              <small>
-                <template v-if="recipients.length === 0">Enter at least one npub</template>
-                <template v-else>
-                  <strong>{{ recipients.length }}</strong> recipient{{ recipients.length !== 1 ? 's' : '' }}
-                </template>
-              </small>
-            </div>
-
-            <div class="form-actions">
-              <button
-                v-if="!selectedAppTemplate && canSaveAsTemplate"
-                type="button"
-                @click="saveAsTemplate"
-                class="btn secondary"
-                :disabled="isSaving"
-              >
-                💾 {{ isSaving ? 'Saving...' : 'Save as Template' }}
-              </button>
-              <div class="spacer"></div>
-              <button type="button" @click="resetForm" class="btn secondary">Clear</button>
-              <button type="submit" class="btn primary" :disabled="!canSubmit">
-                🎯 {{ selectedAppTemplate ? 'Award Badge' : 'Create & Award' }}
-              </button>
-            </div>
-          </form>
-        </section>
-
-        <!-- Issuer -->
-        <section class="card issuer-card">
-          <img v-if="authStore.profilePicture" :src="authStore.profilePicture" class="avatar" />
-          <div v-else class="avatar placeholder">👤</div>
-          <div class="issuer-info">
-            <small>Issuing as</small>
-            <strong>{{ authStore.displayName }}</strong>
-            <code>{{ authStore.shortNpub }}</code>
+          <div class="mode-content">
+            <h3>Create a Custom Badge</h3>
+            <p>Design your own unique badge from scratch</p>
+            <span class="mode-badge">Unlimited</span>
           </div>
-        </section>
+          <span class="mode-arrow">→</span>
+        </button>
       </div>
 
-      <!-- Right: Templates -->
-      <div class="templates-column">
-        <!-- App Templates -->
-        <section class="card">
-          <h3>🏅 App Templates</h3>
-          <p class="card-desc">Official badges — click to use</p>
+      <!-- User Templates Shortcut -->
+      <button
+        v-if="badgesStore.userTemplateCount > 0"
+        class="templates-shortcut"
+        @click="selectMode('templates')"
+      >
+        <span class="shortcut-icon">📁</span>
+        <span class="shortcut-text">
+          You have <strong>{{ badgesStore.userTemplateCount }}</strong> saved template{{ badgesStore.userTemplateCount !== 1 ? 's' : '' }}
+        </span>
+        <span class="shortcut-arrow">→</span>
+      </button>
+    </section>
 
-          <div class="app-templates">
-            <button
-              v-for="t in APP_TEMPLATES"
-              :key="t.identifier"
-              :class="['app-template', { selected: selectedAppTemplate?.identifier === t.identifier }]"
-              @click="selectAppTemplate(t)"
-            >
-              <img :src="t.image" :alt="t.name" class="template-thumb" />
-              <div class="template-details">
-                <strong>{{ t.name }}</strong>
-                <span>{{ t.description }}</span>
-              </div>
-              <div v-if="selectedAppTemplate?.identifier === t.identifier" class="check">✓</div>
-            </button>
-          </div>
-        </section>
+    <!-- Award Official Badge -->
+    <section v-else-if="activeMode === 'award'" class="workflow animate-fadeIn">
+      <header class="workflow-header">
+        <button class="back-btn" @click="goBack" title="Go back">
+          <span>←</span>
+        </button>
+        <div class="workflow-title">
+          <h2>Award an Official Badge</h2>
+          <p>Select a badge, then choose recipients</p>
+        </div>
+      </header>
 
-        <!-- User Templates -->
-        <section class="card">
-          <div class="card-header">
-            <div>
-              <h3>📁 Your Templates</h3>
-              <p class="card-desc">Your saved designs</p>
+      <div class="workflow-body">
+        <!-- Step 1: Select Badge -->
+        <div class="step">
+          <div class="step-header">
+            <div class="step-indicator" :class="stepClass(1)">
+              <span v-if="selectedTemplate">✓</span>
+              <span v-else>1</span>
             </div>
-            <button @click="refreshTemplates" class="icon-btn" :disabled="isLoadingTemplates">
-              <span :class="{ spin: isLoadingTemplates }">🔄</span>
-            </button>
-          </div>
-
-          <!-- Search -->
-          <div v-if="badgesStore.templates.length > 2" class="search-field">
-            <input v-model="searchQuery" type="text" placeholder="Search..." />
-            <button v-if="searchQuery" @click="searchQuery = ''" class="clear-search">✕</button>
-          </div>
-
-          <!-- States -->
-          <div v-if="isLoadingTemplates" class="template-list">
-            <div v-for="n in 2" :key="n" class="skeleton-item">
-              <div class="skel-thumb"></div>
-              <div class="skel-text"></div>
+            <div class="step-info">
+              <h3>Choose a Badge</h3>
+              <p v-if="!selectedTemplate">Select the badge you want to award</p>
+              <p v-else class="step-done">{{ selectedTemplate.name }} selected</p>
             </div>
           </div>
 
-          <div v-else-if="badgesStore.templates.length === 0" class="empty-state">
-            <span>📁</span>
-            <p>No templates yet</p>
-          </div>
-
-          <div v-else-if="filteredTemplates.length === 0" class="empty-state">
-            <span>🔍</span>
-            <p>No matches</p>
-          </div>
-
-          <div v-else class="template-list">
+          <div class="badges-grid">
             <button
-              v-for="t in filteredTemplates"
-              :key="t.identifier"
-              :class="['user-template', { selected: selectedUserTemplate?.identifier === t.identifier }]"
-              @click="selectUserTemplate(t)"
+              v-for="template in badgesStore.appTemplates"
+              :key="template.identifier"
+              :class="['badge-card', { selected: selectedTemplate?.identifier === template.identifier }]"
+              @click="selectTemplate(template)"
             >
-              <img v-if="t.image" :src="t.image" :alt="t.name" class="template-thumb" @error="hideImage" />
-              <span v-else class="template-thumb placeholder">🏅</span>
-              <div class="template-details">
-                <strong>{{ t.name }}</strong>
-                <span>{{ t.description || 'No description' }}</span>
+              <div class="badge-image">
+                <img :src="template.image" :alt="template.name" @error="onImageError" />
               </div>
-              <div v-if="selectedUserTemplate?.identifier === t.identifier" class="check">✓</div>
-              <button @click.stop="deleteTemplate(t)" class="delete-btn">🗑️</button>
+              <div class="badge-details">
+                <strong>{{ template.name }}</strong>
+                <span>{{ template.description }}</span>
+              </div>
+              <div v-if="selectedTemplate?.identifier === template.identifier" class="badge-check">✓</div>
             </button>
           </div>
-        </section>
+        </div>
+
+        <!-- Step 2: Add Recipients -->
+        <div class="step" :class="{ 'step-disabled': !selectedTemplate }">
+          <div class="step-header">
+            <div class="step-indicator" :class="stepClass(2)">
+              <span v-if="recipients.length > 0">✓</span>
+              <span v-else>2</span>
+            </div>
+            <div class="step-info">
+              <h3>Add Recipients</h3>
+              <p v-if="recipients.length === 0">Enter the Nostr users who will receive this badge</p>
+              <p v-else class="step-done">{{ recipientSummary }}</p>
+            </div>
+          </div>
+
+          <RecipientInput
+            v-model="recipientsText"
+            :disabled="!selectedTemplate"
+            :count="recipients.length"
+            @update:modelValue="onRecipientsChange"
+          />
+        </div>
+
+        <!-- Step 3: Confirm & Award -->
+        <div class="step step-final" :class="{ 'step-disabled': !canSubmit }">
+          <div class="step-header">
+            <div class="step-indicator" :class="stepClass(3)">3</div>
+            <div class="step-info">
+              <h3>Confirm & Award</h3>
+              <p>Review and publish the badge</p>
+            </div>
+          </div>
+
+          <div class="confirm-panel">
+            <div v-if="selectedTemplate" class="confirm-preview">
+              <img :src="selectedTemplate.image" :alt="selectedTemplate.name" class="preview-image" @error="onImageError" />
+              <div class="preview-info">
+                <strong>{{ selectedTemplate.name }}</strong>
+                <span>{{ selectedTemplate.description }}</span>
+              </div>
+            </div>
+
+            <div class="confirm-meta">
+              <div class="meta-item">
+                <span class="meta-label">Recipients</span>
+                <span class="meta-value">{{ recipients.length || '—' }}</span>
+              </div>
+              <div class="meta-item">
+                <span class="meta-label">Issuer</span>
+                <span class="meta-value issuer">
+                  <img v-if="authStore.profilePicture" :src="authStore.profilePicture" class="issuer-pic" />
+                  {{ authStore.displayName }}
+                </span>
+              </div>
+            </div>
+
+            <button
+              class="btn-submit"
+              :disabled="!canSubmit || isSubmitting"
+              @click="handleSubmit"
+            >
+              <span v-if="isSubmitting" class="btn-spinner"></span>
+              <span>{{ isSubmitting ? 'Awarding...' : 'Award Badge' }}</span>
+            </button>
+          </div>
+        </div>
       </div>
-    </div>
+    </section>
+
+    <!-- Create Custom Badge -->
+    <section v-else-if="activeMode === 'create'" class="workflow animate-fadeIn">
+      <header class="workflow-header">
+        <button class="back-btn" @click="goBack" title="Go back">
+          <span>←</span>
+        </button>
+        <div class="workflow-title">
+          <h2>Create a Custom Badge</h2>
+          <p>Design your badge, then award it</p>
+        </div>
+      </header>
+
+      <div class="create-layout">
+        <form @submit.prevent="handleSubmit" class="create-form">
+          <!-- Badge ID -->
+          <div class="form-group">
+            <label for="identifier">Badge ID <span class="required">*</span></label>
+            <input
+              id="identifier"
+              v-model="form.identifier"
+              type="text"
+              placeholder="e.g. early-supporter"
+              :class="{ 'has-error': identifierError }"
+              @input="validateIdentifier"
+              maxlength="64"
+            />
+            <p v-if="identifierError" class="field-error">{{ identifierError }}</p>
+            <p v-else class="field-hint">Lowercase, numbers, hyphens. This is the unique identifier.</p>
+          </div>
+
+          <!-- Badge Name -->
+          <div class="form-group">
+            <label for="name">Badge Name <span class="required">*</span></label>
+            <input
+              id="name"
+              v-model="form.name"
+              type="text"
+              placeholder="e.g. Early Supporter"
+              maxlength="100"
+            />
+          </div>
+
+          <!-- Description -->
+          <div class="form-group">
+            <label for="description">Description</label>
+            <textarea
+              id="description"
+              v-model="form.description"
+              placeholder="What does this badge represent?"
+              rows="2"
+              maxlength="500"
+            ></textarea>
+          </div>
+
+          <!-- Image URL -->
+          <div class="form-group">
+            <label for="image">Image URL</label>
+            <div class="input-with-preview">
+              <input
+                id="image"
+                v-model="form.image"
+                type="url"
+                placeholder="https://..."
+              />
+              <div v-if="form.image" class="input-preview">
+                <img :src="form.image" @error="onImageError" />
+              </div>
+            </div>
+            <p class="field-hint">Direct link to badge image (PNG, JPG, GIF)</p>
+          </div>
+
+          <div class="form-divider"></div>
+
+          <!-- Recipients -->
+          <div class="form-group">
+            <label>Recipients <span class="required">*</span></label>
+            <RecipientInput
+              v-model="recipientsText"
+              :count="recipients.length"
+              @update:modelValue="onRecipientsChange"
+            />
+          </div>
+
+          <!-- Actions -->
+          <div class="form-actions">
+            <button
+              type="button"
+              class="btn-secondary"
+              :disabled="!canSaveTemplate || isSaving"
+              @click="saveAsTemplate"
+            >
+              <span v-if="isSaving" class="btn-spinner dark"></span>
+              {{ isSaving ? 'Saving...' : 'Save as Template' }}
+            </button>
+            <button
+              type="submit"
+              class="btn-primary"
+              :disabled="!canSubmit || isSubmitting"
+            >
+              <span v-if="isSubmitting" class="btn-spinner"></span>
+              {{ isSubmitting ? 'Creating...' : 'Create & Award' }}
+            </button>
+          </div>
+        </form>
+
+        <!-- Sidebar -->
+        <aside class="create-sidebar">
+          <div class="sidebar-card">
+            <img v-if="authStore.profilePicture" :src="authStore.profilePicture" class="sidebar-avatar" />
+            <div v-else class="sidebar-avatar placeholder">👤</div>
+            <div class="sidebar-info">
+              <span class="sidebar-label">Creating as</span>
+              <strong>{{ authStore.displayName }}</strong>
+              <code>{{ authStore.shortNpub }}</code>
+            </div>
+          </div>
+          <div class="sidebar-tip">
+            <strong>Pro tip</strong>
+            <p>Save as template to quickly award this badge again in the future.</p>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <!-- User Templates -->
+    <section v-else-if="activeMode === 'templates'" class="workflow animate-fadeIn">
+      <header class="workflow-header">
+        <button class="back-btn" @click="goBack" title="Go back">
+          <span>←</span>
+        </button>
+        <div class="workflow-title">
+          <h2>Your Templates</h2>
+          <p>Saved badge designs for quick reuse</p>
+        </div>
+        <button class="refresh-btn" @click="refreshTemplates" :disabled="isLoadingTemplates" title="Refresh">
+          <span :class="{ spinning: isLoadingTemplates }">🔄</span>
+        </button>
+      </header>
+
+      <!-- Loading -->
+      <div v-if="isLoadingTemplates" class="templates-grid">
+        <div v-for="n in 3" :key="n" class="template-skeleton">
+          <div class="skel-image"></div>
+          <div class="skel-body">
+            <div class="skel-line"></div>
+            <div class="skel-line short"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Empty -->
+      <div v-else-if="badgesStore.userTemplateCount === 0" class="empty-state">
+        <div class="empty-icon">📁</div>
+        <h3>No saved templates</h3>
+        <p>Create a custom badge and save it as a template for quick access.</p>
+        <button class="btn-primary" @click="selectMode('create')">Create a Badge</button>
+      </div>
+
+      <!-- Templates Grid -->
+      <div v-else class="templates-grid">
+        <div v-for="template in badgesStore.templates" :key="template.identifier" class="template-item">
+          <div class="template-image">
+            <img v-if="template.image" :src="template.image" :alt="template.name" @error="onImageError" />
+            <span v-else class="template-placeholder">🏅</span>
+          </div>
+          <div class="template-body">
+            <h4>{{ template.name }}</h4>
+            <p>{{ template.description || 'No description' }}</p>
+            <code>{{ template.identifier }}</code>
+          </div>
+          <div class="template-actions">
+            <button class="btn-action primary" @click="useTemplate(template)">Award</button>
+            <button class="btn-action danger" @click="deleteTemplate(template)">Delete</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Progress Overlay -->
+    <Transition name="fade">
+      <div v-if="isSubmitting" class="progress-overlay">
+        <div class="progress-modal">
+          <div class="progress-spinner"></div>
+          <h3>{{ progressStatus }}</h3>
+          <p>{{ progressDetail }}</p>
+          <div class="progress-bar">
+            <div class="progress-fill" :style="{ width: progressPercent + '%' }"></div>
+          </div>
+        </div>
+      </div>
+    </Transition>
   </div>
 </template>
 
@@ -237,137 +363,154 @@ import { ref, computed, onMounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { useBadgesStore } from '@/stores/badges'
 import { useUIStore } from '@/stores/ui'
-
-// ============================================
-// CONSTANTS
-// ============================================
-
-// App's official templates (from JSON files)
-const APP_TEMPLATES = Object.freeze([
-  {
-    identifier: 'badgecreator',
-    name: 'Badge Creator',
-    description: 'Creator of a custom nostr badge',
-    image: 'https://raw.githubusercontent.com/rinbal/nostr-badges/main/images/badgecreator_v03.png'
-  },
-  {
-    identifier: 'nostruser',
-    name: 'Nostr User',
-    description: 'Nostr user :)',
-    image: 'https://raw.githubusercontent.com/rinbal/nostr-badges/main/images/nostruser_v01.png'
-  }
-])
-
-// ============================================
-// STORES
-// ============================================
+import RecipientInput from '@/components/common/RecipientInput.vue'
 
 const authStore = useAuthStore()
 const badgesStore = useBadgesStore()
 const uiStore = useUIStore()
 
-// ============================================
-// STATE
-// ============================================
+// Navigation
+const activeMode = ref(null)
 
-// Template selection (mutually exclusive)
-const selectedAppTemplate = ref(null)
-const selectedUserTemplate = ref(null)
+// Template selection
+const selectedTemplate = ref(null)
 
 // Form
 const form = ref({ identifier: '', name: '', description: '', image: '' })
+const identifierError = ref('')
+
+// Recipients
 const recipientsText = ref('')
 
-// UI state
-const searchQuery = ref('')
+// Loading states
 const isSubmitting = ref(false)
 const isSaving = ref(false)
-const submissionStatus = ref('')
-const submissionDetail = ref('')
+const progressStatus = ref('')
+const progressDetail = ref('')
 const progressPercent = ref(0)
 
-// ============================================
-// COMPUTED
-// ============================================
-
+// Computed
+const appTemplateCount = computed(() => badgesStore.appTemplates.length)
 const isLoadingTemplates = computed(() => badgesStore.isLoading && !isSubmitting.value)
 
-const formTitle = computed(() => {
-  if (selectedAppTemplate.value) return `Award: ${selectedAppTemplate.value.name}`
-  if (selectedUserTemplate.value) return `Award: ${selectedUserTemplate.value.name}`
-  return 'Create Badge'
-})
-
-const filteredTemplates = computed(() => {
-  if (!searchQuery.value.trim()) return badgesStore.templates
-  const q = searchQuery.value.toLowerCase()
-  return badgesStore.templates.filter(t => t.name?.toLowerCase().includes(q))
-})
-
 const recipients = computed(() =>
-  recipientsText.value.split('\n').map(r => r.trim()).filter(Boolean)
+  recipientsText.value
+    .split(/[\n,]/)
+    .map(r => r.trim())
+    .filter(r => r.startsWith('npub1') && r.length === 63)
 )
 
-const canSaveAsTemplate = computed(() =>
-  form.value.identifier?.trim() && form.value.name?.trim()
+const recipientSummary = computed(() => {
+  const count = recipients.value.length
+  if (count === 0) return ''
+  if (count === 1) return '1 recipient ready'
+  return `${count} recipients ready`
+})
+
+const canSaveTemplate = computed(() =>
+  form.value.identifier?.trim() &&
+  form.value.name?.trim() &&
+  !identifierError.value
 )
 
-const canSubmit = computed(() =>
-  form.value.identifier?.trim() && form.value.name?.trim() && recipients.value.length > 0
-)
+const canSubmit = computed(() => {
+  if (recipients.value.length === 0) return false
 
-// ============================================
-// METHODS: Template Selection
-// ============================================
+  if (activeMode.value === 'award') {
+    return !!selectedTemplate.value
+  }
+  if (activeMode.value === 'create') {
+    return form.value.identifier?.trim() && form.value.name?.trim() && !identifierError.value
+  }
+  return false
+})
 
-function selectAppTemplate(template) {
-  // Clear user template, select app template
-  selectedUserTemplate.value = null
-  selectedAppTemplate.value = template
-  form.value = { ...template }
-  uiStore.showInfo(`"${template.name}" selected`)
+// Step indicator class
+function stepClass(step) {
+  if (activeMode.value === 'award') {
+    if (step === 1) return selectedTemplate.value ? 'done' : 'active'
+    if (step === 2) return recipients.value.length > 0 ? 'done' : (selectedTemplate.value ? 'active' : '')
+    if (step === 3) return canSubmit.value ? 'active' : ''
+  }
+  return ''
 }
 
-function clearAppTemplate() {
-  selectedAppTemplate.value = null
-  form.value = { identifier: '', name: '', description: '', image: '' }
+// Navigation
+function selectMode(mode) {
+  activeMode.value = mode
+  resetState()
+  if (mode === 'templates') {
+    badgesStore.fetchAllTemplates()
+  }
+  if (mode === 'award') {
+    uiStore.showInfo('Select a badge to get started')
+  }
 }
 
-function selectUserTemplate(template) {
-  // Clear app template, select user template
-  selectedAppTemplate.value = null
-  selectedUserTemplate.value = template
-  form.value = { ...template }
-  uiStore.showInfo(`Template "${template.name}" loaded`)
+function goBack() {
+  activeMode.value = null
+  resetState()
 }
 
-function clearUserTemplate() {
-  selectedUserTemplate.value = null
-  form.value = { identifier: '', name: '', description: '', image: '' }
-}
-
-// ============================================
-// METHODS: Form Actions
-// ============================================
-
-function resetForm() {
-  selectedAppTemplate.value = null
-  selectedUserTemplate.value = null
+function resetState() {
+  selectedTemplate.value = null
   form.value = { identifier: '', name: '', description: '', image: '' }
   recipientsText.value = ''
+  identifierError.value = ''
 }
 
+// Template selection
+function selectTemplate(template) {
+  selectedTemplate.value = template
+  uiStore.showInfo(`${template.name} selected — now add recipients`)
+}
+
+function useTemplate(template) {
+  form.value = {
+    identifier: template.identifier,
+    name: template.name,
+    description: template.description || '',
+    image: template.image || ''
+  }
+  selectedTemplate.value = template
+  activeMode.value = 'award'
+  uiStore.showInfo(`Using "${template.name}" — add recipients to award`)
+}
+
+// Validation
+function validateIdentifier() {
+  const value = form.value.identifier
+  if (!value) {
+    identifierError.value = ''
+    return
+  }
+  if (value.length > 64) {
+    identifierError.value = 'Maximum 64 characters'
+    return
+  }
+  if (!/^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/.test(value)) {
+    identifierError.value = 'Only lowercase letters, numbers, and hyphens allowed'
+    return
+  }
+  identifierError.value = ''
+}
+
+function onRecipientsChange(value) {
+  recipientsText.value = value
+}
+
+// Actions
 async function saveAsTemplate() {
-  if (!canSaveAsTemplate.value) return
+  if (!canSaveTemplate.value) return
 
   isSaving.value = true
   const result = await badgesStore.createTemplate({ ...form.value })
   isSaving.value = false
 
   if (result.success) {
-    uiStore.showSuccess(`"${form.value.name}" saved!`)
+    uiStore.showSuccess(`Template "${form.value.name}" saved`)
   } else {
-    uiStore.showError(result.error || 'Failed to save')
+    uiStore.showError(result.error || 'Could not save template')
   }
 }
 
@@ -376,606 +519,995 @@ async function handleSubmit() {
 
   isSubmitting.value = true
   progressPercent.value = 10
-  submissionStatus.value = 'Creating badge...'
-  submissionDetail.value = 'Preparing'
+  progressStatus.value = 'Preparing...'
+  progressDetail.value = 'Getting ready to publish'
 
-  await sleep(400)
-  progressPercent.value = 40
-  submissionStatus.value = 'Publishing...'
-  submissionDetail.value = 'Connecting to relays'
+  await delay(400)
+  progressPercent.value = 30
+  progressStatus.value = 'Connecting to relays...'
+  progressDetail.value = 'This may take a moment'
 
-  await sleep(300)
+  await delay(500)
   progressPercent.value = 60
-  submissionDetail.value = 'This may take a moment'
+  progressStatus.value = 'Publishing badge...'
+  progressDetail.value = 'Broadcasting to the network'
 
-  const result = await badgesStore.createAndAwardBadge(form.value, recipients.value)
+  const badgeData = activeMode.value === 'award' ? selectedTemplate.value : form.value
+  const result = await badgesStore.createAndAwardBadge(badgeData, recipients.value)
+
   progressPercent.value = 100
+  await delay(300)
 
-  await sleep(200)
   isSubmitting.value = false
   progressPercent.value = 0
 
   if (result.success) {
-    const n = result.data.recipients_count
-    uiStore.showSuccess(`🎉 "${form.value.name}" sent to ${n} ${n === 1 ? 'person' : 'people'}!`)
-    resetForm()
-    badgesStore.fetchTemplates()
+    const count = result.data.recipients_count
+    uiStore.showSuccess(`"${badgeData.name}" awarded to ${count} recipient${count !== 1 ? 's' : ''}`)
+    goBack()
   } else {
-    uiStore.showError(result.error || 'Something went wrong')
+    uiStore.showError(result.error || 'Failed to create badge. Please try again.')
   }
-}
-
-// ============================================
-// METHODS: User Templates
-// ============================================
-
-function refreshTemplates() {
-  badgesStore.fetchTemplates()
 }
 
 async function deleteTemplate(template) {
-  if (!confirm(`Delete "${template.name}"?`)) return
+  if (!confirm(`Delete "${template.name}"?\n\nThis template will be removed permanently.`)) return
 
   const result = await badgesStore.deleteTemplate(template.identifier)
+
   if (result.success) {
-    uiStore.showSuccess('Deleted')
-    if (selectedUserTemplate.value?.identifier === template.identifier) {
-      clearUserTemplate()
-    }
+    uiStore.showSuccess('Template deleted')
   } else {
-    uiStore.showError(result.error || 'Failed to delete')
+    uiStore.showError(result.error || 'Could not delete template')
   }
 }
 
-// ============================================
-// METHODS: Utilities
-// ============================================
-
-function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms))
+function refreshTemplates() {
+  badgesStore.fetchAllTemplates()
 }
 
-function handleImageError(e) {
-  e.target.style.display = 'none'
+function onImageError(e) {
+  e.target.style.opacity = '0.2'
 }
 
-function hideImage(e) {
-  e.target.style.display = 'none'
+function delay(ms) {
+  return new Promise(r => setTimeout(r, ms))
 }
-
-// ============================================
-// LIFECYCLE
-// ============================================
 
 onMounted(() => {
-  badgesStore.fetchTemplates()
+  // Fetch both app templates (official) and user templates
+  badgesStore.fetchAllTemplates()
 })
 </script>
 
 <style scoped>
 .creator {
-  max-width: 1100px;
+  max-width: 900px;
   margin: 0 auto;
+  padding-bottom: 4rem;
 }
 
 /* Header */
 .page-header {
-  margin-bottom: 1.5rem;
+  text-align: center;
+  margin-bottom: 2.5rem;
 }
+
 .page-header h1 {
-  font-size: 1.75rem;
-  font-weight: 700;
-  margin: 0 0 0.25rem;
+  font-size: 2rem;
+  margin: 0 0 0.5rem;
 }
-.page-header p {
+
+.subtitle {
   color: var(--color-text-muted);
   margin: 0;
 }
 
-/* Layout */
-.main-layout {
+/* Section Title */
+.section-title {
+  font-size: 1.125rem;
+  font-weight: 500;
+  text-align: center;
+  margin-bottom: 1.5rem;
+  color: var(--color-text-muted);
+}
+
+/* Mode Selection */
+.mode-selection {
+  padding: 0 1rem;
+}
+
+.mode-cards {
   display: grid;
-  grid-template-columns: 1fr 320px;
-  gap: 1.25rem;
-  align-items: start;
-}
-
-.form-column {
-  display: flex;
-  flex-direction: column;
+  grid-template-columns: repeat(2, 1fr);
   gap: 1rem;
+  margin-bottom: 1.5rem;
 }
 
-.templates-column {
+@media (max-width: 640px) {
+  .mode-cards {
+    grid-template-columns: 1fr;
+  }
+}
+
+.mode-card {
   display: flex;
-  flex-direction: column;
+  align-items: center;
   gap: 1rem;
-}
-
-/* Card */
-.card {
+  padding: 1.5rem;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
-  padding: 1.25rem;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.2s;
 }
 
-.card h2 {
+.mode-card:hover {
+  border-color: var(--color-primary);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.mode-icon {
+  width: 52px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.75rem;
+  border-radius: var(--radius-md);
+  flex-shrink: 0;
+}
+
+.mode-icon.official {
+  background: var(--color-accent-soft);
+}
+
+.mode-icon.custom {
+  background: var(--color-primary-soft);
+}
+
+.mode-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.mode-content h3 {
+  font-size: 1rem;
+  margin: 0 0 0.25rem;
+}
+
+.mode-content p {
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+  margin: 0 0 0.5rem;
+}
+
+.mode-badge {
+  display: inline-block;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 0.25rem 0.5rem;
+  background: var(--color-surface-elevated);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+}
+
+.mode-arrow {
+  font-size: 1.25rem;
+  color: var(--color-text-subtle);
+  transition: transform 0.2s;
+}
+
+.mode-card:hover .mode-arrow {
+  transform: translateX(4px);
+  color: var(--color-primary);
+}
+
+/* Templates Shortcut */
+.templates-shortcut {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 1rem 1.25rem;
+  background: var(--color-surface-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.templates-shortcut:hover {
+  border-color: var(--color-primary);
+}
+
+.shortcut-icon {
+  font-size: 1.25rem;
+}
+
+.shortcut-text {
+  flex: 1;
+  text-align: left;
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+}
+
+.shortcut-arrow {
+  color: var(--color-text-subtle);
+}
+
+/* Workflow */
+.workflow {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.workflow-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface-elevated);
+}
+
+.back-btn {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-size: 1rem;
+  color: var(--color-text);
+  transition: all 0.15s;
+}
+
+.back-btn:hover {
+  background: var(--color-surface-hover);
+  border-color: var(--color-primary);
+}
+
+.workflow-title {
+  flex: 1;
+}
+
+.workflow-title h2 {
   font-size: 1.125rem;
   margin: 0;
 }
 
-.card h3 {
-  font-size: 1rem;
-  margin: 0;
-}
-
-.card-desc {
-  font-size: 0.75rem;
+.workflow-title p {
+  font-size: 0.8125rem;
   color: var(--color-text-muted);
   margin: 0.125rem 0 0;
 }
 
-.card-header {
+.refresh-btn {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.refresh-btn:hover:not(:disabled) {
+  border-color: var(--color-primary);
+}
+
+.refresh-btn:disabled {
+  opacity: 0.5;
+}
+
+.spinning {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Workflow Body */
+.workflow-body {
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* Steps */
+.step {
+  transition: opacity 0.2s;
+}
+
+.step-disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.step-header {
   display: flex;
   align-items: flex-start;
-  justify-content: space-between;
-  gap: 0.75rem;
+  gap: 0.875rem;
   margin-bottom: 1rem;
 }
 
-/* Buttons */
-.clear-btn {
-  background: none;
-  border: none;
-  color: var(--color-text-muted);
-  font-size: 0.75rem;
-  cursor: pointer;
-  padding: 0.25rem 0.5rem;
-  border-radius: var(--radius-sm);
-}
-.clear-btn:hover {
-  background: var(--color-danger-soft);
-  color: var(--color-danger);
-}
-
-.icon-btn {
-  width: 32px;
-  height: 32px;
+.step-indicator {
+  width: 28px;
+  height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
   background: var(--color-surface-elevated);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  font-size: 0.875rem;
-}
-.icon-btn:hover:not(:disabled) { border-color: var(--color-primary); }
-.icon-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.spin { animation: spin 1s linear infinite; }
-@keyframes spin { to { transform: rotate(360deg); } }
-
-.btn {
-  padding: 0.625rem 1.25rem;
-  border-radius: var(--radius-md);
+  border: 2px solid var(--color-border);
+  border-radius: 50%;
+  font-size: 0.75rem;
   font-weight: 600;
-  font-size: 0.875rem;
-  cursor: pointer;
-  border: none;
-  transition: all 0.15s;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
 }
-.btn.primary {
+
+.step-indicator.active {
   background: var(--color-primary);
+  border-color: var(--color-primary);
   color: white;
 }
-.btn.primary:hover:not(:disabled) { background: var(--color-primary-hover); }
-.btn.secondary {
-  background: var(--color-surface-elevated);
-  border: 1px solid var(--color-border);
-  color: var(--color-text);
-}
-.btn.secondary:hover:not(:disabled) { background: var(--color-surface-hover); }
-.btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
-/* Notice */
-.notice {
-  padding: 0.625rem 0.875rem;
-  border-radius: var(--radius-md);
-  margin-bottom: 1rem;
+.step-indicator.done {
+  background: var(--color-success);
+  border-color: var(--color-success);
+  color: white;
+}
+
+.step-info h3 {
+  font-size: 0.9375rem;
+  margin: 0;
+}
+
+.step-info p {
   font-size: 0.8125rem;
-}
-.notice.info {
-  background: var(--color-primary-soft);
-  border: 1px solid var(--color-primary);
+  color: var(--color-text-muted);
+  margin: 0.125rem 0 0;
 }
 
-/* Form */
-.form {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
+.step-info .step-done {
+  color: var(--color-success);
 }
 
-.form-row {
+/* Badges Grid */
+.badges-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 0.75rem;
+}
+
+.badge-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  padding: 0.875rem;
+  background: var(--color-surface-elevated);
+  border: 2px solid transparent;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s;
+}
+
+.badge-card:hover {
+  border-color: var(--color-primary-soft);
+}
+
+.badge-card.selected {
+  border-color: var(--color-primary);
+  background: var(--color-primary-soft);
+}
+
+.badge-image {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  flex-shrink: 0;
+  background: var(--color-surface);
+}
+
+.badge-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.badge-details {
+  flex: 1;
+  min-width: 0;
+}
+
+.badge-details strong {
+  display: block;
+  font-size: 0.875rem;
+}
+
+.badge-details span {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.badge-check {
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-primary);
+  color: white;
+  border-radius: 50%;
+  font-size: 0.625rem;
+  font-weight: 700;
+}
+
+/* Confirm Panel */
+.step-final {
+  padding: 1.25rem;
+  background: var(--color-surface-elevated);
+  border-radius: var(--radius-md);
+}
+
+.confirm-panel {
+  display: flex;
+  flex-direction: column;
   gap: 1rem;
 }
 
-.field {
+.confirm-preview {
   display: flex;
-  flex-direction: column;
-  gap: 0.375rem;
+  align-items: center;
+  gap: 1rem;
 }
 
-.field label {
+.preview-image {
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+}
+
+.preview-info {
+  flex: 1;
+}
+
+.preview-info strong {
+  display: block;
+  font-size: 1rem;
+}
+
+.preview-info span {
+  display: block;
   font-size: 0.8125rem;
+  color: var(--color-text-muted);
+}
+
+.confirm-meta {
+  display: flex;
+  gap: 1.5rem;
+  padding: 0.75rem 0;
+  border-top: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.meta-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.meta-label {
+  font-size: 0.6875rem;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.meta-value {
+  font-size: 0.875rem;
   font-weight: 500;
+}
+
+.meta-value.issuer {
   display: flex;
   align-items: center;
   gap: 0.375rem;
 }
 
-.lock {
-  font-size: 0.625rem;
-  opacity: 0.6;
+.issuer-pic {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
 }
 
-.field input,
-.field textarea {
+/* Create Layout */
+.create-layout {
+  display: grid;
+  grid-template-columns: 1fr 240px;
+  gap: 1.5rem;
+  padding: 1.5rem;
+}
+
+@media (max-width: 768px) {
+  .create-layout {
+    grid-template-columns: 1fr;
+  }
+  .create-sidebar {
+    order: -1;
+  }
+}
+
+.create-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.form-group label {
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.required {
+  color: var(--color-danger);
+}
+
+.form-group input,
+.form-group textarea {
   padding: 0.625rem 0.75rem;
   background: var(--color-surface-elevated);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   font-size: 0.875rem;
   color: var(--color-text);
+  transition: border-color 0.15s;
 }
 
-.field input:focus,
-.field textarea:focus {
-  outline: none;
+.form-group input:focus,
+.form-group textarea:focus {
   border-color: var(--color-primary);
   box-shadow: 0 0 0 2px var(--color-primary-soft);
 }
 
-.field input.locked,
-.field textarea.locked {
-  background: var(--color-surface);
-  color: var(--color-text-muted);
-  cursor: not-allowed;
-  border-style: dashed;
+.form-group input.has-error {
+  border-color: var(--color-danger);
 }
 
-.field small {
+.field-hint {
   font-size: 0.6875rem;
   color: var(--color-text-muted);
+  margin: 0;
 }
 
-.mono {
-  font-family: var(--font-mono);
-  font-size: 0.75rem;
+.field-error {
+  font-size: 0.6875rem;
+  color: var(--color-danger);
+  margin: 0;
 }
 
-.image-field {
+.input-with-preview {
   display: flex;
   gap: 0.75rem;
   align-items: center;
 }
-.image-field input { flex: 1; }
 
-.image-preview {
-  width: 40px;
-  height: 40px;
+.input-with-preview input {
+  flex: 1;
+}
+
+.input-preview {
+  width: 36px;
+  height: 36px;
   border-radius: var(--radius-sm);
   overflow: hidden;
   background: var(--color-surface);
-  flex-shrink: 0;
 }
-.image-preview img {
+
+.input-preview img {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
 
-.divider {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  color: var(--color-text-muted);
-  font-size: 0.75rem;
-  margin: 0.25rem 0;
-}
-.divider::before,
-.divider::after {
-  content: '';
-  flex: 1;
+.form-divider {
   height: 1px;
   background: var(--color-border);
+  margin: 0.5rem 0;
 }
 
 .form-actions {
   display: flex;
-  align-items: center;
+  justify-content: flex-end;
   gap: 0.75rem;
   padding-top: 0.5rem;
 }
-.spacer { flex: 1; }
 
-/* Progress */
-.progress-state {
-  text-align: center;
-  padding: 2rem;
-}
-.spinner {
-  width: 40px;
-  height: 40px;
-  margin: 0 auto 1rem;
-  border: 3px solid var(--color-border);
-  border-top-color: var(--color-primary);
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-}
-.progress-state strong { display: block; margin-bottom: 0.25rem; }
-.progress-state p {
-  color: var(--color-text-muted);
-  font-size: 0.8125rem;
-  margin: 0 0 1rem;
-}
-.progress-track {
-  height: 4px;
-  background: var(--color-surface-elevated);
-  border-radius: var(--radius-full);
-  overflow: hidden;
-  max-width: 260px;
-  margin: 0 auto;
-}
-.progress-fill {
-  height: 100%;
-  background: var(--color-primary);
-  transition: width 0.3s;
-}
-
-/* Issuer */
-.issuer-card {
+/* Sidebar */
+.create-sidebar {
   display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  background: var(--color-surface-elevated);
+  flex-direction: column;
+  gap: 1rem;
 }
-.avatar {
-  width: 40px;
-  height: 40px;
+
+.sidebar-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 1.25rem;
+  background: var(--color-surface-elevated);
+  border-radius: var(--radius-md);
+}
+
+.sidebar-avatar {
+  width: 48px;
+  height: 48px;
   border-radius: 50%;
   object-fit: cover;
-  flex-shrink: 0;
+  margin-bottom: 0.75rem;
 }
-.avatar.placeholder {
+
+.sidebar-avatar.placeholder {
   background: var(--color-surface);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 1.25rem;
 }
-.issuer-info small {
+
+.sidebar-label {
   font-size: 0.625rem;
   color: var(--color-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
-.issuer-info strong { display: block; font-size: 0.9375rem; }
-.issuer-info code {
+
+.sidebar-info strong {
+  display: block;
+  font-size: 0.9375rem;
+}
+
+.sidebar-info code {
   font-size: 0.6875rem;
   color: var(--color-primary);
 }
 
-/* App Templates */
-.app-templates {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  margin-top: 0.75rem;
-}
-
-.app-template {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.75rem;
-  background: var(--color-surface-elevated);
-  border: 2px solid transparent;
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  text-align: left;
-  transition: all 0.15s;
-}
-.app-template:hover { border-color: var(--color-primary-soft); }
-.app-template.selected {
-  border-color: var(--color-primary);
+.sidebar-tip {
+  padding: 0.875rem;
   background: var(--color-primary-soft);
+  border-radius: var(--radius-md);
+  font-size: 0.75rem;
 }
 
-/* User Templates */
-.search-field {
-  position: relative;
-  margin-bottom: 0.75rem;
+.sidebar-tip strong {
+  display: block;
+  margin-bottom: 0.25rem;
 }
-.search-field input {
-  width: 100%;
-  padding: 0.5rem 0.75rem;
-  padding-right: 2rem;
+
+.sidebar-tip p {
+  margin: 0;
+  color: var(--color-text);
+}
+
+/* Templates Grid */
+.templates-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1rem;
+  padding: 1.5rem;
+}
+
+.template-item {
   background: var(--color-surface-elevated);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  font-size: 0.8125rem;
-  color: var(--color-text);
-}
-.search-field input:focus {
-  outline: none;
-  border-color: var(--color-primary);
-}
-.clear-search {
-  position: absolute;
-  right: 0.5rem;
-  top: 50%;
-  transform: translateY(-50%);
-  background: none;
-  border: none;
-  color: var(--color-text-muted);
-  cursor: pointer;
-  padding: 0.25rem;
-  font-size: 0.75rem;
+  overflow: hidden;
 }
 
-.template-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.user-template {
-  position: relative;
+.template-image {
+  height: 100px;
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.625rem;
-  background: var(--color-surface-elevated);
-  border: 2px solid transparent;
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  text-align: left;
-  transition: all 0.15s;
-}
-.user-template:hover { border-color: var(--color-primary-soft); }
-.user-template.selected {
-  border-color: var(--color-primary);
-  background: var(--color-primary-soft);
-}
-
-.delete-btn {
-  position: absolute;
-  right: 0.5rem;
-  top: 50%;
-  transform: translateY(-50%);
-  background: none;
-  border: none;
-  cursor: pointer;
-  font-size: 0.75rem;
-  opacity: 0;
-  padding: 0.25rem;
-  border-radius: var(--radius-sm);
-}
-.user-template:hover .delete-btn { opacity: 0.5; }
-.delete-btn:hover {
-  opacity: 1 !important;
-  background: var(--color-danger-soft);
-}
-
-/* Template Common */
-.template-thumb {
-  width: 40px;
-  height: 40px;
-  border-radius: var(--radius-sm);
-  object-fit: cover;
-  flex-shrink: 0;
+  justify-content: center;
   background: var(--color-surface);
 }
-.template-thumb.placeholder {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.25rem;
+
+.template-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
-.template-details {
-  flex: 1;
-  min-width: 0;
+.template-placeholder {
+  font-size: 2.5rem;
 }
-.template-details strong {
-  display: block;
-  font-size: 0.8125rem;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+
+.template-body {
+  padding: 0.875rem;
 }
-.template-details span {
-  display: block;
-  font-size: 0.6875rem;
+
+.template-body h4 {
+  font-size: 0.9375rem;
+  margin: 0 0 0.25rem;
+}
+
+.template-body p {
+  font-size: 0.75rem;
   color: var(--color-text-muted);
-  white-space: nowrap;
+  margin: 0 0 0.5rem;
+}
+
+.template-body code {
+  font-size: 0.6875rem;
+  color: var(--color-primary);
+}
+
+.template-actions {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0 0.875rem 0.875rem;
+}
+
+/* Template Skeleton */
+.template-skeleton {
+  background: var(--color-surface-elevated);
+  border-radius: var(--radius-md);
   overflow: hidden;
-  text-overflow: ellipsis;
 }
 
-.check {
-  width: 20px;
-  height: 20px;
-  background: var(--color-primary);
-  color: white;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.625rem;
-  font-weight: 700;
-  flex-shrink: 0;
-}
-
-/* Skeleton */
-.skeleton-item {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.625rem;
-}
-.skel-thumb {
-  width: 40px;
-  height: 40px;
-  border-radius: var(--radius-sm);
+.skel-image {
+  height: 100px;
   background: linear-gradient(90deg, var(--color-surface) 25%, var(--color-surface-hover) 50%, var(--color-surface) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
 }
-.skel-text {
-  flex: 1;
+
+.skel-body {
+  padding: 0.875rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.skel-line {
   height: 12px;
   border-radius: var(--radius-sm);
   background: linear-gradient(90deg, var(--color-surface) 25%, var(--color-surface-hover) 50%, var(--color-surface) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
 }
+
+.skel-line.short {
+  width: 60%;
+}
+
 @keyframes shimmer {
   0% { background-position: 200% 0; }
   100% { background-position: -200% 0; }
 }
 
-/* Empty */
+/* Empty State */
 .empty-state {
   text-align: center;
-  padding: 1.25rem;
-  color: var(--color-text-muted);
-}
-.empty-state span {
-  font-size: 1.5rem;
-  display: block;
-  margin-bottom: 0.375rem;
-}
-.empty-state p {
-  margin: 0;
-  font-size: 0.75rem;
+  padding: 4rem 2rem;
 }
 
-/* Responsive */
-@media (max-width: 800px) {
-  .main-layout {
-    grid-template-columns: 1fr;
-  }
-  .templates-column {
-    order: -1;
-  }
-  .form-row {
-    grid-template-columns: 1fr;
-  }
+.empty-icon {
+  font-size: 3.5rem;
+  margin-bottom: 1rem;
+}
+
+.empty-state h3 {
+  font-size: 1.125rem;
+  margin: 0 0 0.5rem;
+}
+
+.empty-state p {
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+  margin: 0 0 1.5rem;
+  max-width: 280px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Buttons */
+.btn-primary,
+.btn-secondary,
+.btn-submit {
+  padding: 0.625rem 1.25rem;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  font-size: 0.875rem;
+  cursor: pointer;
+  border: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  transition: all 0.15s;
+}
+
+.btn-primary,
+.btn-submit {
+  background: var(--color-primary);
+  color: white;
+}
+
+.btn-primary:hover:not(:disabled),
+.btn-submit:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+}
+
+.btn-secondary {
+  background: var(--color-surface-elevated);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: var(--color-surface-hover);
+}
+
+.btn-primary:disabled,
+.btn-secondary:disabled,
+.btn-submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-submit {
+  width: 100%;
+  padding: 0.875rem;
+  font-size: 1rem;
+}
+
+.btn-action {
+  flex: 1;
+  padding: 0.5rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all 0.15s;
+}
+
+.btn-action.primary {
+  background: var(--color-primary);
+  color: white;
+}
+
+.btn-action.primary:hover {
+  background: var(--color-primary-hover);
+}
+
+.btn-action.danger {
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+
+.btn-action.danger:hover {
+  background: var(--color-danger);
+  color: white;
+}
+
+/* Spinners */
+.btn-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+.btn-spinner.dark {
+  border-color: rgba(0,0,0,0.1);
+  border-top-color: var(--color-text);
+}
+
+/* Progress Overlay */
+.progress-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.progress-modal {
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  padding: 2rem;
+  text-align: center;
+  max-width: 320px;
+  width: 90%;
+}
+
+.progress-spinner {
+  width: 48px;
+  height: 48px;
+  border: 3px solid var(--color-border);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 1.25rem;
+}
+
+.progress-modal h3 {
+  font-size: 1rem;
+  margin: 0 0 0.25rem;
+}
+
+.progress-modal p {
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+  margin: 0 0 1rem;
+}
+
+.progress-bar {
+  height: 4px;
+  background: var(--color-surface-elevated);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: var(--color-primary);
+  transition: width 0.3s ease;
+}
+
+/* Transitions */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.2s;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+/* Animation */
+.animate-fadeIn {
+  animation: fadeIn 0.25s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 </style>

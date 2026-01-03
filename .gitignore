@@ -55,6 +55,9 @@ frontend/.vite/
 # badge_tool/badge_backups/
 # badge_inbox/badge_backups/
 
+# User data
+backend/data/
+
 # Logs
 *.log
 logs/

@@ -75,12 +75,14 @@ class BadgeAcceptanceManager:
         
         # Sign the event
         ev = Event(
-            kind=event["kind"],
+            public_key=self.recipient_hex,
             content=event["content"],
+            created_at=event["created_at"],
+            kind=event["kind"],
             tags=event["tags"]
         )
         self.recipient_pk.sign_event(ev)
-        
+
         # Return signed event
         return {
             "id": ev.id,
@@ -128,14 +130,16 @@ class BadgeAcceptanceManager:
             "content": "Profile badges: 1 badge displayed",
             "tags": tags
         }
-        
+
         ev = Event(
-            kind=event["kind"],
+            public_key=self.recipient_hex,
             content=event["content"],
+            created_at=event["created_at"],
+            kind=event["kind"],
             tags=event["tags"]
         )
         self.recipient_pk.sign_event(ev)
-        
+
         return {
             "id": ev.id,
             "pubkey": self.recipient_hex,
@@ -666,14 +670,16 @@ To display this badge in your profile, you need to create/update a Profile Badge
             "content": f"Profile badges: {len(badge_pairs)} badges displayed",
             "tags": tags
         }
-        
+
         ev = Event(
-            kind=event["kind"],
+            public_key=self.recipient_hex,
             content=event["content"],
+            created_at=event["created_at"],
+            kind=event["kind"],
             tags=event["tags"]
         )
         self.recipient_pk.sign_event(ev)
-        
+
         return {
             "id": ev.id,
             "pubkey": self.recipient_hex,
