@@ -132,29 +132,32 @@ class ProfileService:
     async def get_profile_badges(self, pubkey: str) -> Dict[str, List[Dict]]:
         """
         Get accepted and pending badges for a pubkey
-        
+
         Note: For pending badges, we need the private key.
         This method only returns accepted (public) badges.
+
+        Returns full badge info including name, description, image,
+        and issuer profile (name, picture).
         """
         try:
             hex_key = KeyService.normalize_pubkey(pubkey)
         except ValueError:
             return {"accepted": [], "pending": []}
-        
+
         # Get accepted badges (kind 30008)
         filter_params = {
             "kinds": [30008],
             "authors": [hex_key],
             "limit": 1
         }
-        
+
         accepted = []
-        
+
         for relay in self.relay_urls:
             events = await self._query_relay(relay, f"badges_{hex_key[:8]}", filter_params)
             if events:
                 tags = events[0].get("tags", [])
-                
+
                 # Parse badge pairs
                 last_a_tag = None
                 for tag in tags:
@@ -164,25 +167,91 @@ class ProfileService:
                         try:
                             _, issuer_hex, identifier = last_a_tag.split(":")
                             issuer_npub = PublicKey(bytes.fromhex(issuer_hex)).bech32()
-                            
-                            badge_name = await self._get_badge_name(issuer_hex, identifier)
-                            
+
+                            # Fetch full badge info (name, description, image)
+                            badge_info = await self._get_badge_info_full(issuer_hex, identifier)
+
+                            # Fetch issuer profile (name, picture)
+                            issuer_info = await self._get_issuer_profile(issuer_hex)
+
                             accepted.append({
                                 "a_tag": last_a_tag,
                                 "award_event_id": tag[1],
-                                "badge_name": badge_name,
+                                "identifier": identifier,
+                                "badge_name": badge_info["name"],
+                                "badge_description": badge_info["description"],
+                                "badge_image": badge_info["image"],
                                 "issuer_hex": issuer_hex,
-                                "issuer_npub": issuer_npub
+                                "issuer_npub": issuer_npub,
+                                "issuer_name": issuer_info["name"],
+                                "issuer_picture": issuer_info["picture"]
                             })
                         except:
                             pass
                         last_a_tag = None
                 break
-        
+
         return {
             "accepted": accepted,
             "pending": []  # Would need private key to check pending
         }
+
+    async def _get_badge_info_full(self, issuer_hex: str, identifier: str) -> Dict[str, str]:
+        """Fetch full badge info (name, description, image) from definition"""
+        filter_params = {
+            "kinds": [30009],
+            "authors": [issuer_hex],
+            "#d": [identifier],
+            "limit": 1
+        }
+
+        result = {
+            "name": "(unknown badge)",
+            "description": "",
+            "image": ""
+        }
+
+        for relay in self.relay_urls[:3]:
+            events = await self._query_relay(relay, f"def_{identifier}", filter_params)
+            if events:
+                for tag in events[0].get("tags", []):
+                    if tag[0] == "name":
+                        result["name"] = tag[1]
+                    elif tag[0] == "description":
+                        result["description"] = tag[1]
+                    elif tag[0] == "image":
+                        result["image"] = tag[1]
+                    elif tag[0] == "thumb" and not result["image"]:
+                        result["image"] = tag[1]
+                break
+
+        return result
+
+    async def _get_issuer_profile(self, pubkey_hex: str) -> Dict[str, str]:
+        """Fetch issuer profile info (name, picture) from kind 0"""
+        filter_params = {
+            "kinds": [0],
+            "authors": [pubkey_hex],
+            "limit": 1
+        }
+
+        result = {
+            "name": "(no name)",
+            "picture": ""
+        }
+
+        for relay in self.relay_urls[:3]:
+            events = await self._query_relay(relay, f"meta_{pubkey_hex[:8]}", filter_params)
+            if events:
+                try:
+                    meta = json.loads(events[0]["content"])
+                    result["name"] = meta.get("name") or meta.get("display_name") or "(no name)"
+                    result["picture"] = meta.get("picture") or ""
+                except:
+                    pass
+                break
+
+        return result
     
     async def _get_badge_name(self, issuer_hex: str, identifier: str) -> str:
         """Fetch badge name from definition"""
@@ -192,7 +261,7 @@ class ProfileService:
             "#d": [identifier],
             "limit": 1
         }
-        
+
         for relay in self.relay_urls[:3]:
             events = await self._query_relay(relay, f"def_{identifier}", filter_params)
             if events:
@@ -200,6 +269,191 @@ class ProfileService:
                     if tag[0] == "name":
                         return tag[1]
                 break
-        
+
         return "(unknown badge)"
+
+    async def get_badge_owners(
+        self,
+        a_tag: str,
+        limit: int = 50,
+        include_profiles: bool = True
+    ) -> Dict[str, Any]:
+        """
+        Discover all users who have accepted a specific badge.
+
+        This queries Nostr relays for kind 30008 (Profile Badges) events
+        that contain the specified badge a_tag.
+
+        Args:
+            a_tag: Badge identifier in format "30009:pubkey:identifier"
+            limit: Maximum number of owners to return
+            include_profiles: Whether to fetch profile metadata for owners
+
+        Returns:
+            Dictionary with:
+            - owners: List of owner info (pubkey, name, picture)
+            - total: Total count of owners found
+            - badge_info: Basic badge information
+        """
+        # Validate a_tag format
+        try:
+            parts = a_tag.split(":")
+            if len(parts) != 3 or parts[0] != "30009":
+                return {"owners": [], "total": 0, "badge_info": None}
+            issuer_hex = parts[1]
+            identifier = parts[2]
+        except Exception:
+            return {"owners": [], "total": 0, "badge_info": None}
+
+        # Query relays for profile badge events containing this a_tag
+        # Kind 30008 events with #a tag matching our badge
+        filter_params = {
+            "kinds": [30008],
+            "#a": [a_tag],
+            "limit": 100  # Get more, we'll dedupe
+        }
+
+        # Collect unique owners from all relays
+        seen_pubkeys = set()
+        owner_pubkeys = []
+
+        for relay in self.relay_urls[:5]:
+            try:
+                events = await self._query_relay(
+                    relay,
+                    f"owners_{identifier[:8]}",
+                    filter_params,
+                    timeout=7
+                )
+
+                for event in events:
+                    pubkey = event.get("pubkey")
+                    if pubkey and pubkey not in seen_pubkeys:
+                        seen_pubkeys.add(pubkey)
+                        owner_pubkeys.append(pubkey)
+
+            except Exception as e:
+                print(f"Error querying relay for owners: {e}")
+                continue
+
+        # Limit results
+        total_count = len(owner_pubkeys)
+        owner_pubkeys = owner_pubkeys[:limit]
+
+        # Build owner list
+        owners = []
+
+        if include_profiles and owner_pubkeys:
+            # Fetch profiles in parallel (batch of 10)
+            for i in range(0, len(owner_pubkeys), 10):
+                batch = owner_pubkeys[i:i+10]
+                profile_tasks = [self._get_owner_profile(pk) for pk in batch]
+                profiles = await asyncio.gather(*profile_tasks, return_exceptions=True)
+
+                for pubkey, profile in zip(batch, profiles):
+                    if isinstance(profile, Exception):
+                        profile = None
+
+                    owners.append({
+                        "pubkey": pubkey,
+                        "npub": KeyService.hex_to_npub(pubkey) if pubkey else None,
+                        "name": profile.get("name") if profile else None,
+                        "display_name": profile.get("display_name") if profile else None,
+                        "picture": profile.get("picture") if profile else None
+                    })
+        else:
+            # Just return pubkeys without profile data
+            for pubkey in owner_pubkeys:
+                try:
+                    npub = KeyService.hex_to_npub(pubkey)
+                except Exception:
+                    npub = None
+
+                owners.append({
+                    "pubkey": pubkey,
+                    "npub": npub,
+                    "name": None,
+                    "display_name": None,
+                    "picture": None
+                })
+
+        # Get basic badge info
+        badge_info = await self._get_badge_info(issuer_hex, identifier)
+
+        return {
+            "owners": owners,
+            "total": total_count,
+            "badge_info": badge_info
+        }
+
+    async def _get_owner_profile(self, pubkey: str) -> Optional[Dict]:
+        """
+        Fetch minimal profile data for an owner.
+        Optimized for speed - only gets name and picture.
+        """
+        filter_params = {
+            "kinds": [0],
+            "authors": [pubkey],
+            "limit": 1
+        }
+
+        # Try just 2 relays for speed
+        for relay in self.relay_urls[:2]:
+            try:
+                events = await self._query_relay(
+                    relay,
+                    f"op_{pubkey[:8]}",
+                    filter_params,
+                    timeout=3
+                )
+                if events:
+                    meta = json.loads(events[0]["content"])
+                    return {
+                        "name": meta.get("name"),
+                        "display_name": meta.get("display_name"),
+                        "picture": meta.get("picture")
+                    }
+            except Exception:
+                continue
+
+        return None
+
+    async def _get_badge_info(self, issuer_hex: str, identifier: str) -> Optional[Dict]:
+        """
+        Fetch basic badge definition info.
+        Returns name, description, and image.
+        """
+        filter_params = {
+            "kinds": [30009],
+            "authors": [issuer_hex],
+            "#d": [identifier],
+            "limit": 1
+        }
+
+        for relay in self.relay_urls[:3]:
+            try:
+                events = await self._query_relay(
+                    relay,
+                    f"bi_{identifier[:8]}",
+                    filter_params,
+                    timeout=5
+                )
+                if events:
+                    tags = events[0].get("tags", [])
+                    info = {"identifier": identifier}
+
+                    for tag in tags:
+                        if len(tag) >= 2:
+                            if tag[0] == "name":
+                                info["name"] = tag[1]
+                            elif tag[0] == "description":
+                                info["description"] = tag[1]
+                            elif tag[0] == "image":
+                                info["image"] = tag[1]
+
+                    return info
+            except Exception:
+                continue
+
+        return None
 

@@ -15,14 +15,16 @@ def sign_event(event_dict, nsec):
     """Sign an unsigned Nostr event using issuer's nsec. Ensures full NIP-01 compliance."""
     pk = PrivateKey.from_nsec(nsec)
 
-    # create event
+    # Create event with public_key (required by nostr library)
     ev = Event(
-        kind=event_dict["kind"],
+        public_key=pk.public_key.hex(),
         content=event_dict["content"],
+        created_at=event_dict.get("created_at", int(time.time())),
+        kind=event_dict["kind"],
         tags=event_dict["tags"]
     )
 
-    # sign
+    # Sign the event
     pk.sign_event(ev)
 
     signature = getattr(ev, "signature", None) or getattr(ev, "sig", None)

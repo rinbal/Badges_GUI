@@ -46,14 +46,20 @@ export const api = {
   validateKey: (nsec) => 
     apiClient.post('/auth/validate', { nsec }),
   
-  // Badges
-  getTemplates: () => 
+  // Badges - Templates
+  getAppTemplates: () =>
+    apiClient.get('/badges/templates/app'),
+
+  getUserTemplates: () =>
+    apiClient.get('/badges/templates/user'),
+
+  getTemplates: () =>
     apiClient.get('/badges/templates'),
-  
-  createTemplate: (template) => 
+
+  createTemplate: (template) =>
     apiClient.post('/badges/templates', template),
-  
-  deleteTemplate: (identifier) => 
+
+  deleteTemplate: (identifier) =>
     apiClient.delete(`/badges/templates/${identifier}`),
   
   createDefinition: (badge) => 

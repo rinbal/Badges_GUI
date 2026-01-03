@@ -42,6 +42,10 @@ export const useUIStore = defineStore('ui', () => {
     return showToast(message, 'info')
   }
 
+  function showWarning(message) {
+    return showToast(message, 'warning', 6000)
+  }
+
   // Modal state
   const activeModal = ref(null)
   const modalData = ref(null)
@@ -64,6 +68,7 @@ export const useUIStore = defineStore('ui', () => {
     showSuccess,
     showError,
     showInfo,
+    showWarning,
     // Modal
     activeModal,
     modalData,

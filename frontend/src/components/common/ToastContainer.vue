@@ -28,6 +28,7 @@ function getIcon(type) {
   switch (type) {
     case 'success': return '✓'
     case 'error': return '✕'
+    case 'warning': return '!'
     case 'info': return 'ℹ'
     default: return '•'
   }
@@ -73,6 +74,10 @@ function getIcon(type) {
   border-left: 4px solid var(--color-primary);
 }
 
+.toast-warning {
+  border-left: 4px solid var(--color-warning);
+}
+
 .toast-icon {
   font-size: 1.25rem;
   font-weight: 600;
@@ -88,6 +93,10 @@ function getIcon(type) {
 
 .toast-info .toast-icon {
   color: var(--color-primary);
+}
+
+.toast-warning .toast-icon {
+  color: var(--color-warning);
 }
 
 .toast-message {

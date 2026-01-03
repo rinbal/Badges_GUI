@@ -1,0 +1,12 @@
+{
+  "timestamp": 1767370337,
+  "event_id": "960a75fa531342536e282f896d4517c3b232203cb4e6b75ca1b12e404bb0adeb",
+  "recipient_hex": "f3ce3174747eacbac5dd2acdb464acaf31ade4599549a67e42ddad507f631e02",
+  "badge_pairs": [
+    [
+      "30009:dcfd1eb10a8e48ca33d898a088695a58665c71a5639e99a4dfdb33cd5baed2ae:badgecreator",
+      "091093ebc29f04ced18dc6957cbc30753a62f5df5bd0ec284e6e6efbbef3d510"
+    ]
+  ],
+  "total_badges": 1
+}

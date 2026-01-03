@@ -45,10 +45,23 @@ class Settings(BaseSettings):
             ]
     
     @property
-    def badge_definitions_path(self) -> Path:
-        """Path to badge definition templates"""
+    def app_templates_path(self) -> Path:
+        """Path to app-provided badge templates (read-only)"""
         return self.badge_tool_path / "badges" / "definitions"
-    
+
+    @property
+    def user_templates_path(self) -> Path:
+        """Path to user-created badge templates"""
+        path = self.project_root / "backend" / "data" / "user_templates"
+        path.mkdir(parents=True, exist_ok=True)
+        return path
+
+    # Backward compatibility
+    @property
+    def badge_definitions_path(self) -> Path:
+        """Deprecated: Use app_templates_path or user_templates_path"""
+        return self.app_templates_path
+
     class Config:
         env_file = ".env"
 

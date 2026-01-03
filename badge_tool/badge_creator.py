@@ -58,19 +58,13 @@ class BadgeCreator:
             for thumb in badge_data["thumb"]:
                 tags.append(["thumb", thumb])
         
-        # Create event
-        event = {
-            "kind": 30009,
-            "created_at": int(time.time()),
-            "content": f"Badge definition: {badge_data.get('name', identifier)}",
-            "tags": tags
-        }
-        
-        # Sign event
+        # Create and sign event
         ev = Event(
-            kind=event["kind"],
-            content=event["content"],
-            tags=event["tags"]
+            public_key=self.issuer_hex,
+            content=f"Badge definition: {badge_data.get('name', identifier)}",
+            created_at=int(time.time()),
+            kind=30009,
+            tags=tags
         )
         self.issuer_pk.sign_event(ev)
         
@@ -98,24 +92,18 @@ class BadgeCreator:
         """
         # Create NIP-58 compliant tags
         tags = [["a", badge_definition_a_tag]]
-        
-        # Add recipient pubkeys
+
+        # Add recipient pubkeys (must be hex format)
         for pubkey in recipient_pubkeys:
             tags.append(["p", pubkey])
-        
-        # Create event
-        event = {
-            "kind": 8,
-            "created_at": int(time.time()),
-            "content": f"Awarded badge to {len(recipient_pubkeys)} recipient(s)",
-            "tags": tags
-        }
-        
-        # Sign event
+
+        # Create and sign event
         ev = Event(
-            kind=event["kind"],
-            content=event["content"],
-            tags=event["tags"]
+            public_key=self.issuer_hex,
+            content=f"Awarded badge to {len(recipient_pubkeys)} recipient(s)",
+            created_at=int(time.time()),
+            kind=8,
+            tags=tags
         )
         self.issuer_pk.sign_event(ev)
         
@@ -133,80 +121,92 @@ class BadgeCreator:
     async def publish_badge_definition(self, badge_data: Dict[str, Any], relay_urls: List[str]) -> Dict[str, Any]:
         """
         Create and publish a Badge Definition event
-        
+
         Returns:
             Result dictionary with status and event information
+
+        Success is determined by at least one relay accepting the event.
         """
         print(f"🏗️ Creating badge definition: {badge_data.get('name', badge_data['identifier'])}")
-        
+
         # Create badge definition
         definition_event = self.create_badge_definition(badge_data)
-        
+
         # Publish to relays
         relay_manager = RelayManager()
         results = await relay_manager.publish_event(definition_event, relay_urls)
         relay_manager.print_summary()
-        
-        # Check results
+
+        # Check results - success if published to at least one relay
+        published_count = sum(1 for r in results if r.published or r.verified)
         verified_count = sum(1 for r in results if r.verified)
-        
-        if verified_count > 0:
-            print(f"✅ Badge definition published and verified on {verified_count} relay(s)")
+
+        if published_count > 0:
+            print(f"✅ Badge definition delivered to {published_count} relay(s) ({verified_count} verified)")
             return {
                 "status": "success",
                 "event": definition_event,
+                "published_relays": published_count,
                 "verified_relays": verified_count,
                 "a_tag": f"30009:{self.issuer_hex}:{badge_data['identifier']}"
             }
         else:
-            print("⚠️ Badge definition published but not yet verified")
+            print("❌ Badge definition could not be delivered to any relay")
             return {
-                "status": "published_unverified",
+                "status": "failed",
                 "event": definition_event,
+                "published_relays": 0,
                 "verified_relays": 0,
-                "a_tag": f"30009:{self.issuer_hex}:{badge_data['identifier']}"
+                "a_tag": f"30009:{self.issuer_hex}:{badge_data['identifier']}",
+                "error": "No relay accepted the event"
             }
     
     async def award_badge(self, badge_definition_a_tag: str, recipient_pubkeys: List[str], relay_urls: List[str]) -> Dict[str, Any]:
         """
         Create and publish a Badge Award event
-        
+
         Args:
             badge_definition_a_tag: The 'a' tag from Badge Definition
             recipient_pubkeys: List of recipient pubkeys (hex format)
             relay_urls: List of relay URLs to publish to
-        
+
         Returns:
             Result dictionary with status and event information
+
+        Success is determined by at least one relay accepting the event.
         """
         print(f"🏅 Awarding badge to {len(recipient_pubkeys)} recipient(s)")
-        
+
         # Create badge award
         award_event = self.create_badge_award(badge_definition_a_tag, recipient_pubkeys)
-        
+
         # Publish to relays
         relay_manager = RelayManager()
         results = await relay_manager.publish_event(award_event, relay_urls)
         relay_manager.print_summary()
-        
-        # Check results
+
+        # Check results - success if published to at least one relay
+        published_count = sum(1 for r in results if r.published or r.verified)
         verified_count = sum(1 for r in results if r.verified)
-        
-        if verified_count > 0:
-            print(f"✅ Badge award published and verified on {verified_count} relay(s)")
+
+        if published_count > 0:
+            print(f"✅ Badge award delivered to {published_count} relay(s) ({verified_count} verified)")
             return {
                 "status": "success",
                 "event": award_event,
+                "published_relays": published_count,
                 "verified_relays": verified_count,
                 "recipients": recipient_pubkeys
             }
         else:
-            print("⚠️ Badge award published but not yet verified")
+            print("❌ Badge award could not be delivered to any relay")
             return {
-                "status": "published_unverified",
+                "status": "failed",
                 "event": award_event,
+                "published_relays": 0,
                 "verified_relays": 0,
-                "recipients": recipient_pubkeys
+                "recipients": recipient_pubkeys,
+                "error": "No relay accepted the event"
             }
     
     def get_issuer_info(self) -> Dict[str, str]:

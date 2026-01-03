@@ -1,160 +1,207 @@
 <template>
-  <div class="inbox">
+  <div class="inbox-page">
+    <!-- Page Header -->
     <header class="page-header">
-      <div class="header-top">
-        <div class="header-text">
-          <h1>📬 Badge Inbox</h1>
-          <p>Manage your received badges</p>
-        </div>
-        <button 
-          @click="refreshBadges"
-          class="refresh-btn"
-          :disabled="badgesStore.isLoading"
-          title="Refresh"
-        >
-          <span :class="['refresh-icon', { spinning: badgesStore.isLoading }]">🔄</span>
-        </button>
-      </div>
+      <h1>My Badges</h1>
+      <p class="subtitle">Manage pending badges and your collection</p>
     </header>
-    
-    <!-- Tabs -->
-    <div class="tabs">
-      <button 
-        :class="['tab', { active: activeTab === 'pending' }]"
+
+    <!-- Navigation Tabs -->
+    <nav class="nav-tabs">
+      <button
+        :class="['nav-tab', { active: activeTab === 'pending' }]"
         @click="activeTab = 'pending'"
       >
-        <span class="tab-icon">⏳</span>
-        <span class="tab-text">Pending Badges</span>
-        <span v-if="badgesStore.pendingCount > 0" class="tab-count">
+        <span class="tab-icon">📬</span>
+        <span class="tab-label">Pending</span>
+        <span v-if="badgesStore.pendingCount > 0" class="tab-badge pending">
           {{ badgesStore.pendingCount }}
         </span>
       </button>
-      <button 
-        :class="['tab', { active: activeTab === 'accepted' }]"
-        @click="activeTab = 'accepted'"
+
+      <button
+        :class="['nav-tab', { active: activeTab === 'collection' }]"
+        @click="activeTab = 'collection'"
       >
-        <span class="tab-icon">✓</span>
-        <span class="tab-text">Accepted Badges</span>
-        <span v-if="badgesStore.acceptedCount > 0" class="tab-count accepted">
+        <span class="tab-icon">🏆</span>
+        <span class="tab-label">Collection</span>
+        <span v-if="badgesStore.acceptedCount > 0" class="tab-badge collection">
           {{ badgesStore.acceptedCount }}
         </span>
       </button>
-    </div>
-    
-    <!-- Content -->
-    <div class="inbox-content">
-      <!-- Loading State with Skeletons -->
-      <div v-if="badgesStore.isLoading" class="badge-list">
-        <BadgeCardSkeleton v-for="n in 3" :key="n" />
-      </div>
-      
-      <!-- Pending Tab -->
-      <template v-else-if="activeTab === 'pending'">
-        <div v-if="badgesStore.pendingBadges.length === 0" class="empty-state">
-          <div class="empty-illustration">📭</div>
-          <h3>No pending badges</h3>
-          <p>
-            When someone awards you a badge, it will appear here 
-            for you to accept.
-          </p>
-          <div class="empty-cta">
-            <router-link to="/creator" class="btn btn-primary">
-              ✨ Create a badge yourself
-            </router-link>
-            <p class="cta-hint">Award badges to others on Nostr</p>
-          </div>
+
+      <!-- Refresh Button -->
+      <button
+        class="refresh-btn"
+        :disabled="badgesStore.isLoading"
+        @click="refreshBadges"
+        title="Refresh badges"
+      >
+        <span :class="{ spinning: badgesStore.isLoading }">🔄</span>
+      </button>
+    </nav>
+
+    <!-- Content Area -->
+    <main class="content">
+      <!-- ========================================
+           PENDING TAB
+           Badges awaiting acceptance
+           ======================================== -->
+      <section v-if="activeTab === 'pending'" class="tab-content animate-fadeIn">
+        <!-- Loading State -->
+        <div v-if="badgesStore.isLoading" class="pending-list">
+          <PendingBadgeSkeleton v-for="n in 2" :key="n" />
         </div>
-        <div v-else class="badge-list">
-          <BadgeCard
+
+        <!-- Empty State -->
+        <div v-else-if="badgesStore.pendingCount === 0" class="empty-state">
+          <div class="empty-icon">📭</div>
+          <h3>No pending badges</h3>
+          <p>When someone awards you a badge, it will appear here for you to accept.</p>
+          <router-link to="/creator" class="btn-primary">
+            Create a Badge
+          </router-link>
+        </div>
+
+        <!-- Pending Badges List -->
+        <div v-else class="pending-list">
+          <PendingBadgeCard
             v-for="badge in badgesStore.pendingBadges"
             :key="badge.award_event_id"
             :badge="badge"
-            :is-pending="true"
-            :loading="loadingBadge === badge.award_event_id"
-            @click="openBadgeDetail(badge, true)"
+            :loading="loadingBadgeId === badge.award_event_id"
             @accept="handleAccept"
+            @view="openBadgeDetail"
           />
         </div>
-      </template>
-      
-      <!-- Accepted Tab -->
-      <template v-else>
-        <div v-if="badgesStore.acceptedBadges.length === 0" class="empty-state">
-          <div class="empty-illustration">🏅</div>
-          <h3>No badges in your collection</h3>
-          <p>
-            Accept pending badges to add them here. They'll be 
-            visible on your Nostr profile.
-          </p>
-          <div class="empty-cta">
-            <button 
-              v-if="badgesStore.pendingCount > 0"
-              @click="activeTab = 'pending'" 
-              class="btn btn-primary"
-            >
-              📬 View {{ badgesStore.pendingCount }} pending badge{{ badgesStore.pendingCount > 1 ? 's' : '' }}
-            </button>
-            <router-link v-else to="/creator" class="btn btn-primary">
-              ✨ Create your first badge
-            </router-link>
-            <p class="cta-hint">
-              {{ badgesStore.pendingCount > 0 
-                ? 'Accept badges to display them on your profile' 
-                : 'Start by creating badges for your community' 
-              }}
-            </p>
-          </div>
+      </section>
+
+      <!-- ========================================
+           COLLECTION TAB
+           Accepted badges displayed in grid
+           ======================================== -->
+      <section v-else-if="activeTab === 'collection'" class="tab-content animate-fadeIn">
+        <!-- Loading State -->
+        <div v-if="badgesStore.isLoading" class="collection-grid">
+          <CollectionBadgeSkeleton v-for="n in 6" :key="n" />
         </div>
-        <div v-else class="badge-list">
-          <BadgeCard
+
+        <!-- Empty State -->
+        <div v-else-if="badgesStore.acceptedCount === 0" class="empty-state">
+          <div class="empty-icon">🏅</div>
+          <h3>Your collection is empty</h3>
+          <p>Accept badges from the Pending tab to add them to your collection.</p>
+          <button
+            v-if="badgesStore.pendingCount > 0"
+            class="btn-primary"
+            @click="activeTab = 'pending'"
+          >
+            View {{ badgesStore.pendingCount }} Pending
+          </button>
+          <router-link v-else to="/creator" class="btn-primary">
+            Create Your First Badge
+          </router-link>
+        </div>
+
+        <!-- Collection Grid -->
+        <div v-else class="collection-grid">
+          <CollectionBadgeCard
             v-for="badge in badgesStore.acceptedBadges"
             :key="badge.award_event_id"
             :badge="badge"
-            :is-pending="false"
-            :loading="loadingBadge === badge.award_event_id"
-            @click="openBadgeDetail(badge, false)"
-            @remove="handleRemove"
+            @click="openBadgeDetail(badge)"
           />
         </div>
-      </template>
-    </div>
-    
-    <!-- Badge Detail Modal -->
-    <BadgeDetailModal
-      :is-open="showDetailModal"
+
+        <!-- Collection Stats (shown when badges exist) -->
+        <div v-if="badgesStore.acceptedCount > 0" class="collection-stats">
+          <span class="stat-text">
+            {{ badgesStore.acceptedCount }} badge{{ badgesStore.acceptedCount !== 1 ? 's' : '' }} in your collection
+          </span>
+        </div>
+      </section>
+    </main>
+
+    <!-- ========================================
+         BADGE DETAIL PANEL (Slide-over)
+         Shows detailed badge info and actions
+         ======================================== -->
+    <BadgeDetailPanel
       :badge="selectedBadge"
+      :is-open="showDetailPanel"
       :is-pending="selectedBadgeIsPending"
-      :loading="loadingBadge === selectedBadge?.award_event_id"
-      @close="closeDetailModal"
-      @accept="handleAcceptFromModal"
-      @remove="handleRemoveFromModal"
+      :loading="loadingBadgeId === selectedBadge?.award_event_id"
+      @close="closeDetailPanel"
+      @accept="handleAcceptFromPanel"
+      @remove="handleRemoveFromPanel"
     />
   </div>
 </template>
 
 <script setup>
+/**
+ * InboxView - Badge management page
+ *
+ * Displays two main sections:
+ * 1. Pending - Badges awaiting user acceptance
+ * 2. Collection - Accepted badges displayed in a grid
+ *
+ * Features:
+ * - Responsive grid layout for collection
+ * - Detail panel for viewing full badge info
+ * - Loading skeletons for better UX
+ * - Empty states with CTAs
+ */
+
 import { ref, onMounted } from 'vue'
 import { useBadgesStore } from '@/stores/badges'
 import { useUIStore } from '@/stores/ui'
-import BadgeCard from '@/components/badges/BadgeCard.vue'
-import BadgeCardSkeleton from '@/components/badges/BadgeCardSkeleton.vue'
-import BadgeDetailModal from '@/components/badges/BadgeDetailModal.vue'
 
+// Components
+import PendingBadgeCard from '@/components/badges/PendingBadgeCard.vue'
+import PendingBadgeSkeleton from '@/components/badges/PendingBadgeSkeleton.vue'
+import CollectionBadgeCard from '@/components/badges/CollectionBadgeCard.vue'
+import CollectionBadgeSkeleton from '@/components/badges/CollectionBadgeSkeleton.vue'
+import BadgeDetailPanel from '@/components/badges/BadgeDetailPanel.vue'
+
+// Stores
 const badgesStore = useBadgesStore()
 const uiStore = useUIStore()
 
-const activeTab = ref('pending')
-const loadingBadge = ref(null)
+// ===========================================
+// State
+// ===========================================
 
-// Modal state
-const showDetailModal = ref(false)
+/** Active tab: 'pending' | 'collection' */
+const activeTab = ref('pending')
+
+/** Currently loading badge ID (for button states) */
+const loadingBadgeId = ref(null)
+
+/** Selected badge for detail panel */
 const selectedBadge = ref(null)
+
+/** Whether detail panel is visible */
+const showDetailPanel = ref(false)
+
+/** Whether selected badge is pending */
 const selectedBadgeIsPending = ref(false)
+
+// ===========================================
+// Lifecycle
+// ===========================================
 
 onMounted(() => {
   refreshBadges()
 })
 
+// ===========================================
+// Data Fetching
+// ===========================================
+
+/**
+ * Refresh both pending and accepted badges
+ */
 async function refreshBadges() {
   await Promise.all([
     badgesStore.fetchPendingBadges(),
@@ -162,106 +209,188 @@ async function refreshBadges() {
   ])
 }
 
-function openBadgeDetail(badge, isPending) {
+// ===========================================
+// Detail Panel
+// ===========================================
+
+/**
+ * Open the badge detail panel
+ * @param {Object} badge - Badge to display
+ * @param {boolean} isPending - Whether badge is pending
+ */
+function openBadgeDetail(badge, isPending = false) {
   selectedBadge.value = badge
   selectedBadgeIsPending.value = isPending
-  showDetailModal.value = true
+  showDetailPanel.value = true
 }
 
-function closeDetailModal() {
-  showDetailModal.value = false
-  selectedBadge.value = null
+/**
+ * Close the detail panel
+ */
+function closeDetailPanel() {
+  showDetailPanel.value = false
+  // Delay clearing to allow animation
+  setTimeout(() => {
+    selectedBadge.value = null
+  }, 300)
 }
 
+// ===========================================
+// Badge Actions
+// ===========================================
+
+/**
+ * Accept a pending badge
+ * @param {Object} badge - Badge to accept
+ */
 async function handleAccept(badge) {
-  loadingBadge.value = badge.award_event_id
-  
+  loadingBadgeId.value = badge.award_event_id
+
   const result = await badgesStore.acceptBadge(badge.a_tag, badge.award_event_id)
-  
-  loadingBadge.value = null
-  
+
+  loadingBadgeId.value = null
+
   if (result.success) {
-    uiStore.showSuccess(`Great! "${badge.badge_name}" is now part of your collection 🎉`)
+    uiStore.showSuccess(`"${badge.badge_name}" added to your collection`)
   } else {
-    uiStore.showError(result.error || "Something went wrong. Please try again in a moment.")
+    uiStore.showError(result.error || 'Could not accept badge. Please try again.')
   }
 }
 
-async function handleAcceptFromModal(badge) {
+/**
+ * Accept badge from detail panel
+ */
+async function handleAcceptFromPanel(badge) {
   await handleAccept(badge)
-  if (loadingBadge.value === null) {
-    closeDetailModal()
+  if (loadingBadgeId.value === null) {
+    closeDetailPanel()
   }
 }
 
+/**
+ * Remove a badge from collection
+ * @param {Object} badge - Badge to remove
+ */
 async function handleRemove(badge) {
-  if (!confirm(`Remove "${badge.badge_name}" from your profile?\n\nYou can always accept it again later if you change your mind.`)) {
-    return
-  }
-  
-  loadingBadge.value = badge.award_event_id
-  
+  loadingBadgeId.value = badge.award_event_id
+
   const result = await badgesStore.removeBadge(badge.a_tag, badge.award_event_id)
-  
-  loadingBadge.value = null
-  
+
+  loadingBadgeId.value = null
+
   if (result.success) {
-    uiStore.showInfo(`"${badge.badge_name}" has been removed from your profile`)
+    uiStore.showInfo(`"${badge.badge_name}" removed from your collection`)
   } else {
-    uiStore.showError(result.error || "Couldn't remove the badge right now. Please try again.")
+    uiStore.showError(result.error || 'Could not remove badge. Please try again.')
   }
 }
 
-async function handleRemoveFromModal(badge) {
-  if (!confirm(`Remove "${badge.badge_name}" from your profile?\n\nYou can always accept it again later if you change your mind.`)) {
+/**
+ * Remove badge from detail panel (with confirmation)
+ */
+async function handleRemoveFromPanel(badge) {
+  if (!confirm(`Remove "${badge.badge_name}" from your collection?\n\nYou can accept it again later.`)) {
     return
   }
-  
-  loadingBadge.value = badge.award_event_id
-  
-  const result = await badgesStore.removeBadge(badge.a_tag, badge.award_event_id)
-  
-  loadingBadge.value = null
-  
-  if (result.success) {
-    uiStore.showInfo(`"${badge.badge_name}" has been removed from your profile`)
-    closeDetailModal()
-  } else {
-    uiStore.showError(result.error || "Couldn't remove the badge right now. Please try again.")
+
+  await handleRemove(badge)
+  if (loadingBadgeId.value === null) {
+    closeDetailPanel()
   }
 }
 </script>
 
 <style scoped>
-.inbox {
-  max-width: 800px;
+/* ===========================================
+   Layout
+   =========================================== */
+.inbox-page {
+  max-width: 1000px;
   margin: 0 auto;
+  padding-bottom: 4rem;
 }
 
+/* ===========================================
+   Page Header
+   =========================================== */
 .page-header {
+  text-align: center;
   margin-bottom: 2rem;
 }
 
-.header-top {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
-.header-text h1 {
+.page-header h1 {
   font-size: 2rem;
-  font-weight: 700;
-  color: var(--color-text);
-  margin: 0 0 0.5rem 0;
+  margin: 0 0 0.5rem;
 }
 
-.header-text p {
+.subtitle {
   color: var(--color-text-muted);
   margin: 0;
 }
 
+/* ===========================================
+   Navigation Tabs
+   =========================================== */
+.nav-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+  padding: 0 0.5rem;
+}
+
+.nav-tab {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.25rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  transition: all 0.2s;
+}
+
+.nav-tab:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+}
+
+.nav-tab.active {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: white;
+}
+
+.tab-icon {
+  font-size: 1rem;
+}
+
+.tab-badge {
+  padding: 0.125rem 0.5rem;
+  border-radius: var(--radius-full);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.nav-tab:not(.active) .tab-badge.pending {
+  background: var(--color-warning);
+  color: white;
+}
+
+.nav-tab:not(.active) .tab-badge.collection {
+  background: var(--color-success);
+  color: white;
+}
+
+.nav-tab.active .tab-badge {
+  background: rgba(255, 255, 255, 0.25);
+}
+
 .refresh-btn {
+  margin-left: auto;
   width: 44px;
   height: 44px;
   display: flex;
@@ -270,28 +399,22 @@ async function handleRemoveFromModal(badge) {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  color: var(--color-text);
   cursor: pointer;
-  transition: all 0.2s ease;
-  flex-shrink: 0;
+  font-size: 1.125rem;
+  transition: all 0.2s;
 }
 
 .refresh-btn:hover:not(:disabled) {
-  background: var(--color-surface-hover);
   border-color: var(--color-primary);
 }
 
 .refresh-btn:disabled {
-  opacity: 0.7;
+  opacity: 0.6;
   cursor: not-allowed;
 }
 
-.refresh-icon {
-  font-size: 1.25rem;
+.spinning {
   display: inline-block;
-}
-
-.refresh-icon.spinning {
   animation: spin 1s linear infinite;
 }
 
@@ -299,142 +422,133 @@ async function handleRemoveFromModal(badge) {
   to { transform: rotate(360deg); }
 }
 
-/* Tabs */
-.tabs {
-  display: flex;
-  gap: 0.5rem;
-  margin-bottom: 1.5rem;
-}
-
-.tab {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1.25rem;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  color: var(--color-text-muted);
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.tab:hover {
-  background: var(--color-surface-hover);
-  color: var(--color-text);
-}
-
-.tab.active {
-  background: var(--color-primary);
-  color: white;
-  border-color: var(--color-primary);
-}
-
-.tab-icon {
-  font-size: 1rem;
-}
-
-.tab-count {
-  background: rgba(255, 255, 255, 0.2);
-  padding: 0.125rem 0.5rem;
-  border-radius: 999px;
-  font-size: 0.75rem;
-  font-weight: 600;
-}
-
-.tab:not(.active) .tab-count {
-  background: var(--color-accent);
-  color: white;
-}
-
-.tab:not(.active) .tab-count.accepted {
-  background: var(--color-success);
-}
-
-/* Content */
-.inbox-content {
+/* ===========================================
+   Tab Content
+   =========================================== */
+.tab-content {
   min-height: 300px;
 }
 
-.badge-list {
+.animate-fadeIn {
+  animation: fadeIn 0.25s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ===========================================
+   Pending List
+   =========================================== */
+.pending-list {
   display: flex;
   flex-direction: column;
   gap: 1rem;
 }
 
-/* Empty State */
+/* ===========================================
+   Collection Grid
+   Responsive grid that scales from 1-4 columns
+   =========================================== */
+.collection-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+/* Larger cards on wider screens */
+@media (min-width: 768px) {
+  .collection-grid {
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 1.25rem;
+  }
+}
+
+/* ===========================================
+   Collection Stats
+   =========================================== */
+.collection-stats {
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--color-border);
+  text-align: center;
+}
+
+.stat-text {
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+}
+
+/* ===========================================
+   Empty State
+   =========================================== */
 .empty-state {
   text-align: center;
-  padding: 3rem 2rem;
+  padding: 4rem 2rem;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
 }
 
-.empty-illustration {
+.empty-icon {
   font-size: 4rem;
   margin-bottom: 1rem;
-  display: block;
 }
 
 .empty-state h3 {
   font-size: 1.25rem;
-  font-weight: 600;
-  color: var(--color-text);
-  margin: 0 0 0.75rem 0;
+  margin: 0 0 0.5rem;
 }
 
-.empty-state > p {
+.empty-state p {
   color: var(--color-text-muted);
-  margin: 0 auto;
-  max-width: 320px;
-  line-height: 1.6;
+  margin: 0 0 1.5rem;
+  max-width: 300px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
-/* Empty State CTA */
-.empty-cta {
-  margin-top: 2rem;
-  padding-top: 2rem;
-  border-top: 1px solid var(--color-border);
-}
-
-.empty-cta .btn {
+.btn-primary {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.875rem 1.5rem;
-  border-radius: var(--radius-md);
-  font-weight: 600;
-  text-decoration: none;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  border: none;
-}
-
-.empty-cta .btn-primary {
+  padding: 0.75rem 1.5rem;
   background: var(--color-primary);
   color: white;
+  border: none;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  font-size: 0.9375rem;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.15s;
 }
 
-.empty-cta .btn-primary:hover {
+.btn-primary:hover {
   background: var(--color-primary-hover);
-  transform: translateY(-2px);
 }
 
-.cta-hint {
-  margin: 0.75rem 0 0 0;
-  font-size: 0.8125rem;
-  color: var(--color-text-subtle);
-}
-
+/* ===========================================
+   Mobile Responsive
+   =========================================== */
 @media (max-width: 640px) {
-  .tab-text {
+  .nav-tabs {
+    flex-wrap: wrap;
+  }
+
+  .nav-tab {
+    flex: 1;
+    min-width: 120px;
+    justify-content: center;
+  }
+
+  .tab-label {
     display: none;
   }
-  
-  .tab {
-    padding: 0.75rem 1rem;
+
+  .refresh-btn {
+    width: 44px;
   }
 }
 </style>
