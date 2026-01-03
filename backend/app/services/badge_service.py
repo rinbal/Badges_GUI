@@ -185,6 +185,47 @@ class BadgeService:
             print(f"Error deleting template: {e}")
             return False, "Failed to delete template"
     
+    async def publish_signed_event(self, signed_event: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Publish a pre-signed event (from NIP-07) to relays.
+        No signing needed - just validate and publish.
+        """
+        try:
+            print(f"  → Publishing pre-signed event (kind {signed_event.get('kind')}) to {len(self.relay_urls)} relays")
+
+            relay_manager = RelayManager()
+            results = await relay_manager.publish_event(signed_event, self.relay_urls)
+            relay_manager.print_summary()
+
+            published_count = sum(1 for r in results if r.published or r.verified)
+            verified_count = sum(1 for r in results if r.verified)
+
+            if published_count > 0:
+                print(f"  ✅ Pre-signed event delivered to {published_count} relay(s)")
+                return {
+                    "success": True,
+                    "event_id": signed_event.get("id"),
+                    "published_relays": published_count,
+                    "verified_relays": verified_count
+                }
+            else:
+                print("  ❌ Pre-signed event could not be delivered to any relay")
+                return {
+                    "success": False,
+                    "event_id": signed_event.get("id"),
+                    "published_relays": 0,
+                    "verified_relays": 0,
+                    "error": "No relay accepted the event"
+                }
+        except Exception as e:
+            print(f"  ❌ Exception publishing signed event: {e}")
+            import traceback
+            traceback.print_exc()
+            return {
+                "success": False,
+                "error": str(e)
+            }
+
     async def create_definition(self, badge_data: Dict[str, Any]) -> Dict[str, Any]:
         """Create and publish a badge definition (kind 30009)"""
         try:
