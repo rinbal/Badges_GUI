@@ -47,6 +47,30 @@ def get_nsec_from_header(x_nsec: Optional[str], required: bool = True) -> Option
     return x_nsec
 
 
+def get_auth_context(x_nsec: Optional[str], x_pubkey: Optional[str]) -> tuple:
+    """
+    Get authentication context from headers.
+    Returns (nsec, pubkey_hex, is_nip07)
+
+    For NIP-07: X-Pubkey header provides the user's pubkey
+    For nsec: X-Nsec header provides the private key (pubkey derived)
+    """
+    if x_pubkey:
+        # NIP-07 flow: pubkey provided directly
+        if len(x_pubkey) != 64 or not all(c in '0123456789abcdef' for c in x_pubkey.lower()):
+            raise HTTPException(status_code=400, detail="Invalid X-Pubkey format (must be 64-char hex)")
+        return None, x_pubkey, True
+
+    if x_nsec:
+        # nsec flow: derive pubkey from nsec
+        is_valid, key_info, error = KeyService.validate_nsec(x_nsec)
+        if not is_valid:
+            raise HTTPException(status_code=401, detail=f"Invalid key: {error}")
+        return x_nsec, key_info["hex"], False
+
+    raise HTTPException(status_code=401, detail="Missing authentication (X-Nsec or X-Pubkey header)")
+
+
 def get_badge_service_for_publish() -> BadgeService:
     """Get a BadgeService instance for publish-only operations (NIP-07 flow)"""
     # Use a dummy nsec since we won't be signing - just publishing
@@ -133,16 +157,17 @@ async def get_templates():
 @router.post("/templates", response_model=BadgeTemplateResponse)
 async def create_template(
     request: CreateBadgeTemplateRequest,
-    x_nsec: Optional[str] = Header(None)
+    x_nsec: Optional[str] = Header(None),
+    x_pubkey: Optional[str] = Header(None)
 ):
     """
     Create a new user badge template
 
     Saves the template to a JSON file for later use.
     Cannot use identifiers reserved by app templates.
-    Requires authentication.
+    Requires authentication (X-Nsec or X-Pubkey header).
     """
-    get_nsec_from_header(x_nsec)  # Validate auth
+    get_auth_context(x_nsec, x_pubkey)  # Validate auth (either method)
 
     success, error = BadgeService.save_template(request.model_dump())
 
@@ -155,16 +180,17 @@ async def create_template(
 @router.delete("/templates/{identifier}")
 async def delete_template(
     identifier: str,
-    x_nsec: Optional[str] = Header(None)
+    x_nsec: Optional[str] = Header(None),
+    x_pubkey: Optional[str] = Header(None)
 ):
     """
     Delete a user badge template
 
     Removes the template JSON file.
     App templates cannot be deleted.
-    Requires authentication.
+    Requires authentication (X-Nsec or X-Pubkey header).
     """
-    get_nsec_from_header(x_nsec)  # Validate auth
+    get_auth_context(x_nsec, x_pubkey)  # Validate auth (either method)
 
     success, error = BadgeService.delete_template(identifier)
 

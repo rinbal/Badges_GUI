@@ -3,46 +3,56 @@
     <section class="hero">
       <div class="hero-content">
         <h1 class="hero-title">
-          <span class="hero-icon">🏅</span>
+          <Icon name="award" size="xl" class="hero-icon" />
           Nostr Badges
         </h1>
         <p class="hero-subtitle">
           Create, award, and collect badges on the decentralized Nostr network.
           No databases, no middlemen — just cryptographic proof.
         </p>
-        
+
         <div class="hero-actions">
           <router-link to="/creator" class="btn btn-primary btn-lg">
-            ✨ Create Badges
+            <Icon name="sparkles" size="md" />
+            <span>Create Badges</span>
           </router-link>
           <router-link to="/inbox" class="btn btn-secondary btn-lg">
-            📬 My Inbox
+            <Icon name="inbox" size="md" />
+            <span>My Inbox</span>
           </router-link>
         </div>
       </div>
     </section>
-    
+
     <section class="features">
       <div class="feature-card">
-        <div class="feature-icon">🎨</div>
+        <div class="feature-icon">
+          <Icon name="edit" size="lg" />
+        </div>
         <h3>Create</h3>
         <p>Design custom badges and publish them to the Nostr network</p>
       </div>
-      
+
       <div class="feature-card">
-        <div class="feature-icon">🎯</div>
+        <div class="feature-icon">
+          <Icon name="send" size="lg" />
+        </div>
         <h3>Award</h3>
         <p>Award badges to any Nostr user by their public key</p>
       </div>
-      
+
       <div class="feature-card">
-        <div class="feature-icon">✅</div>
+        <div class="feature-icon">
+          <Icon name="check-circle" size="lg" />
+        </div>
         <h3>Accept</h3>
         <p>Accept badges and display them on your Nostr profile</p>
       </div>
-      
+
       <div class="feature-card">
-        <div class="feature-icon">🔐</div>
+        <div class="feature-icon">
+          <Icon name="shield" size="lg" />
+        </div>
         <h3>Secure</h3>
         <p>Everything is cryptographically signed and verifiable</p>
       </div>
@@ -72,8 +82,26 @@
         </div>
       </div>
     </section>
+
+    <!-- Footer -->
+    <footer class="home-footer">
+      <p class="footer-line">
+        Built by
+        <a href="https://github.com/rinbal" target="_blank" rel="noopener">rinbal</a>
+        &
+        <a href="https://github.com/DoktorShift" target="_blank" rel="noopener">DrShift</a>
+      </p>
+      <p class="footer-line footer-secondary">
+        Payment infrastructure by
+        <a href="https://aurorapay.me" target="_blank" rel="noopener">AuroraPay</a>
+      </p>
+    </footer>
   </div>
 </template>
+
+<script setup>
+import Icon from '@/components/common/Icon.vue'
+</script>
 
 <style scoped>
 .home {
@@ -87,9 +115,9 @@
 }
 
 .hero-icon {
-  font-size: 3rem;
   display: block;
   margin-bottom: 1rem;
+  color: var(--color-primary);
 }
 
 .hero-title {
@@ -150,6 +178,7 @@
 .btn-secondary:hover {
   background: var(--color-surface-hover);
   border-color: var(--color-primary);
+  transform: translateY(-2px);
 }
 
 .features {
@@ -170,13 +199,20 @@
 
 .feature-card:hover {
   border-color: var(--color-primary-soft);
-  transform: translateY(-4px);
+  transform: translateY(-2px);
   box-shadow: var(--shadow-md);
 }
 
+.feature-card:hover .feature-icon {
+  color: var(--color-primary);
+}
+
 .feature-icon {
-  font-size: 2.5rem;
+  display: flex;
+  justify-content: center;
   margin-bottom: 1rem;
+  color: var(--color-text-muted);
+  transition: color 0.2s ease;
 }
 
 .feature-card h3 {
@@ -245,6 +281,36 @@
 .event-type span {
   font-size: 0.8125rem;
   color: var(--color-text-muted);
+}
+
+/* Footer */
+.home-footer {
+  margin-top: 4rem;
+  padding: 2.5rem 0;
+  border-top: 1px solid var(--color-border);
+  text-align: center;
+}
+
+.footer-line {
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+.footer-line a {
+  color: var(--color-text);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.footer-line a:hover {
+  color: var(--color-primary);
+}
+
+.footer-secondary {
+  margin-top: 0.5rem;
+  font-size: 0.8125rem;
+  color: var(--color-text-subtle);
 }
 </style>
 

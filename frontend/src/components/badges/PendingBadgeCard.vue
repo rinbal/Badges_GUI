@@ -8,7 +8,9 @@
     <!-- Badge Image -->
     <div class="badge-image">
       <img v-if="badgeImage" :src="badgeImage" :alt="badgeName" @error="onImageError" />
-      <span v-else class="placeholder">🏅</span>
+      <div v-else class="placeholder">
+        <Icon name="award" size="lg" />
+      </div>
     </div>
 
     <!-- Badge Info -->
@@ -19,7 +21,9 @@
       <!-- Issuer -->
       <div class="issuer">
         <img v-if="issuerPicture" :src="issuerPicture" class="issuer-avatar" @error="onAvatarError" />
-        <span v-else class="issuer-avatar placeholder">👤</span>
+        <div v-else class="issuer-avatar placeholder">
+          <Icon name="user" size="xs" />
+        </div>
         <div class="issuer-details">
           <span class="issuer-label">From</span>
           <span class="issuer-name">{{ issuerName }}</span>
@@ -49,6 +53,7 @@
  */
 
 import { ref, computed } from 'vue'
+import Icon from '@/components/common/Icon.vue'
 
 const props = defineProps({
   badge: { type: Object, required: true },
@@ -109,7 +114,12 @@ function onAvatarError() { avatarError.value = true }
 }
 
 .badge-image .placeholder {
-  font-size: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  color: var(--color-text-muted);
 }
 
 /* Badge Info */
@@ -153,7 +163,7 @@ function onAvatarError() { avatarError.value = true }
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.75rem;
+  color: var(--color-text-muted);
 }
 
 .issuer-details {

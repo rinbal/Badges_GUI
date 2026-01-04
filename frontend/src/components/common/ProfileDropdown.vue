@@ -1,20 +1,27 @@
 <template>
   <div class="profile-dropdown" ref="dropdownRef">
     <!-- Trigger Button -->
-    <button 
+    <button
       class="profile-trigger"
       @click="toggleDropdown"
       :class="{ active: isOpen }"
     >
-      <img 
-        v-if="authStore.profilePicture" 
-        :src="authStore.profilePicture" 
+      <img
+        v-if="authStore.profilePicture"
+        :src="authStore.profilePicture"
         :alt="authStore.displayName"
         class="trigger-avatar"
         @error="handleAvatarError"
       />
-      <div v-else class="trigger-avatar-placeholder">👤</div>
-      <span class="trigger-chevron" :class="{ open: isOpen }">▾</span>
+      <div v-else class="trigger-avatar-placeholder">
+        <Icon name="user" size="sm" />
+      </div>
+      <Icon
+        name="chevron-down"
+        size="xs"
+        class="trigger-chevron"
+        :class="{ open: isOpen }"
+      />
     </button>
     
     <!-- Dropdown Panel -->
@@ -34,7 +41,9 @@
               class="avatar"
               @error="handleAvatarError"
             />
-            <div v-else class="avatar-placeholder">👤</div>
+            <div v-else class="avatar-placeholder">
+              <Icon name="user" size="lg" />
+            </div>
           </div>
         </div>
         
@@ -43,7 +52,7 @@
           <h3 class="display-name">{{ authStore.displayName }}</h3>
           
           <div v-if="authStore.profileNip05" class="nip05">
-            <span class="verified-icon">✓</span>
+            <Icon name="check" size="xs" class="verified-icon" />
             <span>{{ authStore.profileNip05 }}</span>
           </div>
           
@@ -54,56 +63,56 @@
           <div class="npub-row">
             <code class="npub">{{ authStore.shortNpub }}</code>
             <button @click="copyNpub" class="copy-btn" title="Copy full npub">
-              {{ copied ? '✓' : '📋' }}
+              <Icon :name="copied ? 'check' : 'copy'" size="xs" />
             </button>
           </div>
 
           <!-- Auth Method Indicator -->
           <div class="auth-method">
             <span v-if="authStore.isNip07" class="auth-badge auth-extension">
-              <span class="auth-icon">&#129418;</span>
+              <Icon name="extension" size="sm" class="auth-icon" />
               <span>Extension</span>
             </span>
             <span v-else-if="authStore.isNsec" class="auth-badge auth-nsec">
-              <span class="auth-icon">🔑</span>
+              <Icon name="key" size="sm" class="auth-icon" />
               <span>Private Key</span>
             </span>
           </div>
           
           <!-- Quick Links -->
           <div class="quick-links">
-            <a 
-              v-if="authStore.profileWebsite" 
-              :href="websiteUrl" 
+            <a
+              v-if="authStore.profileWebsite"
+              :href="websiteUrl"
               target="_blank"
               class="quick-link"
               title="Website"
             >
-              🌐
+              <Icon name="globe" size="sm" />
             </a>
-            <a 
-              v-if="authStore.profileLud16" 
+            <a
+              v-if="authStore.profileLud16"
               :href="`lightning:${authStore.profileLud16}`"
               class="quick-link"
               title="Lightning Address"
             >
-              ⚡
+              <Icon name="zap" size="sm" />
             </a>
           </div>
         </div>
         
         <!-- Actions -->
         <div class="dropdown-actions">
-          <router-link 
-            :to="`/profile/${authStore.npub}`" 
+          <router-link
+            :to="`/profile/${authStore.npub}`"
             class="action-btn"
             @click="closeDropdown"
           >
-            <span class="action-icon">👤</span>
+            <Icon name="user" size="sm" class="action-icon" />
             <span>View Profile</span>
           </router-link>
           <button @click="handleLogout" class="action-btn action-logout">
-            <span class="action-icon">🚪</span>
+            <Icon name="logout" size="sm" class="action-icon" />
             <span>Logout</span>
           </button>
         </div>
@@ -118,6 +127,7 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useBadgesStore } from '@/stores/badges'
 import { useUIStore } from '@/stores/ui'
+import Icon from '@/components/common/Icon.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -237,11 +247,10 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1rem;
+  color: var(--color-text-muted);
 }
 
 .trigger-chevron {
-  font-size: 0.75rem;
   color: var(--color-text-muted);
   transition: transform 0.2s ease;
 }
@@ -300,7 +309,7 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.75rem;
+  color: var(--color-text-muted);
 }
 
 /* Profile Info */
@@ -329,7 +338,7 @@ onUnmounted(() => {
 }
 
 .verified-icon {
-  font-size: 0.625rem;
+  flex-shrink: 0;
 }
 
 .about {
@@ -392,7 +401,7 @@ onUnmounted(() => {
 }
 
 .auth-icon {
-  font-size: 0.75rem;
+  flex-shrink: 0;
 }
 
 .auth-extension {
@@ -421,15 +430,27 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   background: var(--color-surface-elevated);
+  border: 1px solid var(--color-border);
   border-radius: 50%;
   text-decoration: none;
-  font-size: 1rem;
+  color: var(--color-text-muted);
   transition: all 0.2s ease;
 }
 
 .quick-link:hover {
   background: var(--color-primary-soft);
-  transform: scale(1.1);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  transform: translateY(-2px);
+}
+
+.quick-link[title="Lightning Address"] {
+  color: var(--color-warning);
+}
+
+.quick-link[title="Lightning Address"]:hover {
+  background: rgba(234, 179, 8, 0.15);
+  border-color: var(--color-warning);
 }
 
 /* Dropdown Actions */
@@ -459,7 +480,7 @@ onUnmounted(() => {
 }
 
 .action-icon {
-  font-size: 1rem;
+  flex-shrink: 0;
 }
 
 .action-logout:hover {

@@ -2,31 +2,32 @@
   <header class="header">
     <div class="header-content">
       <router-link to="/" class="logo">
-        <span class="logo-icon">🏅</span>
+        <Icon name="award" size="lg" class="logo-icon" />
         <span class="logo-text">Nostr Badges</span>
       </router-link>
-      
+
       <nav class="nav">
         <router-link to="/creator" class="nav-link">
-          <span class="nav-icon">✨</span>
+          <Icon name="sparkles" size="md" class="nav-icon" />
           <span class="nav-text">Creator</span>
         </router-link>
         <router-link to="/inbox" class="nav-link">
-          <span class="nav-icon">📬</span>
+          <Icon name="inbox" size="md" class="nav-icon" />
           <span class="nav-text">Inbox</span>
           <span v-if="badgesStore.pendingCount > 0" class="badge-count">
             {{ badgesStore.pendingCount }}
           </span>
         </router-link>
       </nav>
-      
+
       <div class="header-actions">
         <template v-if="authStore.isAuthenticated">
           <ProfileDropdown />
         </template>
         <template v-else>
           <router-link to="/login" class="btn-login">
-            🔐 Login
+            <Icon name="key" size="sm" />
+            <span>Login</span>
           </router-link>
         </template>
       </div>
@@ -38,6 +39,7 @@
 import { useAuthStore } from '@/stores/auth'
 import { useBadgesStore } from '@/stores/badges'
 import ProfileDropdown from '@/components/common/ProfileDropdown.vue'
+import Icon from '@/components/common/Icon.vue'
 
 const authStore = useAuthStore()
 const badgesStore = useBadgesStore()
@@ -74,7 +76,7 @@ const badgesStore = useBadgesStore()
 }
 
 .logo-icon {
-  font-size: 1.5rem;
+  color: var(--color-primary);
 }
 
 .nav {
@@ -105,7 +107,7 @@ const badgesStore = useBadgesStore()
 }
 
 .nav-icon {
-  font-size: 1.1rem;
+  flex-shrink: 0;
 }
 
 .badge-count {
@@ -124,6 +126,9 @@ const badgesStore = useBadgesStore()
 }
 
 .btn-login {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
   padding: 0.5rem 1.25rem;
   background: var(--color-primary);
   color: white;

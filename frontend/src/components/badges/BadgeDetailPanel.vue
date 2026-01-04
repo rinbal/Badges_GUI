@@ -369,9 +369,7 @@ async function discoverOwners() {
   loadingOwners.value = true
 
   try {
-    const response = await api.get('/api/v1/badges/owners', {
-      params: { a_tag: props.badge.a_tag }
-    })
+    const response = await api.getBadgeOwners(props.badge.a_tag)
     owners.value = response.data.owners || []
   } catch (error) {
     console.error('Failed to discover owners:', error)
