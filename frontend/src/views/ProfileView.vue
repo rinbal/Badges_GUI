@@ -10,54 +10,97 @@
 
     <!-- Error State -->
     <div v-else-if="error" class="error-state">
-      <span class="error-icon">❌</span>
+      <div class="error-icon-wrapper">
+        <Icon name="alert-circle" size="xl" />
+      </div>
       <h2>Profile not found</h2>
       <p>{{ error }}</p>
-      <router-link to="/" class="btn btn-primary">Go Home</router-link>
+      <router-link to="/" class="btn btn-primary">
+        <Icon name="home" size="sm" />
+        Go Home
+      </router-link>
     </div>
 
     <!-- Profile Content -->
     <template v-else-if="profile">
       <!-- ========================================
-           PROFILE HEADER
-           User avatar, name, and about
+           PROFILE HEADER CARD
+           Banner, avatar, and profile metadata
            ======================================== -->
       <header class="profile-header">
-        <!-- Banner (if available) -->
-        <div v-if="profile.banner" class="profile-banner">
-          <img :src="profile.banner" alt="Profile banner" @error="onBannerError" />
+        <!-- Banner -->
+        <div class="profile-banner" :class="{ 'has-image': profile.banner && !bannerError }">
+          <img
+            v-if="profile.banner && !bannerError"
+            :src="profile.banner"
+            alt="Profile banner"
+            @error="onBannerError"
+          />
+          <div v-else class="banner-gradient"></div>
         </div>
 
-        <div class="profile-main">
+        <!-- Avatar positioned over banner -->
+        <div class="avatar-wrapper">
           <div class="profile-avatar">
-            <img v-if="profile.picture" :src="profile.picture" :alt="displayName" @error="onAvatarError" />
-            <span v-else class="avatar-placeholder">👤</span>
+            <img
+              v-if="profile.picture && !avatarError"
+              :src="profile.picture"
+              :alt="displayName"
+              @error="onAvatarError"
+            />
+            <div v-else class="avatar-placeholder">
+              <Icon name="user" size="xl" />
+            </div>
           </div>
+        </div>
 
-          <div class="profile-info">
-            <h1>{{ displayName }}</h1>
-
-            <!-- NIP-05 Verification -->
-            <div v-if="profile.nip05" class="profile-nip05">
-              <span class="nip05-badge">✓</span>
+        <!-- Profile Info Section -->
+        <div class="profile-content">
+          <!-- Name & Verification -->
+          <div class="profile-identity">
+            <h1 class="profile-name">{{ displayName }}</h1>
+            <div v-if="profile.nip05" class="nip05-badge">
+              <Icon name="check-circle" size="sm" class="nip05-icon" />
               <span>{{ profile.nip05 }}</span>
             </div>
+          </div>
 
-            <code class="profile-npub">{{ profile.npub }}</code>
+          <!-- About/Bio -->
+          <p v-if="profile.about" class="profile-about">{{ profile.about }}</p>
 
-            <p v-if="profile.about" class="profile-about">{{ profile.about }}</p>
-
-            <!-- Profile Links -->
-            <div v-if="profile.website || profile.lud16" class="profile-links">
-              <a v-if="profile.website" :href="profile.website" target="_blank" rel="noopener" class="profile-link">
-                <span class="link-icon">🌐</span>
-                {{ cleanWebsiteUrl }}
-              </a>
-              <span v-if="profile.lud16" class="profile-link lightning">
-                <span class="link-icon">⚡</span>
-                {{ profile.lud16 }}
-              </span>
+          <!-- Metadata Grid -->
+          <div class="profile-meta">
+            <!-- npub -->
+            <div class="meta-item meta-npub">
+              <Icon name="key" size="sm" class="meta-icon" />
+              <code class="npub-text">{{ truncatedNpub }}</code>
+              <button @click="copyNpub" class="copy-btn" title="Copy full npub">
+                <Icon :name="copied ? 'check' : 'copy'" size="xs" />
+              </button>
             </div>
+
+            <!-- Website -->
+            <a
+              v-if="profile.website"
+              :href="websiteUrl"
+              target="_blank"
+              rel="noopener"
+              class="meta-item meta-link"
+            >
+              <Icon name="globe" size="sm" class="meta-icon" />
+              <span>{{ cleanWebsiteUrl }}</span>
+              <Icon name="external-link" size="xs" class="external-icon" />
+            </a>
+
+            <!-- Lightning Address -->
+            <a
+              v-if="profile.lud16"
+              :href="`lightning:${profile.lud16}`"
+              class="meta-item meta-link meta-lightning"
+            >
+              <Icon name="bolt" size="sm" class="meta-icon" />
+              <span>{{ profile.lud16 }}</span>
+            </a>
           </div>
         </div>
       </header>
@@ -68,13 +111,18 @@
            ======================================== -->
       <section class="badges-section">
         <div class="section-header">
-          <h2>Collection</h2>
+          <div class="section-title">
+            <Icon name="award" size="md" class="section-icon" />
+            <h2>Collection</h2>
+          </div>
           <span class="badge-count">{{ badges.accepted.length }} badges</span>
         </div>
 
         <!-- Empty State -->
         <div v-if="badges.accepted.length === 0" class="empty-badges">
-          <span class="empty-icon">🏅</span>
+          <div class="empty-icon-wrapper">
+            <Icon name="medal" size="xl" />
+          </div>
           <p>No badges displayed yet</p>
           <span class="empty-hint">Badges accepted by this user will appear here</span>
         </div>
@@ -119,13 +167,16 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { useUIStore } from '@/stores/ui'
 import { api } from '@/api/client'
+import Icon from '@/components/common/Icon.vue'
 import ProfileSkeleton from '@/components/profile/ProfileSkeleton.vue'
 import CollectionBadgeCard from '@/components/badges/CollectionBadgeCard.vue'
 import BadgeDetailPanel from '@/components/badges/BadgeDetailPanel.vue'
 
 const route = useRoute()
 const authStore = useAuthStore()
+const uiStore = useUIStore()
 
 // ===========================================
 // State
@@ -144,6 +195,9 @@ const showBadgePanel = ref(false)
 const bannerError = ref(false)
 const avatarError = ref(false)
 
+// Copy state
+const copied = ref(false)
+
 // ===========================================
 // Computed Properties
 // ===========================================
@@ -155,9 +209,21 @@ const displayName = computed(() => {
   return profile.value.display_name || profile.value.name || 'Anonymous'
 })
 
+const truncatedNpub = computed(() => {
+  const npub = profile.value?.npub
+  if (!npub) return ''
+  return `${npub.slice(0, 16)}...${npub.slice(-8)}`
+})
+
 const cleanWebsiteUrl = computed(() => {
   if (!profile.value?.website) return ''
   return profile.value.website.replace(/^https?:\/\//, '').replace(/\/$/, '')
+})
+
+const websiteUrl = computed(() => {
+  const website = profile.value?.website
+  if (!website) return '#'
+  return website.startsWith('http') ? website : `https://${website}`
 })
 
 // ===========================================
@@ -218,12 +284,22 @@ function closeBadgePanel() {
 
 function onBannerError() {
   bannerError.value = true
-  if (profile.value) profile.value.banner = null
 }
 
 function onAvatarError() {
   avatarError.value = true
-  if (profile.value) profile.value.picture = null
+}
+
+async function copyNpub() {
+  if (!profile.value?.npub) return
+  try {
+    await navigator.clipboard.writeText(profile.value.npub)
+    copied.value = true
+    uiStore.showSuccess('Copied to clipboard')
+    setTimeout(() => { copied.value = false }, 2000)
+  } catch {
+    uiStore.showError('Failed to copy')
+  }
 }
 </script>
 
@@ -244,10 +320,16 @@ function onAvatarError() {
   padding: 4rem 2rem;
 }
 
-.error-icon {
-  font-size: 4rem;
-  display: block;
-  margin-bottom: 1rem;
+.error-icon-wrapper {
+  width: 80px;
+  height: 80px;
+  margin: 0 auto 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-danger-soft);
+  border-radius: 50%;
+  color: var(--color-danger);
 }
 
 .error-state h2 {
@@ -263,7 +345,7 @@ function onAvatarError() {
 }
 
 /* ===========================================
-   Profile Header
+   Profile Header Card
    =========================================== */
 .profile-header {
   background: var(--color-surface);
@@ -273,10 +355,11 @@ function onAvatarError() {
   overflow: hidden;
 }
 
+/* Banner */
 .profile-banner {
-  height: 160px;
+  height: 180px;
+  position: relative;
   overflow: hidden;
-  background: var(--color-surface-elevated);
 }
 
 .profile-banner img {
@@ -285,18 +368,22 @@ function onAvatarError() {
   object-fit: cover;
 }
 
-.profile-main {
-  display: flex;
-  gap: 2rem;
-  padding: 2rem;
+.banner-gradient {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-accent, #7c3aed) 100%);
 }
 
-.profile-header:has(.profile-banner) .profile-main {
-  margin-top: -3rem;
+/* Avatar */
+.avatar-wrapper {
+  display: flex;
+  justify-content: center;
+  margin-top: -60px;
+  position: relative;
+  z-index: 1;
 }
 
 .profile-avatar {
-  flex-shrink: 0;
   width: 120px;
   height: 120px;
   border-radius: 50%;
@@ -306,7 +393,7 @@ function onAvatarError() {
   align-items: center;
   justify-content: center;
   border: 4px solid var(--color-surface);
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-lg);
 }
 
 .profile-avatar img {
@@ -316,83 +403,138 @@ function onAvatarError() {
 }
 
 .avatar-placeholder {
-  font-size: 4rem;
-}
-
-.profile-info {
-  flex: 1;
-  min-width: 0;
-  padding-top: 0.5rem;
-}
-
-.profile-info h1 {
-  font-size: 1.75rem;
-  font-weight: 700;
-  color: var(--color-text);
-  margin: 0 0 0.25rem 0;
-}
-
-.profile-nip05 {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.375rem;
-  margin-bottom: 0.5rem;
-  font-size: 0.875rem;
-  color: var(--color-success);
-}
-
-.nip05-badge {
-  width: 18px;
-  height: 18px;
+  width: 100%;
+  height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--color-success);
-  color: white;
-  border-radius: 50%;
-  font-size: 0.625rem;
+  color: var(--color-text-muted);
+  background: var(--color-surface-elevated);
 }
 
-.profile-npub {
-  display: block;
-  font-family: var(--font-mono);
-  font-size: 0.75rem;
-  color: var(--color-text-muted);
-  word-break: break-all;
+/* Profile Content */
+.profile-content {
+  padding: 1rem 2rem 2rem;
+  text-align: center;
+}
+
+.profile-identity {
   margin-bottom: 1rem;
+}
+
+.profile-name {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--color-text);
+  margin: 0 0 0.5rem 0;
+}
+
+.nip05-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.25rem 0.75rem;
+  background: var(--color-success-soft);
+  border: 1px solid var(--color-success);
+  border-radius: var(--radius-full);
+  font-size: 0.8125rem;
+  color: var(--color-success);
+}
+
+.nip05-icon {
+  flex-shrink: 0;
 }
 
 .profile-about {
   color: var(--color-text-muted);
-  line-height: 1.6;
-  margin: 0 0 1rem 0;
+  line-height: 1.7;
+  margin: 0 0 1.5rem 0;
+  max-width: 600px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
-.profile-links {
+/* Metadata Grid */
+.profile-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 1rem;
+  justify-content: center;
+  gap: 0.75rem;
 }
 
-.profile-link {
+.meta-item {
   display: inline-flex;
   align-items: center;
-  gap: 0.375rem;
+  gap: 0.5rem;
+  padding: 0.5rem 0.875rem;
+  background: var(--color-surface-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
   font-size: 0.8125rem;
+  color: var(--color-text);
+  transition: all 0.2s ease;
+}
+
+.meta-icon {
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+.meta-npub {
+  font-family: var(--font-mono);
+}
+
+.npub-text {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.copy-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  color: var(--color-text-muted);
+  transition: all 0.2s ease;
+}
+
+.copy-btn:hover {
+  background: var(--color-primary-soft);
+  border-color: var(--color-primary);
   color: var(--color-primary);
+}
+
+.meta-link {
   text-decoration: none;
+  cursor: pointer;
 }
 
-.profile-link:hover {
-  text-decoration: underline;
+.meta-link:hover {
+  border-color: var(--color-primary);
+  background: var(--color-primary-soft);
 }
 
-.profile-link.lightning {
+.meta-link:hover .meta-icon {
+  color: var(--color-primary);
+}
+
+.external-icon {
+  color: var(--color-text-subtle);
+  margin-left: -0.25rem;
+}
+
+.meta-lightning .meta-icon {
   color: var(--color-warning);
 }
 
-.link-icon {
-  font-size: 0.875rem;
+.meta-lightning:hover {
+  border-color: var(--color-warning);
+  background: rgba(234, 179, 8, 0.1);
 }
 
 /* ===========================================
@@ -410,6 +552,16 @@ function onAvatarError() {
   align-items: center;
   justify-content: space-between;
   margin-bottom: 1.5rem;
+}
+
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.section-icon {
+  color: var(--color-primary);
 }
 
 .section-header h2 {
@@ -433,11 +585,16 @@ function onAvatarError() {
   padding: 3rem 2rem;
 }
 
-.empty-icon {
-  font-size: 3rem;
-  display: block;
-  margin-bottom: 1rem;
-  opacity: 0.5;
+.empty-icon-wrapper {
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-surface-elevated);
+  border-radius: 50%;
+  color: var(--color-text-muted);
 }
 
 .empty-badges p {
@@ -464,6 +621,7 @@ function onAvatarError() {
 .btn {
   display: inline-flex;
   align-items: center;
+  gap: 0.5rem;
   padding: 0.75rem 1.5rem;
   border-radius: var(--radius-md);
   text-decoration: none;
@@ -478,23 +636,41 @@ function onAvatarError() {
 
 .btn-primary:hover {
   background: var(--color-primary-hover);
+  transform: translateY(-1px);
 }
 
 /* ===========================================
    Mobile Responsive
    =========================================== */
 @media (max-width: 640px) {
-  .profile-main {
+  .profile-banner {
+    height: 140px;
+  }
+
+  .avatar-wrapper {
+    margin-top: -50px;
+  }
+
+  .profile-avatar {
+    width: 100px;
+    height: 100px;
+  }
+
+  .profile-content {
+    padding: 1rem 1.5rem 1.5rem;
+  }
+
+  .profile-name {
+    font-size: 1.5rem;
+  }
+
+  .profile-meta {
     flex-direction: column;
     align-items: center;
-    text-align: center;
   }
 
-  .profile-info {
-    padding-top: 0;
-  }
-
-  .profile-links {
+  .meta-item {
+    width: 100%;
     justify-content: center;
   }
 

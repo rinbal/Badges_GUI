@@ -123,6 +123,9 @@ async def accept_badge(
     - NIP-07: Include signed_event in request body (profile badges event)
     - nsec: Omit signed_event, include X-Nsec header (backend signs)
     """
+    print(f"📥 Accept badge request: a_tag={request.a_tag}, has_signed_event={request.signed_event is not None}")
+    print(f"   Headers: X-Nsec={'present' if x_nsec else 'missing'}, X-Pubkey={'present' if x_pubkey else 'missing'}")
+
     # NIP-07 flow: signed event provided
     if request.signed_event:
         print(f"✅ NIP-07 flow: Publishing pre-signed profile badges event")

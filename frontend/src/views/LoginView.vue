@@ -2,7 +2,9 @@
   <div class="login">
     <div class="login-card">
       <div class="login-header">
-        <span class="login-icon">🔐</span>
+        <div class="login-icon">
+          <Icon name="key" size="xl" />
+        </div>
         <h1>Connect to Nostr</h1>
         <p>Sign in securely with your Nostr identity</p>
       </div>
@@ -16,7 +18,7 @@
           :disabled="isLoading"
         >
           <span v-if="isLoading && loginMethod === 'extension'" class="btn-spinner"></span>
-          <span v-else class="extension-icon">&#129418;</span>
+          <Icon v-else name="extension" size="md" class="extension-icon" />
           <span v-if="isLoading && loginMethod === 'extension'">Connecting...</span>
           <span v-else>Connect with Extension</span>
         </button>
@@ -26,7 +28,7 @@
           class="btn btn-extension-unavailable btn-block"
           disabled
         >
-          <span class="extension-icon">&#129418;</span>
+          <Icon name="extension" size="md" class="extension-icon" />
           <span>No Extension Detected</span>
         </button>
 
@@ -90,7 +92,7 @@
                 class="toggle-visibility"
                 :title="showKey ? 'Hide key' : 'Show key'"
               >
-                {{ showKey ? '🙈' : '👁️' }}
+                <Icon :name="showKey ? 'eye-off' : 'eye'" size="sm" />
               </button>
             </div>
             <p v-if="error" class="error-message">{{ error }}</p>
@@ -125,7 +127,7 @@
       <!-- Security notes -->
       <div class="login-footer">
         <div class="security-note">
-          <span class="note-icon">🔒</span>
+          <Icon name="shield" size="md" class="note-icon" />
           <div class="note-content">
             <strong>Your keys stay private</strong>
             <p>
@@ -144,6 +146,7 @@ import { ref, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useUIStore } from '@/stores/ui'
+import Icon from '@/components/common/Icon.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -249,9 +252,10 @@ async function handleNsecLogin() {
 }
 
 .login-icon {
-  font-size: 3rem;
-  display: block;
+  display: flex;
+  justify-content: center;
   margin-bottom: 1rem;
+  color: var(--color-primary);
 }
 
 .login-header h1 {
@@ -293,7 +297,7 @@ async function handleNsecLogin() {
 }
 
 .extension-icon {
-  font-size: 1.25rem;
+  flex-shrink: 0;
 }
 
 .extension-hint {
@@ -554,8 +558,8 @@ async function handleNsecLogin() {
 }
 
 .note-icon {
-  font-size: 1.25rem;
   flex-shrink: 0;
+  color: var(--color-success);
 }
 
 .note-content {

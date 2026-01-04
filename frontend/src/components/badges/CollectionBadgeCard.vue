@@ -8,7 +8,9 @@
     <!-- Badge Image (Featured) -->
     <div class="card-image">
       <img v-if="badgeImage" :src="badgeImage" :alt="badgeName" @error="onImageError" />
-      <span v-else class="placeholder">🏅</span>
+      <div v-else class="placeholder">
+        <Icon name="award" size="xl" />
+      </div>
 
       <!-- Hover Overlay -->
       <div class="card-overlay">
@@ -23,7 +25,9 @@
       <!-- Issuer Row -->
       <div class="card-issuer">
         <img v-if="issuerPicture" :src="issuerPicture" class="issuer-pic" @error="onAvatarError" />
-        <span v-else class="issuer-pic placeholder">👤</span>
+        <div v-else class="issuer-pic placeholder">
+          <Icon name="user" size="xs" />
+        </div>
         <span class="issuer-name">{{ issuerName }}</span>
       </div>
     </div>
@@ -39,6 +43,7 @@
  */
 
 import { ref, computed } from 'vue'
+import Icon from '@/components/common/Icon.vue'
 
 const props = defineProps({
   badge: { type: Object, required: true }
@@ -72,7 +77,7 @@ function onAvatarError() { avatarError.value = true }
 
 .collection-card:hover {
   border-color: var(--color-primary);
-  transform: translateY(-4px);
+  transform: translateY(-2px);
   box-shadow: var(--shadow-lg);
 }
 
@@ -99,7 +104,12 @@ function onAvatarError() { avatarError.value = true }
 }
 
 .card-image .placeholder {
-  font-size: 3rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  color: var(--color-text-muted);
 }
 
 /* Hover Overlay */
@@ -161,7 +171,7 @@ function onAvatarError() { avatarError.value = true }
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.625rem;
+  color: var(--color-text-muted);
 }
 
 .issuer-name {

@@ -13,26 +13,26 @@
       <div class="mode-cards">
         <button class="mode-card" @click="selectMode('award')">
           <div class="mode-icon official">
-            <span>🏅</span>
+            <Icon name="award" size="lg" />
           </div>
           <div class="mode-content">
             <h3>Award an Official Badge</h3>
             <p>Choose from curated badges and award them instantly</p>
             <span class="mode-badge">{{ appTemplateCount }} available</span>
           </div>
-          <span class="mode-arrow">→</span>
+          <Icon name="chevron-right" size="md" class="mode-arrow" />
         </button>
 
         <button class="mode-card" @click="selectMode('create')">
           <div class="mode-icon custom">
-            <span>✨</span>
+            <Icon name="sparkles" size="lg" />
           </div>
           <div class="mode-content">
             <h3>Create a Custom Badge</h3>
             <p>Design your own unique badge from scratch</p>
             <span class="mode-badge">Unlimited</span>
           </div>
-          <span class="mode-arrow">→</span>
+          <Icon name="chevron-right" size="md" class="mode-arrow" />
         </button>
       </div>
 
@@ -42,11 +42,11 @@
         class="templates-shortcut"
         @click="selectMode('templates')"
       >
-        <span class="shortcut-icon">📁</span>
+        <Icon name="template" size="md" class="shortcut-icon" />
         <span class="shortcut-text">
           You have <strong>{{ badgesStore.userTemplateCount }}</strong> saved template{{ badgesStore.userTemplateCount !== 1 ? 's' : '' }}
         </span>
-        <span class="shortcut-arrow">→</span>
+        <Icon name="chevron-right" size="sm" class="shortcut-arrow" />
       </button>
     </section>
 
@@ -54,7 +54,7 @@
     <section v-else-if="activeMode === 'award'" class="workflow animate-fadeIn">
       <header class="workflow-header">
         <button class="back-btn" @click="goBack" title="Go back">
-          <span>←</span>
+          <Icon name="arrow-left" size="sm" />
         </button>
         <div class="workflow-title">
           <h2>Award an Official Badge</h2>
@@ -67,7 +67,7 @@
         <div class="step">
           <div class="step-header">
             <div class="step-indicator" :class="stepClass(1)">
-              <span v-if="selectedTemplate">✓</span>
+              <Icon v-if="selectedTemplate" name="check" size="xs" />
               <span v-else>1</span>
             </div>
             <div class="step-info">
@@ -91,7 +91,9 @@
                 <strong>{{ template.name }}</strong>
                 <span>{{ template.description }}</span>
               </div>
-              <div v-if="selectedTemplate?.identifier === template.identifier" class="badge-check">✓</div>
+              <div v-if="selectedTemplate?.identifier === template.identifier" class="badge-check">
+                <Icon name="check" size="xs" />
+              </div>
             </button>
           </div>
         </div>
@@ -100,7 +102,7 @@
         <div class="step" :class="{ 'step-disabled': !selectedTemplate }">
           <div class="step-header">
             <div class="step-indicator" :class="stepClass(2)">
-              <span v-if="recipients.length > 0">✓</span>
+              <Icon v-if="recipients.length > 0" name="check" size="xs" />
               <span v-else>2</span>
             </div>
             <div class="step-info">
@@ -168,7 +170,7 @@
     <section v-else-if="activeMode === 'create'" class="workflow animate-fadeIn">
       <header class="workflow-header">
         <button class="back-btn" @click="goBack" title="Go back">
-          <span>←</span>
+          <Icon name="arrow-left" size="sm" />
         </button>
         <div class="workflow-title">
           <h2>Create a Custom Badge</h2>
@@ -273,7 +275,9 @@
         <aside class="create-sidebar">
           <div class="sidebar-card">
             <img v-if="authStore.profilePicture" :src="authStore.profilePicture" class="sidebar-avatar" />
-            <div v-else class="sidebar-avatar placeholder">👤</div>
+            <div v-else class="sidebar-avatar placeholder">
+              <Icon name="user" size="md" />
+            </div>
             <div class="sidebar-info">
               <span class="sidebar-label">Creating as</span>
               <strong>{{ authStore.displayName }}</strong>
@@ -281,8 +285,11 @@
             </div>
           </div>
           <div class="sidebar-tip">
-            <strong>Pro tip</strong>
-            <p>Save as template to quickly award this badge again in the future.</p>
+            <Icon name="info" size="sm" class="tip-icon" />
+            <div>
+              <strong>Pro tip</strong>
+              <p>Save as template to quickly award this badge again in the future.</p>
+            </div>
           </div>
         </aside>
       </div>
@@ -292,14 +299,14 @@
     <section v-else-if="activeMode === 'templates'" class="workflow animate-fadeIn">
       <header class="workflow-header">
         <button class="back-btn" @click="goBack" title="Go back">
-          <span>←</span>
+          <Icon name="arrow-left" size="sm" />
         </button>
         <div class="workflow-title">
           <h2>Your Templates</h2>
           <p>Saved badge designs for quick reuse</p>
         </div>
         <button class="refresh-btn" @click="refreshTemplates" :disabled="isLoadingTemplates" title="Refresh">
-          <span :class="{ spinning: isLoadingTemplates }">🔄</span>
+          <Icon name="refresh" size="sm" :spin="isLoadingTemplates" />
         </button>
       </header>
 
@@ -316,10 +323,15 @@
 
       <!-- Empty -->
       <div v-else-if="badgesStore.userTemplateCount === 0" class="empty-state">
-        <div class="empty-icon">📁</div>
+        <div class="empty-icon">
+          <Icon name="template" size="xl" />
+        </div>
         <h3>No saved templates</h3>
         <p>Create a custom badge and save it as a template for quick access.</p>
-        <button class="btn-primary" @click="selectMode('create')">Create a Badge</button>
+        <button class="btn-primary" @click="selectMode('create')">
+          <Icon name="create" size="sm" />
+          <span>Create a Badge</span>
+        </button>
       </div>
 
       <!-- Templates Grid -->
@@ -327,7 +339,9 @@
         <div v-for="template in badgesStore.templates" :key="template.identifier" class="template-item">
           <div class="template-image">
             <img v-if="template.image" :src="template.image" :alt="template.name" @error="onImageError" />
-            <span v-else class="template-placeholder">🏅</span>
+            <div v-else class="template-placeholder">
+              <Icon name="award" size="lg" />
+            </div>
           </div>
           <div class="template-body">
             <h4>{{ template.name }}</h4>
@@ -364,6 +378,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useBadgesStore } from '@/stores/badges'
 import { useUIStore } from '@/stores/ui'
 import RecipientInput from '@/components/common/RecipientInput.vue'
+import Icon from '@/components/common/Icon.vue'
 
 const authStore = useAuthStore()
 const badgesStore = useBadgesStore()
@@ -655,9 +670,9 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.75rem;
   border-radius: var(--radius-md);
   flex-shrink: 0;
+  color: var(--color-text);
 }
 
 .mode-icon.official {
@@ -697,9 +712,9 @@ onMounted(() => {
 }
 
 .mode-arrow {
-  font-size: 1.25rem;
   color: var(--color-text-subtle);
-  transition: transform 0.2s;
+  transition: transform 0.2s, color 0.2s;
+  flex-shrink: 0;
 }
 
 .mode-card:hover .mode-arrow {
@@ -726,7 +741,8 @@ onMounted(() => {
 }
 
 .shortcut-icon {
-  font-size: 1.25rem;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
 }
 
 .shortcut-text {
@@ -738,6 +754,7 @@ onMounted(() => {
 
 .shortcut-arrow {
   color: var(--color-text-subtle);
+  flex-shrink: 0;
 }
 
 /* Workflow */
@@ -767,7 +784,6 @@ onMounted(() => {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   cursor: pointer;
-  font-size: 1rem;
   color: var(--color-text);
   transition: all 0.15s;
 }
@@ -810,14 +826,6 @@ onMounted(() => {
 
 .refresh-btn:disabled {
   opacity: 0.5;
-}
-
-.spinning {
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
 }
 
 /* Workflow Body */
@@ -960,8 +968,7 @@ onMounted(() => {
   background: var(--color-primary);
   color: white;
   border-radius: 50%;
-  font-size: 0.625rem;
-  font-weight: 700;
+  flex-shrink: 0;
 }
 
 /* Confirm Panel */
@@ -1181,7 +1188,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.25rem;
+  color: var(--color-text-muted);
 }
 
 .sidebar-label {
@@ -1202,10 +1209,18 @@ onMounted(() => {
 }
 
 .sidebar-tip {
+  display: flex;
+  gap: 0.75rem;
   padding: 0.875rem;
   background: var(--color-primary-soft);
   border-radius: var(--radius-md);
   font-size: 0.75rem;
+}
+
+.tip-icon {
+  color: var(--color-primary);
+  flex-shrink: 0;
+  margin-top: 0.125rem;
 }
 
 .sidebar-tip strong {
@@ -1248,7 +1263,12 @@ onMounted(() => {
 }
 
 .template-placeholder {
-  font-size: 2.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  color: var(--color-text-muted);
 }
 
 .template-body {
@@ -1322,8 +1342,10 @@ onMounted(() => {
 }
 
 .empty-icon {
-  font-size: 3.5rem;
+  display: flex;
+  justify-content: center;
   margin-bottom: 1rem;
+  color: var(--color-text-muted);
 }
 
 .empty-state h3 {

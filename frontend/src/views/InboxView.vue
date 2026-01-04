@@ -12,7 +12,7 @@
         :class="['nav-tab', { active: activeTab === 'pending' }]"
         @click="activeTab = 'pending'"
       >
-        <span class="tab-icon">📬</span>
+        <Icon name="inbox" size="md" class="tab-icon" />
         <span class="tab-label">Pending</span>
         <span v-if="badgesStore.pendingCount > 0" class="tab-badge pending">
           {{ badgesStore.pendingCount }}
@@ -23,7 +23,7 @@
         :class="['nav-tab', { active: activeTab === 'collection' }]"
         @click="activeTab = 'collection'"
       >
-        <span class="tab-icon">🏆</span>
+        <Icon name="trophy" size="md" class="tab-icon" />
         <span class="tab-label">Collection</span>
         <span v-if="badgesStore.acceptedCount > 0" class="tab-badge collection">
           {{ badgesStore.acceptedCount }}
@@ -37,7 +37,7 @@
         @click="refreshBadges"
         title="Refresh badges"
       >
-        <span :class="{ spinning: badgesStore.isLoading }">🔄</span>
+        <Icon name="refresh" size="sm" :spin="badgesStore.isLoading" />
       </button>
     </nav>
 
@@ -55,11 +55,14 @@
 
         <!-- Empty State -->
         <div v-else-if="badgesStore.pendingCount === 0" class="empty-state">
-          <div class="empty-icon">📭</div>
+          <div class="empty-icon">
+            <Icon name="inbox" size="xl" />
+          </div>
           <h3>No pending badges</h3>
           <p>When someone awards you a badge, it will appear here for you to accept.</p>
           <router-link to="/creator" class="btn-primary">
-            Create a Badge
+            <Icon name="sparkles" size="sm" />
+            <span>Create a Badge</span>
           </router-link>
         </div>
 
@@ -88,7 +91,9 @@
 
         <!-- Empty State -->
         <div v-else-if="badgesStore.acceptedCount === 0" class="empty-state">
-          <div class="empty-icon">🏅</div>
+          <div class="empty-icon">
+            <Icon name="award" size="xl" />
+          </div>
           <h3>Your collection is empty</h3>
           <p>Accept badges from the Pending tab to add them to your collection.</p>
           <button
@@ -96,10 +101,12 @@
             class="btn-primary"
             @click="activeTab = 'pending'"
           >
-            View {{ badgesStore.pendingCount }} Pending
+            <Icon name="inbox" size="sm" />
+            <span>View {{ badgesStore.pendingCount }} Pending</span>
           </button>
           <router-link v-else to="/creator" class="btn-primary">
-            Create Your First Badge
+            <Icon name="sparkles" size="sm" />
+            <span>Create Your First Badge</span>
           </router-link>
         </div>
 
@@ -163,6 +170,7 @@ import PendingBadgeSkeleton from '@/components/badges/PendingBadgeSkeleton.vue'
 import CollectionBadgeCard from '@/components/badges/CollectionBadgeCard.vue'
 import CollectionBadgeSkeleton from '@/components/badges/CollectionBadgeSkeleton.vue'
 import BadgeDetailPanel from '@/components/badges/BadgeDetailPanel.vue'
+import Icon from '@/components/common/Icon.vue'
 
 // Stores
 const badgesStore = useBadgesStore()
@@ -365,7 +373,7 @@ async function handleRemoveFromPanel(badge) {
 }
 
 .tab-icon {
-  font-size: 1rem;
+  flex-shrink: 0;
 }
 
 .tab-badge {
@@ -400,26 +408,18 @@ async function handleRemoveFromPanel(badge) {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   cursor: pointer;
-  font-size: 1.125rem;
+  color: var(--color-text);
   transition: all 0.2s;
 }
 
 .refresh-btn:hover:not(:disabled) {
   border-color: var(--color-primary);
+  color: var(--color-primary);
 }
 
 .refresh-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
-}
-
-.spinning {
-  display: inline-block;
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
 }
 
 /* ===========================================
@@ -492,8 +492,10 @@ async function handleRemoveFromPanel(badge) {
 }
 
 .empty-icon {
-  font-size: 4rem;
+  display: flex;
+  justify-content: center;
   margin-bottom: 1rem;
+  color: var(--color-text-muted);
 }
 
 .empty-state h3 {

@@ -15,6 +15,7 @@ import { useAuthStore } from '@/stores/auth'
 import {
   createBadgeDefinitionEvent,
   createBadgeAwardEvent,
+  createProfileBadgesEvent,
   signEvent,
   npubToHex
 } from '@/utils/nip07'
@@ -249,12 +250,60 @@ export const useBadgesStore = defineStore('badges', () => {
     }
   }
 
+  /**
+   * Accept a badge - adds it to profile badges (kind 30008)
+   * For NIP-07: Signs the profile badges event in browser
+   * For nsec: Backend handles signing
+   */
   async function acceptBadge(a_tag, award_event_id) {
     isLoading.value = true
     error.value = null
-    
+
     try {
-      const response = await api.acceptBadge(a_tag, award_event_id)
+      const authStore = useAuthStore()
+      let signedEvent = null
+
+      // NIP-07 flow: build and sign profile badges event
+      if (authStore.isNip07) {
+        console.log('🔐 NIP-07 flow: Signing profile badges event for accept')
+
+        // Ensure we have fresh accepted badges data
+        if (!acceptedBadges.value || acceptedBadges.value.length === 0) {
+          console.log('   Fetching current accepted badges first...')
+          await fetchAcceptedBadges()
+        }
+
+        // Get current accepted badges to build the new list
+        const currentAccepted = acceptedBadges.value || []
+        console.log(`   Current accepted badges: ${currentAccepted.length}`)
+
+        // Build badge tags: for each badge, add ["a", a_tag] and ["e", award_event_id]
+        const badgeTags = []
+
+        // Add existing badges
+        for (const badge of currentAccepted) {
+          badgeTags.push(['a', badge.a_tag])
+          badgeTags.push(['e', badge.award_event_id])
+        }
+
+        // Add new badge
+        badgeTags.push(['a', a_tag])
+        badgeTags.push(['e', award_event_id])
+
+        // Create and sign the profile badges event
+        const unsignedEvent = createProfileBadgesEvent(badgeTags)
+        console.log('   Unsigned event:', JSON.stringify(unsignedEvent, null, 2))
+
+        signedEvent = await signEvent(unsignedEvent)
+        console.log('   Signed event:', signedEvent ? 'success' : 'failed')
+
+        if (!signedEvent) {
+          throw new Error('Failed to sign profile badges event')
+        }
+      }
+
+      console.log('   Sending to API with signed_event:', signedEvent ? 'present' : 'null')
+      const response = await api.acceptBadge(a_tag, award_event_id, signedEvent)
       if (response.data.success) {
         // Refresh lists
         await fetchPendingBadges()
@@ -262,19 +311,54 @@ export const useBadgesStore = defineStore('badges', () => {
       }
       return { success: response.data.success, data: response.data }
     } catch (err) {
-      error.value = err.response?.data?.detail || err.message
-      return { success: false, error: error.value }
+      const errMessage = err.message || err.response?.data?.detail || 'Failed to accept badge'
+      error.value = errMessage
+      return { success: false, error: errMessage }
     } finally {
       isLoading.value = false
     }
   }
 
+  /**
+   * Remove a badge - removes it from profile badges (kind 30008)
+   * For NIP-07: Signs the updated profile badges event in browser
+   * For nsec: Backend handles signing
+   */
   async function removeBadge(a_tag, award_event_id) {
     isLoading.value = true
     error.value = null
-    
+
     try {
-      const response = await api.removeBadge(a_tag, award_event_id)
+      const authStore = useAuthStore()
+      let signedEvent = null
+
+      // NIP-07 flow: build and sign profile badges event without the removed badge
+      if (authStore.isNip07) {
+        console.log('🔐 NIP-07 flow: Signing profile badges event for remove')
+
+        // Get current accepted badges and filter out the one to remove
+        const currentAccepted = acceptedBadges.value || []
+        const remaining = currentAccepted.filter(
+          b => !(b.a_tag === a_tag && b.award_event_id === award_event_id)
+        )
+
+        // Build badge tags for remaining badges
+        const badgeTags = []
+        for (const badge of remaining) {
+          badgeTags.push(['a', badge.a_tag])
+          badgeTags.push(['e', badge.award_event_id])
+        }
+
+        // Create and sign the profile badges event
+        const unsignedEvent = createProfileBadgesEvent(badgeTags)
+        signedEvent = await signEvent(unsignedEvent)
+
+        if (!signedEvent) {
+          throw new Error('Failed to sign profile badges event')
+        }
+      }
+
+      const response = await api.removeBadge(a_tag, award_event_id, signedEvent)
       if (response.data.success) {
         // Refresh lists
         await fetchPendingBadges()
@@ -282,8 +366,9 @@ export const useBadgesStore = defineStore('badges', () => {
       }
       return { success: response.data.success, data: response.data }
     } catch (err) {
-      error.value = err.response?.data?.detail || err.message
-      return { success: false, error: error.value }
+      const errMessage = err.message || err.response?.data?.detail || 'Failed to remove badge'
+      error.value = errMessage
+      return { success: false, error: errMessage }
     } finally {
       isLoading.value = false
     }

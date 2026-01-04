@@ -15,13 +15,21 @@ class KeyValidationResponse(BaseModel):
 
 
 class ProfileResponse(BaseModel):
-    """Response for profile data"""
+    """Response for profile data - all NIP-01 kind 0 fields"""
     npub: str
     hex: str
+    # Core identity
     name: Optional[str] = None
     display_name: Optional[str] = None
     picture: Optional[str] = None
+    banner: Optional[str] = None
     about: Optional[str] = None
+    # Verification & contacts
+    nip05: Optional[str] = None
+    lud16: Optional[str] = None
+    website: Optional[str] = None
+    # Metadata
+    created_at: Optional[int] = None
 
 
 class BadgeTemplateResponse(BaseModel):
