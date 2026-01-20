@@ -2,10 +2,7 @@
   <div class="home">
     <section class="hero">
       <div class="hero-content">
-        <h1 class="hero-title">
-          <Icon name="award" size="xl" class="hero-icon" />
-          Nostr Badges
-        </h1>
+        <h1 class="hero-title">Nostr Badges</h1>
         <p class="hero-subtitle">
           Create, award, and collect badges on the decentralized Nostr network.
           No databases, no middlemen — just cryptographic proof.
@@ -112,12 +109,6 @@ import Icon from '@/components/common/Icon.vue'
 .hero {
   text-align: center;
   padding: 4rem 0;
-}
-
-.hero-icon {
-  display: block;
-  margin-bottom: 1rem;
-  color: var(--color-primary);
 }
 
 .hero-title {

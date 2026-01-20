@@ -1,194 +1,272 @@
-# 🏅 Nostr Badges GUI
+# Badge Box
 
-A full-stack web application for creating, awarding, and managing badges on the Nostr network using the NIP-58 specification.
+**Create, award, and manage decentralized badges on the Nostr network.**
 
-## 🎯 Features
+Badge Box is a web application for badge management using the NIP-58 specification. All badge data lives on Nostr relays - no centralized database required.
 
-- **Badge Creator**: Create custom badges and award them to Nostr users
-- **Badge Inbox**: View pending badges, accept or remove them from your profile
-- **Profile View**: Display accepted badges publicly
-- **No Database**: All data lives on Nostr relays
-- **Secure**: Private keys never leave your browser session
+---
 
-## 🏗️ Architecture
+## What is Badge Box?
 
-```
-┌─────────────────────┐    ┌─────────────────────┐
-│  Vue.js Frontend    │←──→│  FastAPI Backend    │
-│  (Port 5173)        │    │  (Port 8000)        │
-└─────────────────────┘    └────────┬────────────┘
-                                    │
-                           ┌────────▼────────────┐
-                           │ Existing CLI Modules│
-                           │ (badge_creator.py,  │
-                           │  relay_manager.py)  │
-                           └────────┬────────────┘
-                                    │
-                           ┌────────▼────────────┐
-                           │   Nostr Relays      │
-                           └─────────────────────┘
-```
+Badge Box enables you to:
 
-## 📁 Project Structure
+- **Create custom badges** with names, descriptions, and images
+- **Award badges** to any Nostr user by their public key
+- **Receive badges** from others and choose which to display
+- **View badge profiles** for any Nostr user
 
-```
-nostrbadges_gui/
-├── backend/                 # FastAPI REST API
-│   ├── app/
-│   │   ├── main.py          # FastAPI application
-│   │   ├── config.py        # Configuration
-│   │   ├── routers/         # API endpoints
-│   │   ├── services/        # Business logic
-│   │   └── models/          # Pydantic models
-│   └── requirements.txt
-│
-├── frontend/                # Vue.js 3 SPA
-│   ├── src/
-│   │   ├── views/           # Page components
-│   │   ├── components/      # Reusable components
-│   │   ├── stores/          # Pinia state management
-│   │   ├── api/             # API client
-│   │   └── assets/          # CSS & static files
-│   └── package.json
-│
-├── badge_tool/              # Original CLI tools
-├── badge_inbox/             # Original inbox CLI
-├── common/                  # Shared Python modules
-└── requirements.txt         # Original dependencies
-```
+All badges are cryptographically signed and stored across decentralized Nostr relays, making them verifiable and censorship-resistant.
 
-## 🚀 Quick Start
+---
+
+## Quick Start
 
 ### Prerequisites
 
-- Python 3.10+
-- Node.js 18+
-- npm or yarn
+- Python 3.10 or higher
+- Node.js 18 or higher
+- A Nostr private key (nsec) OR a NIP-07 browser extension (nos2x, Alby, etc.)
 
-### 1. Install Backend Dependencies
+### Installation
+
+**1. Clone and install backend:**
 
 ```bash
-# From project root
 cd backend
 pip install -r requirements.txt
-
-# Also install base project dependencies
-cd ..
-pip install -r requirements.txt
+pip install -r ../requirements.txt
 ```
 
-### 2. Install Frontend Dependencies
+**2. Install frontend:**
 
 ```bash
 cd frontend
 npm install
 ```
 
-### 3. Start the Backend
+**3. Start both servers:**
 
+Terminal 1 (Backend):
 ```bash
 cd backend
 uvicorn app.main:app --reload --port 8000
 ```
 
-The API will be available at:
-- API: http://localhost:8000
-- Docs: http://localhost:8000/docs
-- ReDoc: http://localhost:8000/redoc
-
-### 4. Start the Frontend
-
+Terminal 2 (Frontend):
 ```bash
 cd frontend
 npm run dev
 ```
 
-The frontend will be available at http://localhost:5173
+**4. Open the application:**
 
-## 📚 API Endpoints
+Navigate to http://localhost:5173 in your browser.
 
-### Authentication
-- `POST /api/v1/auth/validate` - Validate a private key (nsec)
+---
 
-### Badges (Creator)
-- `GET /api/v1/badges/templates` - List badge templates
-- `POST /api/v1/badges/templates` - Create badge template
-- `POST /api/v1/badges/create-definition` - Publish badge definition
-- `POST /api/v1/badges/award` - Award badge to recipients
-- `POST /api/v1/badges/create-and-award` - Create and award in one call
+## Authentication Methods
 
-### Inbox (Receiver)
-- `GET /api/v1/inbox/pending` - Get pending badges
-- `GET /api/v1/inbox/accepted` - Get accepted badges
-- `POST /api/v1/inbox/accept` - Accept a badge
-- `POST /api/v1/inbox/remove` - Remove an accepted badge
+Badge Box supports two ways to authenticate:
 
-### Profile
-- `GET /api/v1/profile/{pubkey}` - Get profile data
-- `GET /api/v1/profile/{pubkey}/badges` - Get profile badges
+### NIP-07 Browser Extension (Recommended)
 
-### Relays
-- `GET /api/v1/relays` - Get configured relays
+Install a Nostr browser extension like:
+- [nos2x](https://github.com/nickytonline/nos2x) (Chrome)
+- [Alby](https://getalby.com/) (Firefox/Chrome)
 
-## 🔐 Security
+Your private key stays safely in the extension. Badge Box only requests signatures when needed.
 
-- **Private keys are never stored on the server**
-- Keys are stored in browser sessionStorage (cleared when browser closes)
-- All signing happens client-side via the API
-- HTTPS is recommended for production
+### Private Key (nsec)
 
-## 🎨 Tech Stack
+Enter your Nostr private key (starts with `nsec1...`) directly. The key is stored only in your browser session and cleared when you close the browser.
+
+---
+
+## How Badges Work
+
+Badge Box implements the NIP-58 badge specification using three Nostr event types:
+
+| Event Kind | Purpose |
+|------------|---------|
+| 30009 | Badge Definition - defines badge metadata (name, image, description) |
+| 8 | Badge Award - records that a badge was awarded to specific users |
+| 30008 | Profile Badges - user's list of accepted badges to display |
+
+### Badge Lifecycle
+
+1. **Creator defines a badge** (publishes kind 30009 event)
+2. **Creator awards badge to recipients** (publishes kind 8 event)
+3. **Recipient sees badge in their inbox** (queries kind 8 events)
+4. **Recipient accepts badge** (updates their kind 30008 event)
+5. **Badge displays on recipient's profile**
+
+---
+
+## Project Structure
+
+```
+Badge_Box/
+├── backend/              # FastAPI REST API (Port 8000)
+│   ├── app/
+│   │   ├── main.py       # Application entry
+│   │   ├── routers/      # API endpoints
+│   │   ├── services/     # Business logic
+│   │   └── models/       # Request/response schemas
+│   └── requirements.txt
+│
+├── frontend/             # Vue.js 3 SPA (Port 5173)
+│   ├── src/
+│   │   ├── views/        # Page components
+│   │   ├── components/   # Reusable UI components
+│   │   ├── stores/       # Pinia state management
+│   │   ├── composables/  # Event signing logic
+│   │   └── api/          # HTTP client
+│   └── package.json
+│
+├── badge_tool/           # CLI badge creation tool
+├── badge_inbox/          # CLI inbox tool
+├── common/               # Shared Python modules
+│
+├── README.md             # This file
+├── GUIDE.md              # Detailed user guide
+└── USE_CASES.md          # Use case examples
+```
+
+---
+
+## Technology Stack
 
 **Backend:**
-- FastAPI (Python web framework)
-- Pydantic (data validation)
-- websockets (Nostr relay connections)
-- python-nostr (Nostr protocol)
+- FastAPI - Python web framework
+- Pydantic - Data validation
+- websockets - Relay communication
+- python-nostr - Nostr protocol implementation
 
 **Frontend:**
-- Vue.js 3 (Composition API)
-- Vue Router (routing)
-- Pinia (state management)
-- Axios (HTTP client)
-- Vite (build tool)
+- Vue.js 3 - UI framework (Composition API)
+- Pinia - State management
+- Vue Router - Client-side routing
+- Axios - HTTP client
+- Vite - Build tool
 
-## 📋 NIP-58 Event Types
+**Protocol:**
+- Nostr - Decentralized event storage
+- NIP-58 - Badge specification
+- NIP-07 - Browser extension signing
 
-| Kind | Name | Description |
-|------|------|-------------|
-| 30009 | Badge Definition | Defines a badge (name, image, description) |
-| 8 | Badge Award | Awards a badge to recipients |
-| 30008 | Profile Badges | User's displayed badges |
+---
 
-## 🛠️ Development
+## API Reference
 
-### Backend Development
-
-```bash
-cd backend
-uvicorn app.main:app --reload
+### Authentication
+```
+POST /api/v1/auth/validate    Validate nsec and derive public key
 ```
 
-### Frontend Development
+### Badge Templates
+```
+GET  /api/v1/badges/templates/app     List built-in badge templates
+GET  /api/v1/badges/templates/user    List user-created templates
+POST /api/v1/badges/templates         Create new template
+DELETE /api/v1/badges/templates/{id}  Delete template
+```
 
+### Badge Operations
+```
+POST /api/v1/badges/create-definition   Create badge definition
+POST /api/v1/badges/award               Award badge to recipients
+POST /api/v1/badges/create-and-award    Create and award in one call
+GET  /api/v1/badges/owners              List users with a specific badge
+```
+
+### Inbox
+```
+GET  /api/v1/inbox/pending    Get pending badges
+GET  /api/v1/inbox/accepted   Get accepted badges
+POST /api/v1/inbox/accept     Accept a badge
+POST /api/v1/inbox/remove     Remove a badge from profile
+```
+
+### Profile
+```
+GET /api/v1/profile/{pubkey}          Get user profile metadata
+GET /api/v1/profile/{pubkey}/badges   Get user's displayed badges
+```
+
+API documentation is available at http://localhost:8000/docs when the backend is running.
+
+---
+
+## Security
+
+- **No server-side key storage** - Private keys are never saved to disk
+- **Session-only storage** - Keys cleared when browser closes
+- **Cryptographic verification** - All events signed and verified by relays
+- **NIP-07 isolation** - Extension-based signing keeps keys secure
+
+For production deployments, always use HTTPS.
+
+---
+
+## Configured Relays
+
+Badge Box publishes to multiple relays for redundancy:
+
+- wss://relay.damus.io
+- wss://nos.lol
+- wss://nostr.wine
+- wss://offchain.pub
+- wss://relay.snort.social
+- wss://relay.primal.net
+- wss://relay.nostr.band
+- wss://relay.0xchat.com
+- wss://relay.azzamo.net
+- wss://shu05.shugur.net
+
+Relay configuration is in `badge_tool/config.json`.
+
+---
+
+## Documentation
+
+- **[GUIDE.md](./GUIDE.md)** - Step-by-step user guide for all features
+- **[USE_CASES.md](./USE_CASES.md)** - Real-world use case examples
+
+---
+
+## Development
+
+### Running in Development Mode
+
+Backend (with auto-reload):
+```bash
+cd backend
+uvicorn app.main:app --reload --port 8000
+```
+
+Frontend (with hot module replacement):
 ```bash
 cd frontend
 npm run dev
 ```
 
-### Build for Production
+### Building for Production
 
 ```bash
-# Frontend
 cd frontend
 npm run build
 ```
 
-## 📄 License
+This creates optimized assets in `frontend/dist/`.
+
+---
+
+## License
 
 MIT
 
-## 🙏 Credits
+---
+
+## Credits
 
 Built on the Nostr protocol using the NIP-58 Badges specification.
-

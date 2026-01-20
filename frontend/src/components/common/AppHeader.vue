@@ -2,8 +2,7 @@
   <header class="header">
     <div class="header-content">
       <router-link to="/" class="logo">
-        <Icon name="award" size="lg" class="logo-icon" />
-        <span class="logo-text">Nostr Badges</span>
+        <img src="/BadgeBox_.png" alt="BadgeBox" class="logo-img" />
       </router-link>
 
       <nav class="nav">
@@ -75,8 +74,11 @@ const badgesStore = useBadgesStore()
   color: var(--color-text);
 }
 
-.logo-icon {
-  color: var(--color-primary);
+.logo-img {
+  height: 52px;
+  width: auto;
+  border-radius: var(--radius-md);
+  object-fit: contain;
 }
 
 .nav {
