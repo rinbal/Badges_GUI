@@ -161,11 +161,40 @@ button {
   font-size: inherit;
 }
 
+/* Remove default focus outline - we use focus-visible instead */
 input:focus,
 textarea:focus,
 select:focus,
 button:focus {
   outline: none;
+}
+
+/* =====================================================
+   Accessibility - Focus States
+   ===================================================== */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* Remove focus ring for elements that have custom focus styles */
+input:focus-visible,
+textarea:focus-visible {
+  outline: none;
+}
+
+/* =====================================================
+   Button Active States
+   ===================================================== */
+button:active:not(:disabled),
+a.btn:active,
+[role="button"]:active:not(:disabled) {
+  transform: scale(0.98);
 }
 
 /* Custom Scrollbar */
