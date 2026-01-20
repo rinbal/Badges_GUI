@@ -59,7 +59,11 @@
             <Icon name="inbox" size="xl" />
           </div>
           <h3>No pending badges</h3>
-          <p>When someone awards you a badge, it will appear here for you to accept.</p>
+          <p>Badges you receive from others will appear here for you to accept or decline.</p>
+          <div class="empty-hint">
+            <Icon name="info" size="sm" class="hint-icon" />
+            <span>Share your npub with others so they can award you badges!</span>
+          </div>
           <router-link to="/creator" class="btn-primary">
             <Icon name="sparkles" size="sm" />
             <span>Create a Badge</span>
@@ -95,7 +99,11 @@
             <Icon name="award" size="xl" />
           </div>
           <h3>Your collection is empty</h3>
-          <p>Accept badges from the Pending tab to add them to your collection.</p>
+          <p>Accept badges from your Pending inbox to display them here in your collection.</p>
+          <div class="empty-hint">
+            <Icon name="info" size="sm" class="hint-icon" />
+            <span>Accepted badges become part of your Nostr profile that others can see!</span>
+          </div>
           <button
             v-if="badgesStore.pendingCount > 0"
             class="btn-primary"
@@ -535,22 +543,75 @@ async function handleRemoveFromPanel(badge) {
    Mobile Responsive
    =========================================== */
 @media (max-width: 640px) {
+  .page-header h1 {
+    font-size: 1.5rem;
+  }
+
+  .subtitle {
+    font-size: 0.875rem;
+  }
+
   .nav-tabs {
     flex-wrap: wrap;
   }
 
   .nav-tab {
     flex: 1;
-    min-width: 120px;
+    min-width: 100px;
     justify-content: center;
+    padding: 0.625rem 0.75rem;
+    font-size: 0.8125rem;
   }
 
+  /* Keep labels visible on mobile - just make them shorter */
   .tab-label {
+    display: inline;
+    font-size: 0.8125rem;
+  }
+
+  .tab-icon {
     display: none;
   }
 
   .refresh-btn {
     width: 44px;
+    min-width: 44px;
   }
+
+  .empty-state {
+    padding: 2.5rem 1.5rem;
+  }
+
+  .collection-grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 0.75rem;
+  }
+}
+
+/* Empty hint styling */
+.empty-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background: var(--color-info-soft);
+  border-radius: var(--radius-md);
+  margin-bottom: 1.5rem;
+  text-align: left;
+  max-width: 340px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.empty-hint .hint-icon {
+  flex-shrink: 0;
+  color: var(--color-info);
+  margin-top: 0.125rem;
+}
+
+.empty-hint span {
+  font-size: 0.8125rem;
+  color: var(--color-text);
+  line-height: 1.4;
 }
 </style>

@@ -21,6 +21,40 @@
       </div>
     </section>
 
+    <!-- How it works -->
+    <section class="how-it-works">
+      <h2>How it works</h2>
+      <div class="steps">
+        <div class="step">
+          <div class="step-number">1</div>
+          <div class="step-content">
+            <h3>Create or Choose</h3>
+            <p>Design a custom badge or pick from our ready-made collection</p>
+          </div>
+        </div>
+        <div class="step-arrow">
+          <Icon name="chevron-right" size="md" />
+        </div>
+        <div class="step">
+          <div class="step-number">2</div>
+          <div class="step-content">
+            <h3>Award</h3>
+            <p>Send badges to any Nostr user using their npub address</p>
+          </div>
+        </div>
+        <div class="step-arrow">
+          <Icon name="chevron-right" size="md" />
+        </div>
+        <div class="step">
+          <div class="step-number">3</div>
+          <div class="step-content">
+            <h3>Accept & Display</h3>
+            <p>Recipients accept badges to add them to their profile</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <section class="features">
       <div class="feature-card">
         <div class="feature-icon">
@@ -55,10 +89,28 @@
       </div>
     </section>
     
+    <!-- New to Nostr CTA -->
+    <section class="new-to-nostr">
+      <div class="nostr-cta-content">
+        <h3>New to Nostr?</h3>
+        <p>Nostr is a decentralized protocol for social networking. You own your identity with cryptographic keys instead of accounts.</p>
+        <a href="https://nostr.how/en/get-started" target="_blank" class="btn btn-outline">
+          <span>Get Started with Nostr</span>
+          <Icon name="external-link" size="sm" />
+        </a>
+      </div>
+    </section>
+
     <section class="nip-info">
-      <h2>Powered by NIP-58</h2>
+      <h2>
+        Powered by
+        <span class="nip-badge" title="NIP = Nostr Implementation Possibility. NIPs are standards that define how Nostr applications work together.">
+          NIP-58
+          <Icon name="info" size="xs" class="nip-info-icon" />
+        </span>
+      </h2>
       <p>
-        This application implements the 
+        This application implements the
         <a href="https://github.com/nostr-protocol/nips/blob/master/58.md" target="_blank">
           NIP-58 Badges specification
         </a>
@@ -85,8 +137,6 @@
       <p class="footer-line">
         Built by
         <a href="https://github.com/rinbal" target="_blank" rel="noopener">rinbal</a>
-        &
-        <a href="https://github.com/DoktorShift" target="_blank" rel="noopener">DrShift</a>
       </p>
       <p class="footer-line footer-secondary">
         Payment infrastructure by
@@ -170,6 +220,93 @@ import Icon from '@/components/common/Icon.vue'
   background: var(--color-surface-hover);
   border-color: var(--color-primary);
   transform: translateY(-2px);
+}
+
+/* How it works */
+.how-it-works {
+  text-align: center;
+  padding: 2rem 0;
+}
+
+.how-it-works h2 {
+  font-size: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.steps {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  max-width: 200px;
+}
+
+.step-number {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-primary);
+  color: white;
+  border-radius: 50%;
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
+.step-content h3 {
+  font-size: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.step-content p {
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+  margin: 0;
+  line-height: 1.5;
+}
+
+.step-arrow {
+  display: flex;
+  align-items: center;
+  color: var(--color-text-subtle);
+  padding-top: 0.75rem;
+}
+
+@media (max-width: 640px) {
+  .steps {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .step {
+    flex-direction: row;
+    max-width: 100%;
+    text-align: left;
+    gap: 1rem;
+  }
+
+  .step-number {
+    width: 40px;
+    height: 40px;
+    font-size: 1rem;
+    margin-bottom: 0;
+    flex-shrink: 0;
+  }
+
+  .step-arrow {
+    transform: rotate(90deg);
+    padding: 0.5rem 0;
+  }
 }
 
 .features {
@@ -272,6 +409,64 @@ import Icon from '@/components/common/Icon.vue'
 .event-type span {
   font-size: 0.8125rem;
   color: var(--color-text-muted);
+}
+
+/* New to Nostr CTA */
+.new-to-nostr {
+  padding: 2rem;
+  margin-top: 2rem;
+  background: linear-gradient(135deg, var(--color-primary-soft) 0%, var(--color-accent-soft) 100%);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  text-align: center;
+}
+
+.nostr-cta-content h3 {
+  font-size: 1.25rem;
+  margin-bottom: 0.5rem;
+}
+
+.nostr-cta-content p {
+  color: var(--color-text-muted);
+  max-width: 500px;
+  margin: 0 auto 1.5rem;
+  line-height: 1.6;
+}
+
+.btn-outline {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  background: transparent;
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  text-decoration: none;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.btn-outline:hover {
+  background: var(--color-surface);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+/* NIP Badge Tooltip */
+.nip-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.25rem 0.75rem;
+  background: var(--color-primary-soft);
+  border-radius: var(--radius-md);
+  cursor: help;
+  position: relative;
+}
+
+.nip-info-icon {
+  color: var(--color-primary);
 }
 
 /* Footer */

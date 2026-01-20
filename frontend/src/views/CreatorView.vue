@@ -9,6 +9,7 @@
     <!-- Mode Selection -->
     <section v-if="!activeMode" class="mode-selection animate-fadeIn">
       <h2 class="section-title">What would you like to do?</h2>
+      <p class="section-hint">Start by choosing a badge type below</p>
 
       <div class="mode-cards">
         <button class="mode-card" @click="selectMode('award')">
@@ -17,7 +18,7 @@
           </div>
           <div class="mode-content">
             <h3>Award an Official Badge</h3>
-            <p>Choose from curated badges and award them instantly</p>
+            <p>Pick from ready-made badges - perfect for quick awards</p>
             <span class="mode-badge">{{ appTemplateCount }} available</span>
           </div>
           <Icon name="chevron-right" size="md" class="mode-arrow" />
@@ -29,7 +30,7 @@
           </div>
           <div class="mode-content">
             <h3>Create a Custom Badge</h3>
-            <p>Design your own unique badge from scratch</p>
+            <p>Design your own badge with custom name, image & description</p>
             <span class="mode-badge">Unlimited</span>
           </div>
           <Icon name="chevron-right" size="md" class="mode-arrow" />
@@ -623,8 +624,15 @@ onMounted(() => {
   font-size: 1.125rem;
   font-weight: 500;
   text-align: center;
-  margin-bottom: 1.5rem;
+  margin-bottom: 0.5rem;
   color: var(--color-text-muted);
+}
+
+.section-hint {
+  font-size: 0.875rem;
+  text-align: center;
+  color: var(--color-text-subtle);
+  margin-bottom: 1.5rem;
 }
 
 /* Mode Selection */
@@ -640,8 +648,75 @@ onMounted(() => {
 }
 
 @media (max-width: 640px) {
+  .page-header h1 {
+    font-size: 1.5rem;
+  }
+
   .mode-cards {
     grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+
+  .mode-card {
+    padding: 1.25rem;
+  }
+
+  .mode-icon {
+    width: 44px;
+    height: 44px;
+  }
+
+  .mode-content h3 {
+    font-size: 0.9375rem;
+  }
+
+  .mode-content p {
+    font-size: 0.75rem;
+  }
+
+  .workflow-header {
+    padding: 1rem;
+  }
+
+  .workflow-title h2 {
+    font-size: 1rem;
+  }
+
+  .workflow-body {
+    padding: 1rem;
+    gap: 1rem;
+  }
+
+  .step-indicator {
+    width: 24px;
+    height: 24px;
+    font-size: 0.6875rem;
+  }
+
+  .step-info h3 {
+    font-size: 0.875rem;
+  }
+
+  .badges-grid {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+
+  .badge-card {
+    padding: 0.75rem;
+  }
+
+  .badge-image {
+    width: 40px;
+    height: 40px;
+  }
+
+  .form-actions {
+    flex-direction: column;
+  }
+
+  .form-actions button {
+    width: 100%;
   }
 }
 

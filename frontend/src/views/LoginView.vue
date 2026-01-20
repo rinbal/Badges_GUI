@@ -136,6 +136,45 @@
             </p>
           </div>
         </div>
+
+        <!-- What is Nostr? expandable section -->
+        <details class="nostr-explainer">
+          <summary>
+            <span class="explainer-icon">?</span>
+            <span>What is Nostr?</span>
+            <Icon name="chevron-right" size="sm" class="expand-icon" />
+          </summary>
+          <div class="explainer-content">
+            <p>
+              <strong>Nostr</strong> is a decentralized social protocol. Instead of accounts on a company's server,
+              you use cryptographic keys that you control.
+            </p>
+            <div class="key-types">
+              <div class="key-type">
+                <code>npub</code>
+                <span>Your public key - share this with others (like a username)</span>
+              </div>
+              <div class="key-type">
+                <code>nsec</code>
+                <span>Your private key - keep this secret! (like a password)</span>
+              </div>
+            </div>
+            <div class="extension-benefit">
+              <Icon name="extension" size="sm" class="benefit-icon" />
+              <div>
+                <strong>Why use an extension?</strong>
+                <p>
+                  A browser extension stores your private key securely and signs events without
+                  exposing your key to websites. It's the safest way to use Nostr.
+                </p>
+              </div>
+            </div>
+            <a href="https://nostr.how" target="_blank" class="learn-more">
+              Learn more about Nostr
+              <Icon name="external-link" size="xs" />
+            </a>
+          </div>
+        </details>
       </div>
     </div>
   </div>
@@ -578,5 +617,146 @@ async function handleNsecLogin() {
   color: var(--color-text-muted);
   margin: 0;
   line-height: 1.5;
+}
+
+/* Nostr Explainer */
+.nostr-explainer {
+  margin-top: 1rem;
+  background: var(--color-surface-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.nostr-explainer summary {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.875rem 1rem;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  list-style: none;
+  transition: color 0.15s;
+}
+
+.nostr-explainer summary::-webkit-details-marker {
+  display: none;
+}
+
+.nostr-explainer summary:hover {
+  color: var(--color-text);
+}
+
+.explainer-icon {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+  border-radius: 50%;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.expand-icon {
+  margin-left: auto;
+  color: var(--color-text-subtle);
+  transition: transform 0.2s;
+}
+
+.nostr-explainer[open] .expand-icon {
+  transform: rotate(90deg);
+}
+
+.explainer-content {
+  padding: 0 1rem 1rem;
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+  line-height: 1.6;
+  border-top: 1px solid var(--color-border);
+  margin-top: 0;
+}
+
+.explainer-content > p {
+  margin: 1rem 0;
+}
+
+.key-types {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 1rem 0;
+}
+
+.key-type {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.625rem 0.75rem;
+  background: var(--color-surface);
+  border-radius: var(--radius-sm);
+}
+
+.key-type code {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--color-primary);
+  background: var(--color-primary-soft);
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+}
+
+.key-type span {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.extension-benefit {
+  display: flex;
+  gap: 0.75rem;
+  padding: 0.875rem;
+  background: var(--color-primary-soft);
+  border-radius: var(--radius-md);
+  margin: 1rem 0;
+}
+
+.benefit-icon {
+  flex-shrink: 0;
+  color: var(--color-primary);
+  margin-top: 0.125rem;
+}
+
+.extension-benefit strong {
+  display: block;
+  font-size: 0.8125rem;
+  color: var(--color-text);
+  margin-bottom: 0.25rem;
+}
+
+.extension-benefit p {
+  font-size: 0.75rem;
+  margin: 0;
+  color: var(--color-text);
+}
+
+.learn-more {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  color: var(--color-primary);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  text-decoration: none;
+  transition: color 0.15s;
+}
+
+.learn-more:hover {
+  color: var(--color-primary-hover);
+  text-decoration: underline;
 }
 </style>

@@ -6,11 +6,11 @@
       </router-link>
 
       <nav class="nav">
-        <router-link to="/creator" class="nav-link">
+        <router-link to="/creator" class="nav-link" title="Create and award badges">
           <Icon name="sparkles" size="md" class="nav-icon" />
-          <span class="nav-text">Creator</span>
+          <span class="nav-text">Create</span>
         </router-link>
-        <router-link to="/inbox" class="nav-link">
+        <router-link to="/inbox" class="nav-link" title="View your badges">
           <Icon name="inbox" size="md" class="nav-icon" />
           <span class="nav-text">Inbox</span>
           <span v-if="badgesStore.pendingCount > 0" class="badge-count">
@@ -148,13 +148,53 @@ const badgesStore = useBadgesStore()
 @media (max-width: 768px) {
   .header-content {
     padding: 0.75rem 1rem;
+    gap: 1rem;
   }
-  
+
   .logo-text {
     display: none;
   }
-  
+
+  .nav-link {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.8125rem;
+  }
+
   .nav-text {
+    /* Keep text visible on mobile for better UX */
+    display: inline;
+    font-size: 0.8125rem;
+  }
+
+  .nav {
+    gap: 0.25rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .header-content {
+    padding: 0.5rem 0.75rem;
+  }
+
+  .nav-link {
+    padding: 0.5rem 0.625rem;
+    gap: 0.375rem;
+  }
+
+  .nav-text {
+    font-size: 0.75rem;
+  }
+
+  .logo-img {
+    height: 40px;
+  }
+
+  .btn-login {
+    padding: 0.4rem 0.75rem;
+    font-size: 0.8125rem;
+  }
+
+  .btn-login span {
     display: none;
   }
 }
