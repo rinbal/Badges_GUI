@@ -4,7 +4,7 @@
     "tags": [
       ["d", "nostruser"],
       ["name", "Nostr User"],
-      ["description", "nostr user - badge created by rinbal - see BadgeBox"],
+      ["description", "nostr user - powered by BadgeBox"],
       ["image", "https://raw.githubusercontent.com/rinbal/nostr-badges/main/images/nostrUser.png"],
       ["thumb", "https://raw.githubusercontent.com/rinbal/nostr-badges/main/images/nostrUser.png"]
     ]
