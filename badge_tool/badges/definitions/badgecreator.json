@@ -4,7 +4,7 @@
     "tags": [
       ["d", "badgecreator"],
       ["name", "Badge Creator"],
-      ["description", "creator of a custom nostr badge"],
+      ["description", "creator of a custom nostr badge - powered by BadgeBox"],
       ["image", "https://raw.githubusercontent.com/rinbal/nostr-badges/main/images/badgecreator_v03.png"],
       ["thumb", "https://raw.githubusercontent.com/rinbal/nostr-badges/main/images/badgecreator_v03.png"]
     ]
