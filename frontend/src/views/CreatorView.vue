@@ -174,8 +174,8 @@
           <Icon name="arrow-left" size="sm" />
         </button>
         <div class="workflow-title">
-          <h2>Create a Custom Badge</h2>
-          <p>Design your badge, then award it</p>
+          <h2>{{ editingTemplate ? 'Edit Template' : 'Create a Custom Badge' }}</h2>
+          <p>{{ editingTemplate ? 'Update template details' : 'Design your badge, then award it' }}</p>
         </div>
       </header>
 
@@ -189,11 +189,13 @@
               v-model="form.identifier"
               type="text"
               placeholder="e.g. early-supporter"
-              :class="{ 'has-error': identifierError }"
+              :class="{ 'has-error': identifierError, 'readonly': editingTemplate }"
+              :readonly="!!editingTemplate"
               @input="validateIdentifier"
               maxlength="64"
             />
             <p v-if="identifierError" class="field-error">{{ identifierError }}</p>
+            <p v-else-if="editingTemplate" class="field-hint">Badge ID cannot be changed when editing.</p>
             <p v-else class="field-hint">Lowercase, numbers, hyphens. This is the unique identifier.</p>
           </div>
 
@@ -238,37 +240,59 @@
             <p class="field-hint">Direct link to badge image (PNG, JPG, GIF)</p>
           </div>
 
-          <div class="form-divider"></div>
+          <template v-if="!editingTemplate">
+            <div class="form-divider"></div>
 
-          <!-- Recipients -->
-          <div class="form-group">
-            <label>Recipients <span class="required">*</span></label>
-            <RecipientInput
-              v-model="recipientsText"
-              :count="recipients.length"
-              @update:modelValue="onRecipientsChange"
-            />
-          </div>
+            <!-- Recipients -->
+            <div class="form-group">
+              <label>Recipients <span class="required">*</span></label>
+              <RecipientInput
+                v-model="recipientsText"
+                :count="recipients.length"
+                @update:modelValue="onRecipientsChange"
+              />
+            </div>
+          </template>
 
           <!-- Actions -->
           <div class="form-actions">
-            <button
-              type="button"
-              class="btn-secondary"
-              :disabled="!canSaveTemplate || isSaving"
-              @click="saveAsTemplate"
-            >
-              <span v-if="isSaving" class="btn-spinner dark"></span>
-              {{ isSaving ? 'Saving...' : 'Save as Template' }}
-            </button>
-            <button
-              type="submit"
-              class="btn-primary"
-              :disabled="!canSubmit || isSubmitting"
-            >
-              <span v-if="isSubmitting" class="btn-spinner"></span>
-              {{ isSubmitting ? 'Creating...' : 'Create & Award' }}
-            </button>
+            <template v-if="editingTemplate">
+              <button
+                type="button"
+                class="btn-secondary"
+                @click="cancelEdit"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                class="btn-primary"
+                :disabled="!canSaveTemplate || isUpdating"
+                @click="updateTemplateChanges"
+              >
+                <span v-if="isUpdating" class="btn-spinner"></span>
+                {{ isUpdating ? 'Updating...' : 'Update Template' }}
+              </button>
+            </template>
+            <template v-else>
+              <button
+                type="button"
+                class="btn-secondary"
+                :disabled="!canSaveTemplate || isSaving"
+                @click="saveAsTemplate"
+              >
+                <span v-if="isSaving" class="btn-spinner dark"></span>
+                {{ isSaving ? 'Saving...' : 'Save as Template' }}
+              </button>
+              <button
+                type="submit"
+                class="btn-primary"
+                :disabled="!canSubmit || isSubmitting"
+              >
+                <span v-if="isSubmitting" class="btn-spinner"></span>
+                {{ isSubmitting ? 'Creating...' : 'Create & Award' }}
+              </button>
+            </template>
           </div>
         </form>
 
@@ -288,8 +312,9 @@
           <div class="sidebar-tip">
             <Icon name="info" size="sm" class="tip-icon" />
             <div>
-              <strong>Pro tip</strong>
-              <p>Save as template to quickly award this badge again in the future.</p>
+              <strong>{{ editingTemplate ? 'Editing mode' : 'Pro tip' }}</strong>
+              <p v-if="editingTemplate">Update the badge details and click "Update Template" to save changes.</p>
+              <p v-else>Save as template to quickly award this badge again in the future.</p>
             </div>
           </div>
         </aside>
@@ -318,6 +343,12 @@
           <div class="skel-body">
             <div class="skel-line"></div>
             <div class="skel-line short"></div>
+            <div class="skel-line shorter"></div>
+          </div>
+          <div class="skel-actions">
+            <div class="skel-btn"></div>
+            <div class="skel-btn"></div>
+            <div class="skel-btn"></div>
           </div>
         </div>
       </div>
@@ -351,6 +382,7 @@
           </div>
           <div class="template-actions">
             <button class="btn-action primary" @click="useTemplate(template)">Award</button>
+            <button class="btn-action secondary" @click="editTemplate(template)">Edit</button>
             <button class="btn-action danger" @click="deleteTemplate(template)">Delete</button>
           </div>
         </div>
@@ -390,6 +422,10 @@ const activeMode = ref(null)
 
 // Template selection
 const selectedTemplate = ref(null)
+
+// Editing state
+const editingTemplate = ref(null)
+const isUpdating = ref(false)
 
 // Form
 const form = ref({ identifier: '', name: '', description: '', image: '' })
@@ -470,6 +506,7 @@ function goBack() {
 
 function resetState() {
   selectedTemplate.value = null
+  editingTemplate.value = null
   form.value = { identifier: '', name: '', description: '', image: '' }
   recipientsText.value = ''
   identifierError.value = ''
@@ -489,8 +526,26 @@ function useTemplate(template) {
     image: template.image || ''
   }
   selectedTemplate.value = template
+  editingTemplate.value = null
   activeMode.value = 'award'
   uiStore.showInfo(`Using "${template.name}" — add recipients to award`)
+}
+
+function editTemplate(template) {
+  form.value = {
+    identifier: template.identifier,
+    name: template.name,
+    description: template.description || '',
+    image: template.image || ''
+  }
+  editingTemplate.value = template
+  activeMode.value = 'create'
+  uiStore.showInfo(`Editing "${template.name}" — update details and save`)
+}
+
+function cancelEdit() {
+  resetState()
+  activeMode.value = 'templates'
 }
 
 // Validation
@@ -527,6 +582,22 @@ async function saveAsTemplate() {
     uiStore.showSuccess(`Template "${form.value.name}" saved`)
   } else {
     uiStore.showError(result.error || 'Could not save template')
+  }
+}
+
+async function updateTemplateChanges() {
+  if (!editingTemplate.value || !canSaveTemplate.value) return
+
+  isUpdating.value = true
+  const result = await badgesStore.updateTemplate(editingTemplate.value.identifier, { ...form.value })
+  isUpdating.value = false
+
+  if (result.success) {
+    uiStore.showSuccess(`Template "${form.value.name}" updated`)
+    editingTemplate.value = null
+    activeMode.value = 'templates'
+  } else {
+    uiStore.showError(result.error || 'Could not update template')
   }
 }
 
@@ -1184,6 +1255,12 @@ onMounted(() => {
   border-color: var(--color-danger);
 }
 
+.form-group input.readonly {
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  cursor: not-allowed;
+}
+
 .field-hint {
   font-size: 0.6875rem;
   color: var(--color-text-muted);
@@ -1311,30 +1388,53 @@ onMounted(() => {
 /* Templates Grid */
 .templates-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 1.25rem;
   padding: 1.5rem;
 }
 
 .template-item {
   background: var(--color-surface-elevated);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   overflow: hidden;
+  transition: all 0.25s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.template-item:hover {
+  border-color: var(--color-primary);
+  transform: translateY(-4px);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.1);
 }
 
 .template-image {
-  height: 100px;
+  height: 120px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--color-surface);
+  background: linear-gradient(135deg, var(--color-surface) 0%, var(--color-surface-elevated) 100%);
+  position: relative;
+  overflow: hidden;
+}
+
+.template-image::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, transparent 60%, rgba(0, 0, 0, 0.05) 100%);
+  pointer-events: none;
 }
 
 .template-image img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+.template-item:hover .template-image img {
+  transform: scale(1.05);
 }
 
 .template-placeholder {
@@ -1344,57 +1444,99 @@ onMounted(() => {
   width: 100%;
   height: 100%;
   color: var(--color-text-muted);
+  opacity: 0.5;
+  transition: opacity 0.2s ease;
+}
+
+.template-item:hover .template-placeholder {
+  opacity: 0.7;
 }
 
 .template-body {
-  padding: 0.875rem;
+  padding: 1rem;
+  border-bottom: 1px solid var(--color-border);
 }
 
 .template-body h4 {
-  font-size: 0.9375rem;
-  margin: 0 0 0.25rem;
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0 0 0.375rem;
+  color: var(--color-text);
+  transition: color 0.2s ease;
+}
+
+.template-item:hover .template-body h4 {
+  color: var(--color-primary);
 }
 
 .template-body p {
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
   color: var(--color-text-muted);
-  margin: 0 0 0.5rem;
+  margin: 0 0 0.625rem;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .template-body code {
+  display: inline-block;
   font-size: 0.6875rem;
   color: var(--color-primary);
+  background: var(--color-primary-soft);
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--radius-sm);
+  font-family: ui-monospace, monospace;
 }
 
 .template-actions {
   display: flex;
   gap: 0.5rem;
-  padding: 0 0.875rem 0.875rem;
+  padding: 0.875rem 1rem;
+  background: var(--color-surface);
 }
 
 /* Template Skeleton */
 .template-skeleton {
   background: var(--color-surface-elevated);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   overflow: hidden;
+  border: 1px solid var(--color-border);
 }
 
 .skel-image {
-  height: 100px;
+  height: 120px;
   background: linear-gradient(90deg, var(--color-surface) 25%, var(--color-surface-hover) 50%, var(--color-surface) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
 }
 
 .skel-body {
-  padding: 0.875rem;
+  padding: 1rem;
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.skel-actions {
+  padding: 0.875rem 1rem;
+  display: flex;
+  gap: 0.5rem;
+}
+
+.skel-btn {
+  flex: 1;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(90deg, var(--color-surface) 25%, var(--color-surface-hover) 50%, var(--color-surface) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
 }
 
 .skel-line {
-  height: 12px;
+  height: 14px;
   border-radius: var(--radius-sm);
   background: linear-gradient(90deg, var(--color-surface) 25%, var(--color-surface-hover) 50%, var(--color-surface) 75%);
   background-size: 200% 100%;
@@ -1402,7 +1544,14 @@ onMounted(() => {
 }
 
 .skel-line.short {
-  width: 60%;
+  width: 75%;
+  height: 12px;
+}
+
+.skel-line.shorter {
+  width: 40%;
+  height: 20px;
+  margin-top: 0.25rem;
 }
 
 @keyframes shimmer {
@@ -1414,27 +1563,39 @@ onMounted(() => {
 .empty-state {
   text-align: center;
   padding: 4rem 2rem;
+  background: linear-gradient(180deg, transparent 0%, var(--color-surface-elevated) 100%);
+  border-radius: var(--radius-lg);
+  margin: 1.5rem;
 }
 
 .empty-icon {
   display: flex;
   justify-content: center;
-  margin-bottom: 1rem;
+  margin-bottom: 1.25rem;
   color: var(--color-text-muted);
+  opacity: 0.6;
+}
+
+.empty-icon :deep(svg) {
+  width: 64px;
+  height: 64px;
 }
 
 .empty-state h3 {
-  font-size: 1.125rem;
-  margin: 0 0 0.5rem;
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin: 0 0 0.625rem;
+  color: var(--color-text);
 }
 
 .empty-state p {
-  font-size: 0.875rem;
+  font-size: 0.9375rem;
   color: var(--color-text-muted);
-  margin: 0 0 1.5rem;
-  max-width: 280px;
+  margin: 0 0 1.75rem;
+  max-width: 320px;
   margin-left: auto;
   margin-right: auto;
+  line-height: 1.5;
 }
 
 /* Buttons */
@@ -1490,22 +1651,45 @@ onMounted(() => {
 
 .btn-action {
   flex: 1;
-  padding: 0.5rem;
+  padding: 0.5rem 0.75rem;
   border-radius: var(--radius-sm);
   font-size: 0.75rem;
   font-weight: 600;
   cursor: pointer;
   border: none;
-  transition: all 0.15s;
+  transition: all 0.2s ease;
+  transform: translateY(0);
+}
+
+.btn-action:hover {
+  transform: translateY(-1px);
+}
+
+.btn-action:active {
+  transform: translateY(0);
 }
 
 .btn-action.primary {
   background: var(--color-primary);
   color: white;
+  box-shadow: 0 2px 4px rgba(var(--color-primary-rgb, 99, 102, 241), 0.2);
 }
 
 .btn-action.primary:hover {
   background: var(--color-primary-hover);
+  box-shadow: 0 4px 8px rgba(var(--color-primary-rgb, 99, 102, 241), 0.3);
+}
+
+.btn-action.secondary {
+  background: var(--color-surface-elevated);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+}
+
+.btn-action.secondary:hover {
+  background: var(--color-surface-hover);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
 }
 
 .btn-action.danger {
@@ -1516,6 +1700,7 @@ onMounted(() => {
 .btn-action.danger:hover {
   background: var(--color-danger);
   color: white;
+  box-shadow: 0 4px 8px rgba(239, 68, 68, 0.3);
 }
 
 /* Spinners */

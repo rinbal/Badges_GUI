@@ -73,6 +73,9 @@ export const api = {
   deleteTemplate: (identifier) =>
     apiClient.delete(`/badges/templates/${identifier}`),
 
+  updateTemplate: (identifier, template) =>
+    apiClient.put(`/badges/templates/${identifier}`, template),
+
   /**
    * Create badge definition
    * @param {Object} badge - Badge data { identifier, name, description, image }

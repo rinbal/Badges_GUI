@@ -158,6 +158,29 @@ export const useBadgesStore = defineStore('badges', () => {
   }
 
   /**
+   * Update an existing user template (app templates cannot be modified)
+   */
+  async function updateTemplate(identifier, template) {
+    isLoading.value = true
+    error.value = null
+
+    try {
+      const response = await api.updateTemplate(identifier, template)
+      // Update the template in the local state
+      const index = userTemplates.value.findIndex(t => t.identifier === identifier)
+      if (index !== -1) {
+        userTemplates.value[index] = response.data
+      }
+      return { success: true, template: response.data }
+    } catch (err) {
+      error.value = err.response?.data?.detail || err.message
+      return { success: false, error: error.value }
+    } finally {
+      isLoading.value = false
+    }
+  }
+
+  /**
    * Create and award a badge
    * Automatically handles signing for NIP-07 or delegates to backend for nsec
    */
@@ -411,6 +434,7 @@ export const useBadgesStore = defineStore('badges', () => {
     fetchAllTemplates,      // Fetch both app and user templates
     createTemplate,
     deleteTemplate,
+    updateTemplate,
     createAndAwardBadge,
     fetchPendingBadges,
     fetchAcceptedBadges,

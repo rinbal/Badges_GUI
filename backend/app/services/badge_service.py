@@ -184,7 +184,53 @@ class BadgeService:
         except Exception as e:
             print(f"Error deleting template: {e}")
             return False, "Failed to delete template"
-    
+
+    @staticmethod
+    def update_template(identifier: str, template: Dict[str, Any]) -> Tuple[bool, Optional[str]]:
+        """
+        Update an existing user badge template.
+        Returns (success, error_message).
+
+        Note: Only updates user templates. App templates cannot be modified.
+        The identifier cannot be changed - only name, description, and image.
+        """
+        # Validate identifier for safety
+        is_valid, error = BadgeService.validate_identifier(identifier)
+        if not is_valid:
+            return False, error
+
+        # Check if trying to update an app template
+        app_templates = BadgeService.get_app_templates()
+        if any(t["identifier"] == identifier for t in app_templates):
+            return False, "App templates cannot be modified"
+
+        try:
+            user_dir = settings.user_templates_path
+            file_path = user_dir / f"{identifier}.json"
+
+            if not file_path.exists():
+                return False, "Template not found"
+
+            # Create NIP-58 compliant badge data with updated values
+            badge_data = {
+                "kind": 30009,
+                "tags": [
+                    ["d", identifier],
+                    ["name", template["name"]],
+                    ["description", template.get("description", "")],
+                    ["image", template.get("image", "")]
+                ],
+                "content": f"Badge definition: {template['name']}"
+            }
+
+            with open(file_path, "w") as f:
+                json.dump(badge_data, f, indent=2)
+
+            return True, None
+        except Exception as e:
+            print(f"Error updating template: {e}")
+            return False, "Failed to update template"
+
     async def publish_signed_event(self, signed_event: Dict[str, Any]) -> Dict[str, Any]:
         """
         Publish a pre-signed event (from NIP-07) to relays.

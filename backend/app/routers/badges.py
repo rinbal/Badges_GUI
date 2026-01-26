@@ -203,6 +203,41 @@ async def delete_template(
     return {"success": True, "message": f"Template '{identifier}' deleted"}
 
 
+@router.put("/templates/{identifier}", response_model=BadgeTemplateResponse)
+async def update_template(
+    identifier: str,
+    request: CreateBadgeTemplateRequest,
+    x_nsec: Optional[str] = Header(None),
+    x_pubkey: Optional[str] = Header(None)
+):
+    """
+    Update an existing user badge template
+
+    Updates the template JSON file with new values.
+    The identifier cannot be changed - only name, description, and image.
+    App templates cannot be modified.
+    Requires authentication (X-Nsec or X-Pubkey header).
+    """
+    get_auth_context(x_nsec, x_pubkey)  # Validate auth (either method)
+
+    # Ensure the identifier in the URL matches the request body
+    if request.identifier != identifier:
+        raise HTTPException(
+            status_code=400,
+            detail="Identifier in URL must match identifier in request body"
+        )
+
+    success, error = BadgeService.update_template(identifier, request.model_dump())
+
+    if not success:
+        status_code = 404 if error == "Template not found" else 400
+        if "App templates" in (error or ""):
+            status_code = 403
+        raise HTTPException(status_code=status_code, detail=error)
+
+    return BadgeTemplateResponse(**request.model_dump())
+
+
 @router.post("/create-definition", response_model=CreateDefinitionResponse)
 async def create_definition(
     request: CreateBadgeDefinitionRequest,
