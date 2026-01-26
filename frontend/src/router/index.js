@@ -28,6 +28,23 @@ const routes = [
     path: '/profile/:pubkey?',
     name: 'profile',
     component: () => import('@/views/ProfileView.vue')
+  },
+  {
+    path: '/postbox',
+    name: 'postbox',
+    component: () => import('@/views/PostboxView.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/surf',
+    name: 'surf',
+    component: () => import('@/views/SurfView.vue')
+  },
+  {
+    path: '/awards',
+    name: 'awards',
+    component: () => import('@/views/MyAwardsView.vue'),
+    meta: { requiresAuth: true }
   }
 ]
 

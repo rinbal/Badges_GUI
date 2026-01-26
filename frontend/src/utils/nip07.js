@@ -250,6 +250,72 @@ function bech32Polymod(values) {
 }
 
 /**
+ * Create an unsigned badge request event (kind 30058)
+ * @param {string} badgeATag - Badge definition a-tag (30009:pubkey:identifier)
+ * @param {string} content - Message to issuer
+ * @param {Array} proofs - Array of {eventId, type} objects
+ * @param {boolean} withdrawn - Whether this is a withdrawal
+ * @returns {Object} - Unsigned event ready for signing
+ */
+export function createBadgeRequestEvent(badgeATag, content = '', proofs = [], withdrawn = false) {
+  // Extract issuer pubkey from a_tag
+  const parts = badgeATag.split(':')
+  const issuerPubkey = parts[1]
+
+  const tags = [
+    ['d', badgeATag],
+    ['a', badgeATag],
+    ['p', issuerPubkey]
+  ]
+
+  // Add proof tags
+  for (const proof of proofs) {
+    tags.push(['proof', proof.eventId, proof.type || 'note'])
+  }
+
+  // Add withdrawn status if withdrawing
+  if (withdrawn) {
+    tags.push(['status', 'withdrawn'])
+  }
+
+  return {
+    created_at: Math.floor(Date.now() / 1000),
+    kind: 30058,
+    tags,
+    content: withdrawn ? '' : content
+  }
+}
+
+/**
+ * Create an unsigned badge denial event (kind 30059)
+ * @param {string} requestEventId - Event ID of the request being denied
+ * @param {string} badgeATag - Badge definition a-tag
+ * @param {string} requesterPubkey - Pubkey of the requester
+ * @param {string} reason - Reason for denial
+ * @param {boolean} revoked - Whether this is a revocation
+ * @returns {Object} - Unsigned event ready for signing
+ */
+export function createBadgeDenialEvent(requestEventId, badgeATag, requesterPubkey, reason = '', revoked = false) {
+  const tags = [
+    ['d', requestEventId],
+    ['a', badgeATag],
+    ['e', requestEventId],
+    ['p', requesterPubkey]
+  ]
+
+  if (revoked) {
+    tags.push(['status', 'revoked'])
+  }
+
+  return {
+    created_at: Math.floor(Date.now() / 1000),
+    kind: 30059,
+    tags,
+    content: revoked ? '' : reason
+  }
+}
+
+/**
  * Convert npub to hex pubkey
  * @param {string} npub - npub1... format
  * @returns {string} - 64-character hex

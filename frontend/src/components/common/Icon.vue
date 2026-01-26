@@ -12,6 +12,8 @@ import { computed } from 'vue'
 import {
   IconHome,
   IconInbox,
+  IconMail,
+  IconMailbox,
   IconPlus,
   IconSend,
   IconAward,
@@ -94,6 +96,9 @@ const icons = {
   // Navigation & Actions
   'home': IconHome,
   'inbox': IconInbox,
+  'mail': IconMail,
+  'mailbox': IconMailbox,
+  'postbox': IconMailbox,
   'create': IconPlus,
   'plus': IconPlus,
   'send': IconSend,

@@ -6,6 +6,10 @@
       </router-link>
 
       <nav class="nav">
+        <router-link to="/surf" class="nav-link" title="Browse all badges">
+          <Icon name="globe" size="md" class="nav-icon" />
+          <span class="nav-text">Surf</span>
+        </router-link>
         <router-link to="/creator" class="nav-link" title="Create and award badges">
           <Icon name="sparkles" size="md" class="nav-icon" />
           <span class="nav-text">Create</span>
@@ -16,6 +20,27 @@
           <span v-if="badgesStore.pendingCount > 0" class="badge-count">
             {{ badgesStore.pendingCount }}
           </span>
+        </router-link>
+        <router-link
+          v-if="authStore.isAuthenticated"
+          to="/postbox"
+          class="nav-link"
+          title="Badge requests"
+        >
+          <Icon name="mail" size="md" class="nav-icon" />
+          <span class="nav-text">Postbox</span>
+          <span v-if="requestsStore.pendingCount > 0" class="badge-count request-badge">
+            {{ requestsStore.pendingCount }}
+          </span>
+        </router-link>
+        <router-link
+          v-if="authStore.isAuthenticated"
+          to="/awards"
+          class="nav-link"
+          title="Badges you've awarded"
+        >
+          <Icon name="trophy" size="md" class="nav-icon" />
+          <span class="nav-text">Awards</span>
         </router-link>
       </nav>
 
@@ -35,13 +60,23 @@
 </template>
 
 <script setup>
+import { onMounted, watch } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { useBadgesStore } from '@/stores/badges'
+import { useRequestsStore } from '@/stores/requests'
 import ProfileDropdown from '@/components/common/ProfileDropdown.vue'
 import Icon from '@/components/common/Icon.vue'
 
 const authStore = useAuthStore()
 const badgesStore = useBadgesStore()
+const requestsStore = useRequestsStore()
+
+// Fetch request counts when authenticated
+watch(() => authStore.isAuthenticated, (isAuth) => {
+  if (isAuth) {
+    requestsStore.fetchIncomingCount()
+  }
+}, { immediate: true })
 </script>
 
 <style scoped>
