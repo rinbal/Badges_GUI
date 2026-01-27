@@ -47,6 +47,7 @@ import {
   IconSearch,
   IconFilter,
   IconPhoto,
+  IconPhotoOff,
   IconUpload,
   IconWorld,
   IconBolt,
@@ -154,6 +155,8 @@ const icons = {
   // Media & Content
   'image': IconPhoto,
   'photo': IconPhoto,
+  'photo-off': IconPhotoOff,
+  'image-off': IconPhotoOff,
   'upload': IconUpload,
 
   // Misc

@@ -47,7 +47,7 @@ const props = defineProps({
   }
 })
 
-defineEmits(['click'])
+const emit = defineEmits(['click', 'image-error'])
 
 const imageError = ref(false)
 
@@ -72,6 +72,8 @@ const shortIssuer = computed(() => {
 function handleImageError(e) {
   imageError.value = true
   e.target.style.display = 'none'
+  // Notify parent that this badge has a broken image
+  emit('image-error', props.badge.a_tag)
 }
 </script>
 

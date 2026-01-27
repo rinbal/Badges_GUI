@@ -122,14 +122,16 @@ class SurfService:
     async def get_recent_badges(
         self,
         limit: int = 50,
-        since: Optional[int] = None
+        since: Optional[int] = None,
+        until: Optional[int] = None
     ) -> List[Dict]:
         """
         Get recent badge definitions from Nostr relays.
 
         Args:
             limit: Maximum number of badges to return
-            since: Unix timestamp to filter badges created after
+            since: Unix timestamp - only badges created AFTER this time
+            until: Unix timestamp - only badges created BEFORE this time (for pagination)
 
         Returns:
             List of badge definitions
@@ -141,6 +143,8 @@ class SurfService:
 
         if since:
             filter_params["since"] = since
+        if until:
+            filter_params["until"] = until
 
         events = await self._query_multiple_relays(
             filter_params, "surf_recent", timeout=12
@@ -216,22 +220,28 @@ class SurfService:
         badges = [self._parse_badge_event(ev) for ev in events]
         badges = [b for b in badges if b is not None]
 
-        # Filter by query (case-insensitive)
-        query_lower = query.lower()
+        # Filter by query (case-insensitive, multi-word support)
+        query_lower = query.lower().strip()
+        query_words = query_lower.split()
+
         matching = []
         for badge in badges:
             name = (badge.get("name") or "").lower()
             desc = (badge.get("description") or "").lower()
             identifier = (badge.get("identifier") or "").lower()
+            searchable = f"{name} {desc} {identifier}"
 
-            if query_lower in name or query_lower in desc or query_lower in identifier:
+            # Match if ALL words are found somewhere in the badge
+            if all(word in searchable for word in query_words):
                 matching.append(badge)
 
         # Sort by relevance (name match first, then by recency)
         def sort_key(badge):
             name = (badge.get("name") or "").lower()
-            name_match = query_lower in name
-            return (not name_match, -badge.get("created_at", 0))
+            # Prioritize: exact phrase match > all words in name > partial match
+            exact_match = query_lower in name
+            words_in_name = all(word in name for word in query_words)
+            return (not exact_match, not words_in_name, -badge.get("created_at", 0))
 
         matching.sort(key=sort_key)
 

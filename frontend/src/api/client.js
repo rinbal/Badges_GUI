@@ -264,18 +264,35 @@ export const api = {
   // Badge Discovery (Surf)
 
   /**
-   * Get recent badges from Nostr
-   * @param {number} limit - Maximum number of badges
-   * @param {number|null} since - Unix timestamp filter
+   * Get badges from Nostr with sorting and pagination
+   * @param {Object} options - Query options
+   * @param {number} options.limit - Number of badges to fetch
+   * @param {string} options.sort - Sort order: 'newest' | 'popular'
+   * @param {number|null} options.since - Cursor for pagination (timestamp)
+   * @param {number|null} options.offset - Offset for popular sort pagination
    */
-  getRecentBadges: (limit = 50, since = null) =>
-    apiClient.get('/surf/recent', {
-      params: { limit, ...(since && { since }) }
+  getBadges: ({ limit = 48, sort = 'newest', since = null, offset = null } = {}) =>
+    apiClient.get('/surf/badges', {
+      params: {
+        limit,
+        sort,
+        ...(since && { since }),
+        ...(offset !== null && { offset })
+      }
     }),
 
   /**
-   * Get popular badges sorted by holder count
-   * @param {number} limit - Maximum number of badges
+   * Get recent badges with pagination
+   * @param {number} limit - Number of badges to fetch
+   * @param {number|null} until - Timestamp cursor for pagination (fetch badges BEFORE this time)
+   */
+  getRecentBadges: (limit = 50, until = null) =>
+    apiClient.get('/surf/recent', {
+      params: { limit, ...(until && { until }) }
+    }),
+
+  /**
+   * @deprecated Use getBadges({ sort: 'popular' }) instead
    */
   getPopularBadges: (limit = 30) =>
     apiClient.get('/surf/popular', { params: { limit } }),

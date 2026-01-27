@@ -62,7 +62,8 @@ class BadgeListResponse(BaseModel):
 @router.get("/recent", response_model=BadgeListResponse)
 async def get_recent_badges(
     limit: int = Query(default=50, le=100, ge=1),
-    since: Optional[int] = Query(default=None, description="Unix timestamp to filter badges created after")
+    since: Optional[int] = Query(default=None, description="Unix timestamp - return badges created AFTER this time"),
+    until: Optional[int] = Query(default=None, description="Unix timestamp - return badges created BEFORE this time (for pagination)")
 ):
     """
     Get recent badge definitions from Nostr.
@@ -72,10 +73,11 @@ async def get_recent_badges(
 
     Args:
         limit: Maximum number of badges (1-100)
-        since: Optional timestamp filter
+        since: Optional - only badges created after this timestamp
+        until: Optional - only badges created before this timestamp (use for pagination)
     """
     surf_service = SurfService()
-    badges = await surf_service.get_recent_badges(limit=limit, since=since)
+    badges = await surf_service.get_recent_badges(limit=limit, since=since, until=until)
 
     return BadgeListResponse(badges=badges, count=len(badges))
 
@@ -101,18 +103,18 @@ async def get_popular_badges(
 
 @router.get("/search", response_model=BadgeListResponse)
 async def search_badges(
-    q: str = Query(..., min_length=2, max_length=100, description="Search query"),
+    q: str = Query(..., min_length=1, max_length=100, description="Search query"),
     limit: int = Query(default=30, le=100, ge=1)
 ):
     """
     Search badges by name, description, or identifier.
 
-    Searches are case-insensitive. Results are sorted by relevance
-    (name matches first, then by recency).
+    Searches are case-insensitive and support multiple words.
+    Results are sorted by relevance (exact matches first, then by recency).
     No authentication required.
 
     Args:
-        q: Search query (2-100 characters)
+        q: Search query (1-100 characters)
         limit: Maximum number of results (1-100)
     """
     surf_service = SurfService()

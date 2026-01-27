@@ -99,21 +99,21 @@
                 <div v-else class="badges-grid">
                   <div
                     v-for="badge in badges"
-                    :key="badge.a_tag"
+                    :key="badge.a_tag || badge.award_event_id"
                     class="badge-item"
                     @click="handleBadgeClick(badge)"
                   >
                     <img
-                      v-if="badge.badge_image && !badgeImageErrors.has(badge.a_tag)"
-                      :src="badge.badge_image"
-                      :alt="badge.badge_name || 'Badge'"
+                      v-if="getBadgeImage(badge) && !badgeImageErrors.has(badge.a_tag)"
+                      :src="getBadgeImage(badge)"
+                      :alt="getBadgeName(badge)"
                       class="badge-image"
                       @error="handleBadgeImageError(badge.a_tag)"
                     />
                     <div v-else class="badge-placeholder">
                       <IconAward :size="24" />
                     </div>
-                    <span class="badge-name">{{ badge.badge_name || 'Unnamed Badge' }}</span>
+                    <span class="badge-name">{{ getBadgeName(badge) }}</span>
                   </div>
                 </div>
               </div>
@@ -213,7 +213,8 @@ async function loadBadges() {
 
   try {
     const response = await api.getProfileBadges(props.pubkey)
-    badges.value = response.data
+    // Backend returns { accepted: [...], pending: [...] }
+    badges.value = response.data?.accepted || []
   } catch (err) {
     console.error('Failed to load badges:', err)
   } finally {
@@ -235,6 +236,16 @@ function handleBadgeClick(badge) {
 
 function handleBadgeImageError(aTag) {
   badgeImageErrors.value.add(aTag)
+}
+
+// Helper: Get badge image (handles both API response formats)
+function getBadgeImage(badge) {
+  return badge.badge_image || badge.image || badge.thumb || null
+}
+
+// Helper: Get badge name (handles both API response formats)
+function getBadgeName(badge) {
+  return badge.badge_name || badge.name || 'Unnamed Badge'
 }
 
 function viewFullProfile() {
