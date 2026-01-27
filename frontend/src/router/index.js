@@ -30,9 +30,9 @@ const routes = [
     component: () => import('@/views/ProfileView.vue')
   },
   {
-    path: '/postbox',
-    name: 'postbox',
-    component: () => import('@/views/PostboxView.vue'),
+    path: '/requests',
+    name: 'requests',
+    component: () => import('@/views/RequestsView.vue'),
     meta: { requiresAuth: true }
   },
   {
@@ -41,10 +41,19 @@ const routes = [
     component: () => import('@/views/SurfView.vue')
   },
   {
-    path: '/awards',
-    name: 'awards',
-    component: () => import('@/views/MyAwardsView.vue'),
+    path: '/issued',
+    name: 'issued',
+    component: () => import('@/views/IssuedView.vue'),
     meta: { requiresAuth: true }
+  },
+  // Redirects for old URLs
+  {
+    path: '/postbox',
+    redirect: '/requests'
+  },
+  {
+    path: '/awards',
+    redirect: '/issued'
   }
 ]
 

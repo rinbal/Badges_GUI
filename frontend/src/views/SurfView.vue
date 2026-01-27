@@ -2,7 +2,7 @@
   <div class="surf-page">
     <!-- Page Header -->
     <header class="page-header">
-      <h1>Explore Badges</h1>
+      <h1>Surf</h1>
       <p class="subtitle">Discover and collect badges from across Nostr</p>
     </header>
 
@@ -49,6 +49,18 @@
       <div v-if="searchMode === 'users'" class="user-search-wrapper">
         <UserSearchInput placeholder="Search user by npub..." />
       </div>
+    </div>
+
+    <!-- Filter Options -->
+    <div class="filter-bar">
+      <label class="filter-toggle">
+        <input
+          type="checkbox"
+          v-model="multipleHoldersOnly"
+        />
+        <span class="toggle-switch"></span>
+        <span class="filter-label">Multiple holders only</span>
+      </label>
     </div>
 
     <!-- Navigation Tabs -->
@@ -102,11 +114,15 @@
       <!-- Empty State -->
       <div v-else-if="currentBadges.length === 0 && !isLoading" class="empty-state">
         <div class="empty-icon">
-          <Icon name="search" size="xl" />
+          <Icon :name="multipleHoldersOnly ? 'users' : 'search'" size="xl" />
         </div>
-        <h3 v-if="activeTab === 'search'">No badges found</h3>
+        <h3 v-if="multipleHoldersOnly && hasUnfilteredBadges">No badges with multiple holders</h3>
+        <h3 v-else-if="activeTab === 'search'">No badges found</h3>
         <h3 v-else>No badges yet</h3>
-        <p v-if="activeTab === 'search'">
+        <p v-if="multipleHoldersOnly && hasUnfilteredBadges">
+          Try disabling the filter to see all badges
+        </p>
+        <p v-else-if="activeTab === 'search'">
           Try a different search term or browse recent badges
         </p>
         <p v-else>
@@ -124,18 +140,29 @@
         />
       </div>
 
-      <!-- Load More -->
-      <div v-if="currentBadges.length > 0 && !isLoading" class="load-more">
-        <span class="results-count">
-          {{ currentBadges.length }} badge{{ currentBadges.length !== 1 ? 's' : '' }}
-        </span>
+      <!-- Infinite Scroll Sentinel -->
+      <div
+        v-if="currentBadges.length > 0"
+        ref="sentinelRef"
+        class="scroll-sentinel"
+      >
+        <div v-if="isLoadingMore" class="loading-more">
+          <div class="spinner"></div>
+          <span>Loading more badges...</span>
+        </div>
+        <div v-else-if="!hasMore && currentBadges.length > 0" class="end-of-list">
+          <span class="results-count">
+            {{ currentBadges.length }} badge{{ currentBadges.length !== 1 ? 's' : '' }} loaded
+          </span>
+          <span v-if="activeTab !== 'search'" class="end-message">You've reached the end</span>
+        </div>
       </div>
     </main>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { api } from '@/api/client'
 import { useUIStore } from '@/stores/ui'
 import Icon from '@/components/common/Icon.vue'
@@ -145,9 +172,13 @@ import UserSearchInput from '@/components/shared/UserSearchInput.vue'
 
 const ui = useUIStore()
 
+// Batch size for loading
+const BATCH_SIZE = 24
+
 // State
 const activeTab = ref('recent')
 const isLoading = ref(false)
+const isLoadingMore = ref(false)
 const isSearching = ref(false)
 const searchQuery = ref('')
 const searchMode = ref('badges') // 'badges' or 'users'
@@ -155,38 +186,140 @@ const recentBadges = ref([])
 const popularBadges = ref([])
 const searchResults = ref([])
 
+// Filter state
+const multipleHoldersOnly = ref(false)
+
+// Cursor-based pagination state (using created_at timestamp)
+const recentCursor = ref(null)
+const hasMoreRecent = ref(true)
+// Popular doesn't paginate (curated list)
+const hasMorePopular = ref(false)
+
+// Intersection Observer
+const sentinelRef = ref(null)
+let observer = null
+
+// Helper: filter badges that have images
+function hasImage(badge) {
+  return badge.image || badge.thumb
+}
+
+// Helper: filter badges with multiple holders
+function hasMultipleHolders(badge) {
+  return badge.holder_count && badge.holder_count > 1
+}
+
 // Computed
 const currentBadges = computed(() => {
-  if (activeTab.value === 'search') return searchResults.value
-  if (activeTab.value === 'popular') return popularBadges.value
-  return recentBadges.value
+  let badges
+  if (activeTab.value === 'search') {
+    badges = searchResults.value
+  } else if (activeTab.value === 'popular') {
+    badges = popularBadges.value
+  } else {
+    badges = recentBadges.value
+  }
+
+  // Always filter out badges without images
+  badges = badges.filter(hasImage)
+
+  // Apply multiple holders filter if enabled
+  if (multipleHoldersOnly.value) {
+    badges = badges.filter(hasMultipleHolders)
+  }
+
+  return badges
+})
+
+const hasMore = computed(() => {
+  if (activeTab.value === 'search') return false // Search doesn't paginate
+  if (activeTab.value === 'popular') return hasMorePopular.value
+  return hasMoreRecent.value
+})
+
+// Check if there are badges before user filters (for empty state messaging)
+const hasUnfilteredBadges = computed(() => {
+  let badges
+  if (activeTab.value === 'search') {
+    badges = searchResults.value
+  } else if (activeTab.value === 'popular') {
+    badges = popularBadges.value
+  } else {
+    badges = recentBadges.value
+  }
+  // Check if there are any badges with images
+  return badges.filter(hasImage).length > 0
 })
 
 // Methods
-async function loadRecentBadges() {
-  isLoading.value = true
+async function loadRecentBadges(append = false) {
+  if (!append) {
+    isLoading.value = true
+    recentCursor.value = null
+    hasMoreRecent.value = true
+  } else {
+    isLoadingMore.value = true
+  }
+
   try {
-    const response = await api.getRecentBadges(50)
-    recentBadges.value = response.data.badges
+    // Use cursor (since) for pagination - get badges older than the last one
+    const since = append ? recentCursor.value : null
+    const response = await api.getRecentBadges(BATCH_SIZE, since)
+    const badges = response.data.badges || []
+
+    if (append) {
+      // Filter out duplicates (just in case)
+      const existingIds = new Set(recentBadges.value.map(b => b.a_tag))
+      const newBadges = badges.filter(b => !existingIds.has(b.a_tag))
+      recentBadges.value = [...recentBadges.value, ...newBadges]
+    } else {
+      recentBadges.value = badges
+    }
+
+    // Update cursor to the oldest badge's created_at for next page
+    if (badges.length > 0) {
+      const oldestBadge = badges[badges.length - 1]
+      // Use created_at - 1 to get badges older than this one
+      recentCursor.value = oldestBadge.created_at ? oldestBadge.created_at - 1 : null
+    }
+
+    // Check if there are more to load
+    if (badges.length < BATCH_SIZE) {
+      hasMoreRecent.value = false
+    }
   } catch (err) {
     console.error('Failed to load recent badges:', err)
     ui.showError('Failed to load badges')
   } finally {
     isLoading.value = false
+    isLoadingMore.value = false
   }
 }
 
 async function loadPopularBadges() {
   isLoading.value = true
+
   try {
-    const response = await api.getPopularBadges(30)
-    popularBadges.value = response.data.badges
+    // Popular badges - load a larger set at once (max 50 from API)
+    const response = await api.getPopularBadges(50)
+    popularBadges.value = response.data.badges || []
+    hasMorePopular.value = false // No pagination for popular
   } catch (err) {
     console.error('Failed to load popular badges:', err)
     ui.showError('Failed to load popular badges')
   } finally {
     isLoading.value = false
   }
+}
+
+async function loadMore() {
+  if (isLoadingMore.value || isLoading.value) return
+  if (!hasMore.value) return
+
+  if (activeTab.value === 'recent') {
+    await loadRecentBadges(true)
+  }
+  // Popular doesn't paginate
 }
 
 async function performSearch() {
@@ -198,8 +331,9 @@ async function performSearch() {
   activeTab.value = 'search'
 
   try {
-    const response = await api.searchBadges(searchQuery.value.trim(), 50)
-    searchResults.value = response.data.badges
+    // Search fetches all matching results (server-side limit)
+    const response = await api.searchBadges(searchQuery.value.trim(), 100)
+    searchResults.value = response.data.badges || []
   } catch (err) {
     console.error('Search failed:', err)
     ui.showError('Search failed')
@@ -227,7 +361,7 @@ function setTab(tab) {
 
 function refresh() {
   if (activeTab.value === 'recent') {
-    loadRecentBadges()
+    loadRecentBadges(false)
   } else if (activeTab.value === 'popular') {
     loadPopularBadges()
   } else if (activeTab.value === 'search' && searchQuery.value) {
@@ -239,9 +373,45 @@ function openBadgeDetail(badge) {
   ui.openBadgeDetail(badge.a_tag, badge)
 }
 
+// Setup Intersection Observer for infinite scroll
+function setupObserver() {
+  if (observer) observer.disconnect()
+
+  observer = new IntersectionObserver(
+    (entries) => {
+      const entry = entries[0]
+      if (entry.isIntersecting && hasMore.value && !isLoadingMore.value && !isLoading.value) {
+        loadMore()
+      }
+    },
+    {
+      rootMargin: '200px', // Start loading before reaching the bottom
+      threshold: 0
+    }
+  )
+
+  nextTick(() => {
+    if (sentinelRef.value) {
+      observer.observe(sentinelRef.value)
+    }
+  })
+}
+
 // Lifecycle
 onMounted(() => {
   loadRecentBadges()
+  setupObserver()
+})
+
+onUnmounted(() => {
+  if (observer) observer.disconnect()
+})
+
+// Watch for tab changes to reconnect observer
+watch(activeTab, () => {
+  nextTick(() => {
+    setupObserver()
+  })
 })
 
 // Watch for search input debounce
@@ -381,6 +551,69 @@ watch(searchQuery, (val) => {
 }
 
 /* ===========================================
+   Filter Bar
+   =========================================== */
+.filter-bar {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 1rem;
+}
+
+.filter-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.filter-toggle input {
+  display: none;
+}
+
+.toggle-switch {
+  position: relative;
+  width: 40px;
+  height: 22px;
+  background: var(--color-surface-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: 11px;
+  transition: all 0.2s ease;
+}
+
+.toggle-switch::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  background: var(--color-text-muted);
+  border-radius: 50%;
+  transition: all 0.2s ease;
+}
+
+.filter-toggle input:checked + .toggle-switch {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+.filter-toggle input:checked + .toggle-switch::after {
+  left: 20px;
+  background: white;
+}
+
+.filter-label {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+}
+
+.filter-toggle:hover .filter-label {
+  color: var(--color-text);
+}
+
+/* ===========================================
    Navigation Tabs
    =========================================== */
 .nav-tabs {
@@ -494,17 +727,53 @@ watch(searchQuery, (val) => {
 }
 
 /* ===========================================
-   Load More / Results
+   Infinite Scroll
    =========================================== */
-.load-more {
-  margin-top: 1.5rem;
-  padding-top: 1rem;
-  border-top: 1px solid var(--color-border);
+.scroll-sentinel {
+  margin-top: 2rem;
+  padding: 1.5rem;
   text-align: center;
 }
 
+.loading-more {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+}
+
+.spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--color-border);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.end-of-list {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+}
+
 .results-count {
-  font-size: 0.8125rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+}
+
+.end-message {
+  font-size: 0.75rem;
   color: var(--color-text-muted);
 }
 

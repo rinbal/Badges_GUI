@@ -104,16 +104,16 @@
                     @click="handleBadgeClick(badge)"
                   >
                     <img
-                      v-if="badge.badge_image"
+                      v-if="badge.badge_image && !badgeImageErrors.has(badge.a_tag)"
                       :src="badge.badge_image"
-                      :alt="badge.badge_name"
+                      :alt="badge.badge_name || 'Badge'"
                       class="badge-image"
-                      @error="(e) => e.target.style.display = 'none'"
+                      @error="handleBadgeImageError(badge.a_tag)"
                     />
                     <div v-else class="badge-placeholder">
                       <IconAward :size="24" />
                     </div>
-                    <span class="badge-name">{{ badge.badge_name }}</span>
+                    <span class="badge-name">{{ badge.badge_name || 'Unnamed Badge' }}</span>
                   </div>
                 </div>
               </div>
@@ -175,6 +175,7 @@ const error = ref(null)
 const profile = ref(null)
 const badges = ref([])
 const badgesLoading = ref(false)
+const badgeImageErrors = ref(new Set())
 
 // Computed
 const shortNpub = computed(() => {
@@ -230,6 +231,10 @@ function close() {
 function handleBadgeClick(badge) {
   emit('badge-click', badge)
   ui.openBadgeDetail(badge.a_tag, badge)
+}
+
+function handleBadgeImageError(aTag) {
+  badgeImageErrors.value.add(aTag)
 }
 
 function viewFullProfile() {

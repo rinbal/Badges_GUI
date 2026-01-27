@@ -14,7 +14,7 @@
         </div>
       </div>
       <div class="badge-info">
-        <h3 class="badge-name">{{ request.badge_name }}</h3>
+        <h3 class="badge-name">{{ request.badge_name || 'Unnamed Badge' }}</h3>
         <span class="badge-hint">Your badge</span>
       </div>
     </div>

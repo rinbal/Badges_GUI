@@ -1,9 +1,9 @@
 <template>
-  <div class="postbox-page">
+  <div class="requests-page">
     <!-- Page Header -->
     <header class="page-header">
-      <h1>Badge Requests</h1>
-      <p class="subtitle">Manage incoming badge requests and track your sent requests</p>
+      <h1>Requests</h1>
+      <p class="subtitle">Review incoming requests and track badges you've applied for</p>
     </header>
 
     <!-- Navigation Tabs -->
@@ -150,6 +150,7 @@
               :loading="loadingRequestId === request.event_id"
               @withdraw="handleWithdraw"
               @view-badge="viewBadge"
+              @view-issuer="viewIssuer"
             />
           </div>
 
@@ -288,6 +289,10 @@ function viewRequester(request) {
   uiStore.openLookupUser(request.requester_pubkey)
 }
 
+function viewIssuer(request) {
+  uiStore.openLookupUser(request.issuer_pubkey)
+}
+
 function viewBadge(request) {
   uiStore.openBadgeDetail(request.badge_a_tag, {
     name: request.badge_name,
@@ -303,7 +308,7 @@ function viewBadge(request) {
 /* ===========================================
    Layout
    =========================================== */
-.postbox-page {
+.requests-page {
   max-width: 900px;
   margin: 0 auto;
   padding-bottom: 4rem;

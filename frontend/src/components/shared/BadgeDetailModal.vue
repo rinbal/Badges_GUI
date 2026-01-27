@@ -34,11 +34,11 @@
               <div class="badge-header">
                 <div class="badge-image-container">
                   <img
-                    v-if="badge.image"
+                    v-if="badge.image && !badgeImageError"
                     :src="badge.image"
-                    :alt="badge.name"
+                    :alt="badge.name || 'Badge'"
                     class="badge-image"
-                    @error="(e) => e.target.style.display = 'none'"
+                    @error="badgeImageError = true"
                   />
                   <div v-else class="badge-placeholder">
                     <IconAward :size="48" />
@@ -195,6 +195,7 @@ const isOpen = ref(true)
 const isLoading = ref(false)
 const error = ref(null)
 const badge = ref(null)
+const badgeImageError = ref(false)
 const issuerProfile = ref(null)
 const holders = ref([])
 const holdersLoading = ref(false)

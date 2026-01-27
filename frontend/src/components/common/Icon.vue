@@ -20,6 +20,7 @@ import {
   IconMedal,
   IconStar,
   IconTrophy,
+  IconCertificate,
   IconUser,
   IconUsers,
   IconKey,
@@ -109,6 +110,8 @@ const icons = {
   'medal': IconMedal,
   'star': IconStar,
   'trophy': IconTrophy,
+  'certificate': IconCertificate,
+  'issued': IconCertificate,
 
   // User & Profile
   'user': IconUser,

@@ -26,7 +26,7 @@
                   <span class="requester-name">
                     {{ request.requester_profile?.name || request.requester_profile?.display_name || 'Anonymous' }}
                   </span>
-                  <span class="badge-name">requested {{ request.badge_name }}</span>
+                  <span class="badge-name">requested {{ request.badge_name || 'a badge' }}</span>
                 </div>
               </div>
 

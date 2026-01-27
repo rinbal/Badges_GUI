@@ -1,9 +1,9 @@
 <template>
-  <div class="awards-page">
+  <div class="issued-page">
     <!-- Page Header -->
     <header class="page-header">
-      <h1>My Awards</h1>
-      <p class="subtitle">Badges you've created and their recipients</p>
+      <h1>Issued Badges</h1>
+      <p class="subtitle">Badges you've created and who holds them</p>
     </header>
 
     <!-- Refresh Button -->
@@ -29,10 +29,10 @@
       <!-- Empty State -->
       <div v-else-if="badges.length === 0" class="empty-state">
         <div class="empty-icon">
-          <Icon name="award" size="xl" />
+          <Icon name="certificate" size="xl" />
         </div>
-        <h3>No badges created yet</h3>
-        <p>Badges you create will appear here along with their recipients.</p>
+        <h3>No badges issued yet</h3>
+        <p>Badges you create and issue will appear here with their holders.</p>
         <router-link to="/creator" class="btn-primary">
           <Icon name="sparkles" size="sm" />
           <span>Create Your First Badge</span>
@@ -50,18 +50,19 @@
           <div class="badge-header" @click="toggleBadge(badge.a_tag)">
             <div class="badge-image-container">
               <img
-                v-if="badge.image"
+                v-if="badge.image && !badgeImageErrors.has(badge.a_tag)"
                 :src="badge.image"
-                :alt="badge.name"
+                :alt="badge.name || 'Badge'"
                 class="badge-image"
+                @error="badgeImageErrors.add(badge.a_tag)"
               />
               <div v-else class="badge-placeholder">
                 <Icon name="award" size="md" />
               </div>
             </div>
             <div class="badge-info">
-              <h3 class="badge-name">{{ badge.name }}</h3>
-              <span class="badge-identifier">{{ badge.identifier }}</span>
+              <h3 class="badge-name">{{ badge.name || 'Unnamed Badge' }}</h3>
+              <span class="badge-identifier">{{ badge.identifier || 'Unknown' }}</span>
             </div>
             <div class="badge-stats">
               <span class="holder-count">
@@ -135,6 +136,7 @@ const isLoading = ref(false)
 const badges = ref([])
 const expandedBadges = reactive(new Set())
 const loadingHolders = reactive(new Set())
+const badgeImageErrors = reactive(new Set())
 
 // Methods
 async function loadBadges() {
@@ -206,7 +208,7 @@ onMounted(() => {
 /* ===========================================
    Layout
    =========================================== */
-.awards-page {
+.issued-page {
   max-width: 800px;
   margin: 0 auto;
   padding-bottom: 4rem;

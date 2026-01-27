@@ -3,9 +3,9 @@
     <!-- Badge Image -->
     <div class="badge-image-container">
       <img
-        v-if="badge.image || badge.thumb"
+        v-if="(badge.image || badge.thumb) && !imageError"
         :src="badge.thumb || badge.image"
-        :alt="badge.name"
+        :alt="badge.name || 'Badge'"
         class="badge-image"
         @error="handleImageError"
       />

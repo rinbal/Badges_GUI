@@ -17,17 +17,18 @@
             <div v-if="badge" class="badge-preview">
               <div class="badge-image-container">
                 <img
-                  v-if="badge.image || badge.badge_image"
+                  v-if="(badge.image || badge.badge_image) && !badgeImageError"
                   :src="badge.image || badge.badge_image"
-                  :alt="badge.name || badge.badge_name"
+                  :alt="badge.name || badge.badge_name || 'Badge'"
                   class="badge-image"
+                  @error="badgeImageError = true"
                 />
                 <div v-else class="badge-placeholder">
                   <IconAward :size="32" />
                 </div>
               </div>
               <div class="badge-info">
-                <h3 class="badge-name">{{ badge.name || badge.badge_name || 'Badge' }}</h3>
+                <h3 class="badge-name">{{ badge.name || badge.badge_name || 'Unnamed Badge' }}</h3>
                 <p v-if="badge.description" class="badge-desc">{{ truncatedDescription }}</p>
               </div>
             </div>
@@ -164,6 +165,7 @@ const message = ref('')
 const proofs = ref([])
 const newProofType = ref('note')
 const newProofId = ref('')
+const badgeImageError = ref(false)
 
 // Computed
 const truncatedDescription = computed(() => {

@@ -4,20 +4,37 @@
     <div class="badge-section" @click="$emit('view-badge', request)">
       <div class="badge-image-container">
         <img
-          v-if="request.badge_image"
+          v-if="request.badge_image && !badgeImageError"
           :src="request.badge_image"
-          :alt="request.badge_name"
+          :alt="request.badge_name || 'Badge'"
           class="badge-image"
+          @error="badgeImageError = true"
         />
         <div v-else class="badge-placeholder">
           <IconAward :size="24" />
         </div>
       </div>
       <div class="badge-info">
-        <h3 class="badge-name">{{ request.badge_name }}</h3>
-        <span class="issuer-name">by {{ issuerName }}</span>
+        <h3 class="badge-name">{{ request.badge_name || 'Unnamed Badge' }}</h3>
       </div>
       <IconChevronRight :size="18" class="chevron" />
+    </div>
+
+    <!-- Issuer Info -->
+    <div class="issuer-section" @click="$emit('view-issuer', request)">
+      <UserAvatar
+        :picture="request.issuer_profile?.picture"
+        :name="request.issuer_profile?.name || request.issuer_profile?.display_name"
+        :pubkey="request.issuer_pubkey"
+        size="sm"
+        clickable
+      />
+      <div class="issuer-info">
+        <span class="issuer-label">Issued by</span>
+        <span class="issuer-name">{{ issuerName }}</span>
+        <span v-if="shortIssuerNpub" class="issuer-npub">{{ shortIssuerNpub }}</span>
+      </div>
+      <IconChevronRight :size="16" class="chevron-sm" />
     </div>
 
     <!-- Request Message -->
@@ -68,7 +85,8 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { ref, computed } from 'vue'
+import UserAvatar from '@/components/shared/UserAvatar.vue'
 import {
   IconAward,
   IconChevronRight,
@@ -92,7 +110,9 @@ const props = defineProps({
   }
 })
 
-defineEmits(['withdraw', 'view-badge'])
+defineEmits(['withdraw', 'view-badge', 'view-issuer'])
+
+const badgeImageError = ref(false)
 
 const truncatedMessage = computed(() => {
   const msg = props.request.content || ''
@@ -105,6 +125,18 @@ const issuerName = computed(() =>
   props.request.issuer_profile?.display_name ||
   'Unknown Issuer'
 )
+
+const shortIssuerNpub = computed(() => {
+  const npub = props.request.issuer_profile?.npub
+  if (npub) {
+    return `${npub.slice(0, 8)}...${npub.slice(-4)}`
+  }
+  const hex = props.request.issuer_pubkey
+  if (hex) {
+    return `${hex.slice(0, 6)}...${hex.slice(-4)}`
+  }
+  return ''
+})
 
 const stateLabel = computed(() => {
   const labels = {
@@ -231,6 +263,56 @@ function formatTime(timestamp) {
 }
 
 .chevron {
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+/* Issuer Section */
+.issuer-section {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.5rem 0.625rem;
+  background: var(--color-surface-elevated);
+  border-radius: var(--radius-md);
+  margin-bottom: 0.75rem;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.issuer-section:hover {
+  background: var(--color-primary-soft);
+}
+
+.issuer-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.0625rem;
+}
+
+.issuer-label {
+  font-size: 0.625rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--color-text-muted);
+  font-weight: 500;
+}
+
+.issuer-name {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+.issuer-npub {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  color: var(--color-text-muted);
+}
+
+.chevron-sm {
   color: var(--color-text-muted);
   flex-shrink: 0;
 }
