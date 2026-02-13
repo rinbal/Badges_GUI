@@ -31,6 +31,8 @@ class BadgeInfo(BaseModel):
     thumb: Optional[str] = None
     issuer_pubkey: str
     issuer_npub: Optional[str] = None
+    issuer_name: Optional[str] = None
+    issuer_picture: Optional[str] = None
     event_id: Optional[str] = None
     created_at: Optional[int] = None
     holder_count: Optional[int] = None

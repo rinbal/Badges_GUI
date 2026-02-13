@@ -33,6 +33,13 @@
     @close="ui.closeDenyRequest()"
     @success="handleDenySuccess"
   />
+
+  <!-- LoginPrompt Modal -->
+  <LoginPromptModal
+    v-if="ui.loginPromptModal.isOpen"
+    :badge="ui.loginPromptModal.badge"
+    @close="ui.closeLoginPrompt()"
+  />
 </template>
 
 <script setup>
@@ -41,6 +48,7 @@ import LookupUserModal from './LookupUserModal.vue'
 import BadgeDetailModal from './BadgeDetailModal.vue'
 import RequestBadgeModal from './RequestBadgeModal.vue'
 import DenyRequestModal from './DenyRequestModal.vue'
+import LoginPromptModal from './LoginPromptModal.vue'
 
 const ui = useUIStore()
 

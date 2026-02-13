@@ -66,22 +66,7 @@
 
       <!-- Carousel -->
       <div v-else-if="showcaseBadges.length > 0" class="carousel-container">
-        <!-- Left Arrow -->
-        <button
-          class="carousel-arrow carousel-arrow-left"
-          @click="scrollCarousel(-1)"
-          aria-label="Scroll left"
-        >
-          <Icon name="chevron-left" size="md" />
-        </button>
-
-        <!-- Carousel Track -->
-        <div
-          ref="carouselRef"
-          class="carousel-track"
-          @mousedown="startDrag"
-          @touchstart="startDrag"
-        >
+        <div class="carousel-track" :style="marqueeStyle">
           <div
             v-for="badge in showcaseBadges"
             :key="badge.a_tag"
@@ -92,16 +77,19 @@
               @click="handleBadgeClick(badge)"
             />
           </div>
+          <!-- Duplicate set for seamless loop -->
+          <div
+            v-for="badge in showcaseBadges"
+            :key="'dup-' + badge.a_tag"
+            class="carousel-item"
+            aria-hidden="true"
+          >
+            <SurfBadgeCard
+              :badge="badge"
+              @click="handleBadgeClick(badge)"
+            />
+          </div>
         </div>
-
-        <!-- Right Arrow -->
-        <button
-          class="carousel-arrow carousel-arrow-right"
-          @click="scrollCarousel(1)"
-          aria-label="Scroll right"
-        >
-          <Icon name="chevron-right" size="md" />
-        </button>
       </div>
 
       <!-- Empty State -->
@@ -394,12 +382,6 @@ const showcaseBadgesRaw = ref([])
 const activeProtocolInfo = ref(null) // 'nip58' | 'request' | null
 const activeKindInfo = ref(null) // '30009' | '8' | etc | null
 
-// Carousel state
-const carouselRef = ref(null)
-let isDragging = false
-let startX = 0
-let scrollLeft = 0
-
 // Computed: Filter badges to only those with images (show more for carousel)
 const showcaseBadges = computed(() => {
   return showcaseBadgesRaw.value
@@ -407,51 +389,21 @@ const showcaseBadges = computed(() => {
     .slice(0, 12)
 })
 
-// Carousel methods
-function scrollCarousel(direction) {
-  if (!carouselRef.value) return
-  const cardWidth = 200 // approximate card width + gap
-  carouselRef.value.scrollBy({
-    left: direction * cardWidth * 2,
-    behavior: 'smooth'
-  })
-}
+// Marquee animation: compute duration and offset from item count
+// Each item is 180px wide + 1rem (16px) gap = 196px per item
+const ITEM_WIDTH = 196 // 180px card + 16px gap
+const SCROLL_SPEED = 40 // pixels per second
 
-function startDrag(e) {
-  if (!carouselRef.value) return
-  isDragging = true
-  carouselRef.value.classList.add('dragging')
-  startX = e.type === 'mousedown' ? e.pageX : e.touches[0].pageX
-  scrollLeft = carouselRef.value.scrollLeft
-
-  // Add listeners
-  if (e.type === 'mousedown') {
-    document.addEventListener('mousemove', onDrag)
-    document.addEventListener('mouseup', stopDrag)
-  } else {
-    document.addEventListener('touchmove', onDrag, { passive: false })
-    document.addEventListener('touchend', stopDrag)
+const marqueeStyle = computed(() => {
+  const count = showcaseBadges.value.length
+  if (!count) return {}
+  const setWidth = count * ITEM_WIDTH
+  const duration = setWidth / SCROLL_SPEED
+  return {
+    '--set-width': `${setWidth}px`,
+    '--marquee-duration': `${duration}s`
   }
-}
-
-function onDrag(e) {
-  if (!isDragging || !carouselRef.value) return
-  e.preventDefault()
-  const x = e.type === 'mousemove' ? e.pageX : e.touches[0].pageX
-  const walk = (startX - x) * 1.5 // Scroll speed multiplier
-  carouselRef.value.scrollLeft = scrollLeft + walk
-}
-
-function stopDrag() {
-  isDragging = false
-  if (carouselRef.value) {
-    carouselRef.value.classList.remove('dragging')
-  }
-  document.removeEventListener('mousemove', onDrag)
-  document.removeEventListener('mouseup', stopDrag)
-  document.removeEventListener('touchmove', onDrag)
-  document.removeEventListener('touchend', stopDrag)
-}
+})
 
 // Kind info data
 const kindInfoData = {
@@ -487,6 +439,10 @@ function showKindInfo(kind) {
 }
 
 function handleBadgeClick(badge) {
+  if (!isAuthenticated.value) {
+    uiStore.openLoginPrompt(badge)
+    return
+  }
   uiStore.openBadgeDetail(badge.a_tag, badge)
 }
 
@@ -707,84 +663,76 @@ onUnmounted(() => {
 
 .carousel-loading > * {
   flex: 0 0 180px;
+  display: flex;
 }
 
 /* Carousel Container */
 .carousel-container {
+  overflow: hidden;
   position: relative;
 }
 
-/* Carousel Track */
+/* Fade edges to hint there's more content */
+.carousel-container::before,
+.carousel-container::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2rem;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.carousel-container::before {
+  left: 0;
+  background: linear-gradient(to right, var(--color-background), transparent);
+}
+
+.carousel-container::after {
+  right: 0;
+  background: linear-gradient(to left, var(--color-background), transparent);
+}
+
+/* Carousel Track — infinite marquee via CSS transform */
 .carousel-track {
   display: flex;
   gap: 1rem;
-  overflow-x: auto;
-  scroll-behavior: smooth;
-  scroll-snap-type: x mandatory;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
+  width: max-content;
   padding: 0.5rem 0;
-  cursor: grab;
-  -webkit-overflow-scrolling: touch;
+  animation: marquee var(--marquee-duration, 60s) linear infinite;
+  will-change: transform;
 }
 
-.carousel-track::-webkit-scrollbar {
-  display: none;
+.carousel-container:hover .carousel-track {
+  animation-play-state: paused;
 }
 
-.carousel-track.dragging {
-  cursor: grabbing;
-  scroll-behavior: auto;
-  scroll-snap-type: none;
-}
-
-.carousel-track.dragging .carousel-item {
-  pointer-events: none;
+@keyframes marquee {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(calc(var(--set-width, 0px) * -1));
+  }
 }
 
 /* Carousel Item */
 .carousel-item {
   flex: 0 0 180px;
-  scroll-snap-align: start;
-  transition: transform 0.2s ease;
-}
-
-.carousel-item:hover {
-  transform: translateY(-4px);
-}
-
-/* Carousel Arrows */
-.carousel-arrow {
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 40px;
-  height: 40px;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-full);
-  cursor: pointer;
-  color: var(--color-text);
-  z-index: 10;
-  transition: all 0.2s ease;
-  box-shadow: var(--shadow-md);
 }
 
-.carousel-arrow:hover {
-  background: var(--color-primary);
-  border-color: var(--color-primary);
-  color: white;
-}
-
-.carousel-arrow-left {
-  left: -0.5rem;
-}
-
-.carousel-arrow-right {
-  right: -0.5rem;
+/* Respect reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  .carousel-track {
+    animation: none;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .carousel-track::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 .showcase-empty {
@@ -1340,11 +1288,6 @@ onUnmounted(() => {
   .protocol-cards {
     grid-template-columns: 1fr;
   }
-
-  /* Hide carousel arrows on tablet, rely on swipe */
-  .carousel-arrow {
-    display: none;
-  }
 }
 
 /* =========================================
@@ -1379,6 +1322,7 @@ onUnmounted(() => {
   /* Carousel adjustments */
   .carousel-item {
     flex: 0 0 160px;
+    display: flex;
   }
 
   .badge-showcase {

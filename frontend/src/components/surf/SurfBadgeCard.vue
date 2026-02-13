@@ -25,8 +25,14 @@
     <!-- Badge Meta -->
     <div class="badge-meta">
       <div class="issuer-info">
-        <IconUser :size="12" />
-        <span>{{ shortIssuer }}</span>
+        <img
+          v-if="badge.issuer_picture && !issuerAvatarError"
+          :src="badge.issuer_picture"
+          class="issuer-avatar"
+          @error="issuerAvatarError = true"
+        />
+        <IconUser v-else :size="12" />
+        <span>{{ issuerDisplay }}</span>
       </div>
       <div v-if="badge.holder_count !== undefined" class="holder-count">
         <IconUsers :size="12" />
@@ -50,6 +56,7 @@ const props = defineProps({
 const emit = defineEmits(['click', 'image-error'])
 
 const imageError = ref(false)
+const issuerAvatarError = ref(false)
 
 const truncatedDescription = computed(() => {
   const desc = props.badge.description || ''
@@ -57,7 +64,10 @@ const truncatedDescription = computed(() => {
   return desc.slice(0, 60) + '...'
 })
 
-const shortIssuer = computed(() => {
+const issuerDisplay = computed(() => {
+  if (props.badge.issuer_name) {
+    return props.badge.issuer_name
+  }
   const npub = props.badge.issuer_npub
   if (npub) {
     return `${npub.slice(0, 8)}...${npub.slice(-4)}`
@@ -87,7 +97,7 @@ function handleImageError(e) {
   transition: all 0.2s ease;
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  height: 100%;
 }
 
 .surf-badge-card:hover {
@@ -103,6 +113,7 @@ function handleImageError(e) {
   border-radius: var(--radius-md);
   overflow: hidden;
   background: var(--color-surface-elevated);
+  flex-shrink: 0;
 }
 
 .badge-image {
@@ -121,15 +132,17 @@ function handleImageError(e) {
   color: var(--color-primary);
 }
 
-/* Badge Info */
+/* Badge Info - flex:1 absorbs variable height so meta is always at bottom */
 .badge-info {
   flex: 1;
   min-width: 0;
+  padding: 0.75rem 0;
 }
 
 .badge-name {
   font-size: 0.9375rem;
   font-weight: 600;
+  line-height: 1.3;
   color: var(--color-text);
   margin: 0 0 0.25rem 0;
   display: -webkit-box;
@@ -149,7 +162,7 @@ function handleImageError(e) {
   overflow: hidden;
 }
 
-/* Badge Meta */
+/* Badge Meta - always pinned to bottom */
 .badge-meta {
   display: flex;
   align-items: center;
@@ -157,6 +170,8 @@ function handleImageError(e) {
   gap: 0.5rem;
   padding-top: 0.5rem;
   border-top: 1px solid var(--color-border);
+  margin-top: auto;
+  flex-shrink: 0;
 }
 
 .issuer-info,
@@ -166,6 +181,21 @@ function handleImageError(e) {
   gap: 0.25rem;
   font-size: 0.6875rem;
   color: var(--color-text-muted);
+  min-width: 0;
+}
+
+.issuer-info span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.issuer-avatar {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
 }
 
 .holder-count {

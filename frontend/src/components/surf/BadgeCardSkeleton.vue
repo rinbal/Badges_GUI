@@ -11,7 +11,10 @@
 
     <!-- Meta -->
     <div class="badge-meta">
-      <div class="skeleton issuer"></div>
+      <div class="issuer">
+        <div class="skeleton issuer-avatar"></div>
+        <div class="skeleton issuer-name"></div>
+      </div>
       <div class="skeleton count"></div>
     </div>
   </div>
@@ -25,7 +28,7 @@
   padding: 1rem;
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  height: 100%;
 }
 
 .skeleton {
@@ -48,12 +51,15 @@
 .badge-image {
   width: 100%;
   aspect-ratio: 1;
+  flex-shrink: 0;
 }
 
 .badge-info {
+  flex: 1;
   display: flex;
   flex-direction: column;
   gap: 0.375rem;
+  padding: 0.75rem 0;
 }
 
 .badge-name {
@@ -69,13 +75,29 @@
 .badge-meta {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   padding-top: 0.5rem;
   border-top: 1px solid var(--color-border);
+  margin-top: auto;
+  flex-shrink: 0;
 }
 
 .issuer {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.issuer-avatar {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.issuer-name {
   height: 12px;
-  width: 80px;
+  width: 60px;
 }
 
 .count {

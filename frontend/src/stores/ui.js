@@ -173,6 +173,29 @@ export const useUIStore = defineStore('ui', () => {
   }
 
   // =========================================================================
+  // LoginPrompt Modal
+  // =========================================================================
+
+  const loginPromptModal = ref({
+    isOpen: false,
+    badge: null
+  })
+
+  function openLoginPrompt(badge = null) {
+    loginPromptModal.value = {
+      isOpen: true,
+      badge
+    }
+  }
+
+  function closeLoginPrompt() {
+    loginPromptModal.value = {
+      isOpen: false,
+      badge: null
+    }
+  }
+
+  // =========================================================================
   // Computed - Any Modal Open
   // =========================================================================
 
@@ -181,6 +204,7 @@ export const useUIStore = defineStore('ui', () => {
     badgeDetailModal.value.isOpen ||
     requestBadgeModal.value.isOpen ||
     denyRequestModal.value.isOpen ||
+    loginPromptModal.value.isOpen ||
     activeModal.value !== null
   )
 
@@ -193,6 +217,7 @@ export const useUIStore = defineStore('ui', () => {
     closeBadgeDetail()
     closeRequestBadge()
     closeDenyRequest()
+    closeLoginPrompt()
     closeModal()
   }
 
@@ -241,6 +266,11 @@ export const useUIStore = defineStore('ui', () => {
     denyRequestModal,
     openDenyRequest,
     closeDenyRequest,
+
+    // LoginPrompt Modal
+    loginPromptModal,
+    openLoginPrompt,
+    closeLoginPrompt,
 
     // Utility
     hasOpenModal,

@@ -155,7 +155,9 @@ class SurfService:
         badges = [b for b in badges if b is not None]
         badges.sort(key=lambda x: x.get("created_at", 0), reverse=True)
 
-        return badges[:limit]
+        badges = badges[:limit]
+        await self._enrich_with_issuer_profiles(badges)
+        return badges
 
     async def get_badges_by_issuer(
         self,
@@ -186,7 +188,9 @@ class SurfService:
         badges = [b for b in badges if b is not None]
         badges.sort(key=lambda x: x.get("created_at", 0), reverse=True)
 
-        return badges[:limit]
+        badges = badges[:limit]
+        await self._enrich_with_issuer_profiles(badges)
+        return badges
 
     async def search_badges(
         self,
@@ -245,7 +249,9 @@ class SurfService:
 
         matching.sort(key=sort_key)
 
-        return matching[:limit]
+        matching = matching[:limit]
+        await self._enrich_with_issuer_profiles(matching)
+        return matching
 
     async def get_badge_details(
         self,
@@ -438,6 +444,25 @@ class SurfService:
             p.pop("_created_at", None)
 
         return profiles
+
+    async def _enrich_with_issuer_profiles(self, badges: List[Dict]) -> List[Dict]:
+        """Attach issuer_name and issuer_picture to each badge from profile metadata"""
+        if not badges:
+            return badges
+
+        # Collect unique issuer pubkeys
+        pubkeys = list({b["issuer_pubkey"] for b in badges if b.get("issuer_pubkey")})
+        if not pubkeys:
+            return badges
+
+        profiles = await self._fetch_profiles(pubkeys)
+
+        for badge in badges:
+            profile = profiles.get(badge.get("issuer_pubkey")) or {}
+            badge["issuer_name"] = profile.get("display_name") or profile.get("name")
+            badge["issuer_picture"] = profile.get("picture")
+
+        return badges
 
     async def get_badges_with_stats(
         self,
