@@ -28,6 +28,32 @@ const routes = [
     path: '/profile/:pubkey?',
     name: 'profile',
     component: () => import('@/views/ProfileView.vue')
+  },
+  {
+    path: '/requests',
+    name: 'requests',
+    component: () => import('@/views/RequestsView.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/surf',
+    name: 'surf',
+    component: () => import('@/views/SurfView.vue')
+  },
+  {
+    path: '/issued',
+    name: 'issued',
+    component: () => import('@/views/IssuedView.vue'),
+    meta: { requiresAuth: true }
+  },
+  // Redirects for old URLs
+  {
+    path: '/postbox',
+    redirect: '/requests'
+  },
+  {
+    path: '/awards',
+    redirect: '/issued'
   }
 ]
 

@@ -2,8 +2,8 @@
   <div class="creator">
     <!-- Header -->
     <header class="page-header">
-      <h1>Badge Creator</h1>
-      <p class="subtitle">Create and award badges to anyone on Nostr</p>
+      <h1>Create</h1>
+      <p class="subtitle">Design custom badges and award them to anyone on Nostr</p>
     </header>
 
     <!-- Mode Selection -->

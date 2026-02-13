@@ -2,8 +2,8 @@
   <div class="inbox-page">
     <!-- Page Header -->
     <header class="page-header">
-      <h1>My Badges</h1>
-      <p class="subtitle">Manage pending badges and your collection</p>
+      <h1>Inbox</h1>
+      <p class="subtitle">Accept pending badges and manage your collection</p>
     </header>
 
     <!-- Navigation Tabs -->

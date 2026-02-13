@@ -6,6 +6,10 @@
       </router-link>
 
       <nav class="nav">
+        <router-link to="/surf" class="nav-link" title="Browse all badges">
+          <Icon name="globe" size="md" class="nav-icon" />
+          <span class="nav-text">Surf</span>
+        </router-link>
         <router-link to="/creator" class="nav-link" title="Create and award badges">
           <Icon name="sparkles" size="md" class="nav-icon" />
           <span class="nav-text">Create</span>
@@ -16,6 +20,27 @@
           <span v-if="badgesStore.pendingCount > 0" class="badge-count">
             {{ badgesStore.pendingCount }}
           </span>
+        </router-link>
+        <router-link
+          v-if="authStore.isAuthenticated"
+          to="/requests"
+          class="nav-link"
+          title="Manage badge requests"
+        >
+          <Icon name="mail" size="md" class="nav-icon" />
+          <span class="nav-text">Requests</span>
+          <span v-if="requestsStore.pendingCount > 0" class="badge-count request-badge">
+            {{ requestsStore.pendingCount }}
+          </span>
+        </router-link>
+        <router-link
+          v-if="authStore.isAuthenticated"
+          to="/issued"
+          class="nav-link"
+          title="Badges you've issued"
+        >
+          <Icon name="certificate" size="md" class="nav-icon" />
+          <span class="nav-text">Issued</span>
         </router-link>
       </nav>
 
@@ -35,13 +60,23 @@
 </template>
 
 <script setup>
+import { onMounted, watch } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { useBadgesStore } from '@/stores/badges'
+import { useRequestsStore } from '@/stores/requests'
 import ProfileDropdown from '@/components/common/ProfileDropdown.vue'
 import Icon from '@/components/common/Icon.vue'
 
 const authStore = useAuthStore()
 const badgesStore = useBadgesStore()
+const requestsStore = useRequestsStore()
+
+// Fetch request counts when authenticated
+watch(() => authStore.isAuthenticated, (isAuth) => {
+  if (isAuth) {
+    requestsStore.fetchIncomingCount()
+  }
+}, { immediate: true })
 </script>
 
 <style scoped>
@@ -108,6 +143,32 @@ const badgesStore = useBadgesStore()
   color: var(--color-primary);
 }
 
+/* Tab-specific active colors for visual distinction */
+.nav-link[href="/surf"].router-link-active {
+  background: var(--color-info-soft, rgba(59, 130, 246, 0.1));
+  color: var(--color-info, #3b82f6);
+}
+
+.nav-link[href="/creator"].router-link-active {
+  background: var(--color-success-soft, rgba(34, 197, 94, 0.1));
+  color: var(--color-success, #22c55e);
+}
+
+.nav-link[href="/inbox"].router-link-active {
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+
+.nav-link[href="/requests"].router-link-active {
+  background: var(--color-warning-soft, rgba(245, 158, 11, 0.1));
+  color: var(--color-warning, #f59e0b);
+}
+
+.nav-link[href="/issued"].router-link-active {
+  background: rgba(168, 85, 247, 0.1);
+  color: #a855f7;
+}
+
 .nav-icon {
   flex-shrink: 0;
 }
@@ -119,6 +180,13 @@ const badgesStore = useBadgesStore()
   padding: 0.125rem 0.5rem;
   border-radius: 999px;
   font-weight: 600;
+  min-width: 1.25rem;
+  text-align: center;
+}
+
+/* Request badge indicator - orange/warning color */
+.badge-count.request-badge {
+  background: var(--color-warning, #f59e0b);
 }
 
 .header-actions {

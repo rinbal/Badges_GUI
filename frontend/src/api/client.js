@@ -164,7 +164,174 @@ export const api = {
 
   // Relays
   getRelays: () =>
-    apiClient.get('/relays')
+    apiClient.get('/relays'),
+
+  // Badge Requests (NIP-58 Extension)
+
+  /**
+   * Create a badge request
+   * @param {string} badgeATag - Badge definition a-tag
+   * @param {string} content - Message to issuer
+   * @param {string[]} proofs - Proof event IDs
+   * @param {string[]} proofTypes - Type of each proof ('note' or 'zap')
+   * @param {Object|null} signedEvent - Pre-signed event for NIP-07
+   */
+  createBadgeRequest: (badgeATag, content, proofs, proofTypes, signedEvent = null) =>
+    apiClient.post('/requests/create', {
+      badge_a_tag: badgeATag,
+      content,
+      proofs,
+      proof_types: proofTypes,
+      signed_event: signedEvent
+    }),
+
+  /**
+   * Withdraw a badge request
+   * @param {string} badgeATag - Badge definition a-tag
+   * @param {Object|null} signedEvent - Pre-signed event for NIP-07
+   */
+  withdrawBadgeRequest: (badgeATag, signedEvent = null) =>
+    apiClient.post('/requests/withdraw', {
+      badge_a_tag: badgeATag,
+      signed_event: signedEvent
+    }),
+
+  /**
+   * Get outgoing badge requests (requests you sent)
+   */
+  getOutgoingRequests: () =>
+    apiClient.get('/requests/outgoing'),
+
+  /**
+   * Get incoming badge requests (requests for your badges)
+   */
+  getIncomingRequests: () =>
+    apiClient.get('/requests/incoming'),
+
+  /**
+   * Get count of incoming badge requests
+   */
+  getIncomingRequestsCount: () =>
+    apiClient.get('/requests/incoming/count'),
+
+  /**
+   * Deny a badge request
+   * @param {string} requestEventId - Event ID of the request
+   * @param {string} badgeATag - Badge definition a-tag
+   * @param {string} requesterPubkey - Requester's pubkey
+   * @param {string} reason - Reason for denial
+   * @param {Object|null} signedEvent - Pre-signed event for NIP-07
+   */
+  denyBadgeRequest: (requestEventId, badgeATag, requesterPubkey, reason, signedEvent = null) =>
+    apiClient.post('/requests/deny', {
+      request_event_id: requestEventId,
+      badge_a_tag: badgeATag,
+      requester_pubkey: requesterPubkey,
+      reason,
+      signed_event: signedEvent
+    }),
+
+  /**
+   * Revoke a badge request denial
+   * @param {string} requestEventId - Event ID of the original request
+   * @param {string} badgeATag - Badge definition a-tag
+   * @param {string} requesterPubkey - Requester's pubkey
+   * @param {Object|null} signedEvent - Pre-signed event for NIP-07
+   */
+  revokeDenial: (requestEventId, badgeATag, requesterPubkey, signedEvent = null) =>
+    apiClient.post('/requests/revoke-denial', {
+      request_event_id: requestEventId,
+      badge_a_tag: badgeATag,
+      requester_pubkey: requesterPubkey,
+      signed_event: signedEvent
+    }),
+
+  /**
+   * Award a badge from a request
+   * @param {string} requestEventId - Event ID of the request
+   * @param {string} badgeATag - Badge definition a-tag
+   * @param {string} requesterPubkey - Requester's pubkey
+   * @param {Object|null} signedEvent - Pre-signed event for NIP-07
+   */
+  awardFromRequest: (requestEventId, badgeATag, requesterPubkey, signedEvent = null) =>
+    apiClient.post('/requests/award', {
+      request_event_id: requestEventId,
+      badge_a_tag: badgeATag,
+      requester_pubkey: requesterPubkey,
+      signed_event: signedEvent
+    }),
+
+  // Badge Discovery (Surf)
+
+  /**
+   * Get badges from Nostr with sorting and pagination
+   * @param {Object} options - Query options
+   * @param {number} options.limit - Number of badges to fetch
+   * @param {string} options.sort - Sort order: 'newest' | 'popular'
+   * @param {number|null} options.since - Cursor for pagination (timestamp)
+   * @param {number|null} options.offset - Offset for popular sort pagination
+   */
+  getBadges: ({ limit = 48, sort = 'newest', since = null, offset = null } = {}) =>
+    apiClient.get('/surf/badges', {
+      params: {
+        limit,
+        sort,
+        ...(since && { since }),
+        ...(offset !== null && { offset })
+      }
+    }),
+
+  /**
+   * Get recent badges with pagination
+   * @param {number} limit - Number of badges to fetch
+   * @param {number|null} until - Timestamp cursor for pagination (fetch badges BEFORE this time)
+   */
+  getRecentBadges: (limit = 50, until = null) =>
+    apiClient.get('/surf/recent', {
+      params: { limit, ...(until && { until }) }
+    }),
+
+  /**
+   * @deprecated Use getBadges({ sort: 'popular' }) instead
+   */
+  getPopularBadges: (limit = 30) =>
+    apiClient.get('/surf/popular', { params: { limit } }),
+
+  /**
+   * Search badges by name or description
+   * @param {string} query - Search query
+   * @param {number} limit - Maximum number of results
+   */
+  searchBadges: (query, limit = 30) =>
+    apiClient.get('/surf/search', { params: { q: query, limit } }),
+
+  /**
+   * Get badges by issuer
+   * @param {string} pubkey - Issuer's pubkey
+   * @param {number} limit - Maximum number of badges
+   */
+  getBadgesByIssuer: (pubkey, limit = 50) =>
+    apiClient.get(`/surf/issuer/${pubkey}`, { params: { limit } }),
+
+  /**
+   * Get badge details by a-tag
+   * @param {string} aTag - Badge a-tag
+   */
+  getBadgeDetails: (aTag) =>
+    apiClient.get('/surf/badge/details', {
+      params: { a_tag: aTag }
+    }),
+
+  /**
+   * Get badge owners/holders
+   * @param {string} aTag - Badge a-tag
+   * @param {number} limit - Maximum number of owners
+   * @param {boolean} includeProfiles - Whether to include profile data
+   */
+  getBadgeOwners: (aTag, limit = 50, includeProfiles = true) =>
+    apiClient.get('/surf/badge/owners', {
+      params: { a_tag: aTag, limit, include_profiles: includeProfiles }
+    })
 }
 
 export default apiClient

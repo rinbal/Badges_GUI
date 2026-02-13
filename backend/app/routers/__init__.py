@@ -7,4 +7,6 @@ from .badges import router as badges_router
 from .inbox import router as inbox_router
 from .profile import router as profile_router
 from .relays import router as relays_router
+from .requests import router as requests_router
+from .surf import router as surf_router
 

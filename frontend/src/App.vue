@@ -9,12 +9,14 @@
       </router-view>
     </main>
     <ToastContainer />
+    <GlobalModals />
   </div>
 </template>
 
 <script setup>
 import AppHeader from '@/components/common/AppHeader.vue'
 import ToastContainer from '@/components/common/ToastContainer.vue'
+import GlobalModals from '@/components/shared/GlobalModals.vue'
 </script>
 
 <style scoped>

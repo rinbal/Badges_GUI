@@ -12,12 +12,15 @@ import { computed } from 'vue'
 import {
   IconHome,
   IconInbox,
+  IconMail,
+  IconMailbox,
   IconPlus,
   IconSend,
   IconAward,
   IconMedal,
   IconStar,
   IconTrophy,
+  IconCertificate,
   IconUser,
   IconUsers,
   IconKey,
@@ -44,6 +47,7 @@ import {
   IconSearch,
   IconFilter,
   IconPhoto,
+  IconPhotoOff,
   IconUpload,
   IconWorld,
   IconBolt,
@@ -94,6 +98,9 @@ const icons = {
   // Navigation & Actions
   'home': IconHome,
   'inbox': IconInbox,
+  'mail': IconMail,
+  'mailbox': IconMailbox,
+  'postbox': IconMailbox,
   'create': IconPlus,
   'plus': IconPlus,
   'send': IconSend,
@@ -104,6 +111,8 @@ const icons = {
   'medal': IconMedal,
   'star': IconStar,
   'trophy': IconTrophy,
+  'certificate': IconCertificate,
+  'issued': IconCertificate,
 
   // User & Profile
   'user': IconUser,
@@ -146,6 +155,8 @@ const icons = {
   // Media & Content
   'image': IconPhoto,
   'photo': IconPhoto,
+  'photo-off': IconPhotoOff,
+  'image-off': IconPhotoOff,
   'upload': IconUpload,
 
   // Misc

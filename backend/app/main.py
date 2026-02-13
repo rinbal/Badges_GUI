@@ -10,7 +10,9 @@ from .routers import (
     badges_router,
     inbox_router,
     profile_router,
-    relays_router
+    relays_router,
+    requests_router,
+    surf_router
 )
 
 # Create FastAPI application
@@ -51,6 +53,8 @@ app.include_router(badges_router, prefix="/api/v1")
 app.include_router(inbox_router, prefix="/api/v1")
 app.include_router(profile_router, prefix="/api/v1")
 app.include_router(relays_router, prefix="/api/v1")
+app.include_router(requests_router, prefix="/api/v1")
+app.include_router(surf_router, prefix="/api/v1")
 
 
 @app.get("/")
