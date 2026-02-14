@@ -32,6 +32,7 @@ export const useBadgesStore = defineStore('badges', () => {
   const userTemplates = ref([])      // User-created templates from API
   const pendingBadges = ref([])
   const acceptedBadges = ref([])
+  const rejectedBadgeIds = ref(new Set(JSON.parse(localStorage.getItem('rejectedBadgeIds') || '[]')))
   const isLoading = ref(false)
   const error = ref(null)
 
@@ -74,7 +75,10 @@ export const useBadgesStore = defineStore('badges', () => {
    */
   const appTemplateCount = computed(() => appTemplatesRaw.value.length)
 
-  const pendingCount = computed(() => pendingBadges.value.length)
+  const visiblePendingBadges = computed(() =>
+    pendingBadges.value.filter(b => !rejectedBadgeIds.value.has(b.award_event_id))
+  )
+  const pendingCount = computed(() => visiblePendingBadges.value.length)
   const acceptedCount = computed(() => acceptedBadges.value.length)
 
   // Actions
@@ -397,6 +401,11 @@ export const useBadgesStore = defineStore('badges', () => {
     }
   }
 
+  function rejectBadge(award_event_id) {
+    rejectedBadgeIds.value.add(award_event_id)
+    localStorage.setItem('rejectedBadgeIds', JSON.stringify([...rejectedBadgeIds.value]))
+  }
+
   function clearBadges() {
     pendingBadges.value = []
     acceptedBadges.value = []
@@ -424,6 +433,7 @@ export const useBadgesStore = defineStore('badges', () => {
     allTemplates,           // All templates combined
     userTemplateCount,      // Count of user templates
     appTemplateCount,       // Count of app templates
+    visiblePendingBadges,
     pendingCount,
     acceptedCount,
 
@@ -440,6 +450,7 @@ export const useBadgesStore = defineStore('badges', () => {
     fetchAcceptedBadges,
     acceptBadge,
     removeBadge,
+    rejectBadge,
     clearBadges,
     clearUserTemplates,
     clearAppTemplates

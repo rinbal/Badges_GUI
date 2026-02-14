@@ -73,12 +73,13 @@
         <!-- Pending Badges List -->
         <div v-else class="pending-list">
           <PendingBadgeCard
-            v-for="badge in badgesStore.pendingBadges"
+            v-for="badge in badgesStore.visiblePendingBadges"
             :key="badge.award_event_id"
             :badge="badge"
             :loading="loadingBadgeId === badge.award_event_id"
             @accept="handleAccept"
             @view="openBadgeDetail"
+            @reject="handleReject"
           />
         </div>
       </section>
@@ -271,6 +272,14 @@ async function handleAccept(badge) {
   } else {
     uiStore.showError(result.error || 'Could not accept badge. Please try again.')
   }
+}
+
+/**
+ * Reject a pending badge (hide from list via localStorage)
+ */
+function handleReject(badge) {
+  badgesStore.rejectBadge(badge.award_event_id)
+  uiStore.showInfo(`"${badge.badge_name}" rejected`)
 }
 
 /**

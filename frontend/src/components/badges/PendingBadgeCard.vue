@@ -40,6 +40,9 @@
       <button class="btn-view" @click.stop="$emit('view', badge, true)">
         Details
       </button>
+      <button class="btn-reject" @click.stop="$emit('reject', badge)">
+        Reject
+      </button>
     </div>
   </div>
 </template>
@@ -60,7 +63,7 @@ const props = defineProps({
   loading: { type: Boolean, default: false }
 })
 
-defineEmits(['accept', 'view'])
+defineEmits(['accept', 'view', 'reject'])
 
 // Image error states
 const imageError = ref(false)
@@ -233,6 +236,22 @@ function onAvatarError() { avatarError.value = true }
   color: var(--color-primary);
 }
 
+.btn-reject {
+  padding: 0.5rem 1rem;
+  background: transparent;
+  color: var(--color-text-muted);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: 0.8125rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-reject:hover {
+  border-color: var(--color-danger, #e53e3e);
+  color: var(--color-danger, #e53e3e);
+}
+
 .spinner {
   width: 12px;
   height: 12px;
@@ -262,7 +281,7 @@ function onAvatarError() { avatarError.value = true }
     width: 100%;
   }
 
-  .btn-accept, .btn-view {
+  .btn-accept, .btn-view, .btn-reject {
     flex: 1;
   }
 }
