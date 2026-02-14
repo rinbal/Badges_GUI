@@ -148,6 +148,20 @@ async function loadBadges() {
     // Get badges created by this user
     const response = await api.getBadgesByIssuer(auth.hex)
     badges.value = response.data.badges || []
+
+    // Pre-fetch holder counts for all badges (without full profiles)
+    await Promise.allSettled(
+      badges.value
+        .filter(b => !b.holder_count)
+        .map(async (badge) => {
+          try {
+            const res = await api.getBadgeOwners(badge.a_tag, 1, false)
+            badge.holder_count = res.data.total_count || 0
+          } catch {
+            // Silent - count stays at 0
+          }
+        })
+    )
   } catch (err) {
     console.error('Failed to load badges:', err)
     ui.showError('Failed to load badges')
