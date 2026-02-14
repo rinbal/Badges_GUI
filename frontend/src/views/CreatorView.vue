@@ -14,7 +14,7 @@
       <div class="mode-cards">
         <button class="mode-card" @click="selectMode('award')">
           <div class="mode-icon official">
-            <Icon name="award" size="lg" />
+            <img src="/BadgeBox_ohne_bg.png" alt="BadgeBox" class="mode-logo" />
           </div>
           <div class="mode-content">
             <h3>Award an Official Badge</h3>
@@ -822,7 +822,13 @@ onMounted(() => {
 }
 
 .mode-icon.official {
-  background: var(--color-accent-soft);
+  background: rgba(157, 78, 221, 0.12);
+}
+
+.mode-logo {
+  width: 44px;
+  height: 44px;
+  object-fit: contain;
 }
 
 .mode-icon.custom {
@@ -1094,6 +1100,7 @@ onMounted(() => {
 .badge-details strong {
   display: block;
   font-size: 0.875rem;
+  color: var(--color-text);
 }
 
 .badge-details span {
