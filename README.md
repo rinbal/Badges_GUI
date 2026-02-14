@@ -33,6 +33,8 @@ All badges are cryptographically signed and stored across decentralized Nostr re
 
 ```bash
 cd backend
+python -m venv venv
+source venv/bin/activate   # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 pip install -r ../requirements.txt
 ```
@@ -241,6 +243,7 @@ Relay configuration is in `badge_tool/config.json`.
 Backend (with auto-reload):
 ```bash
 cd backend
+source venv/bin/activate   # On Windows: venv\Scripts\activate
 uvicorn app.main:app --reload --port 8000
 ```
 
