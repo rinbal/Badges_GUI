@@ -1,12 +1,16 @@
 """
-Badge Service - Handles badge creation and awarding
+Badge Service - Handles badge creation, awarding, and deletion
 Wraps existing badge_creator.py functionality
 """
 
 import json
+import asyncio
+import time
 import sys
 from pathlib import Path
 from typing import Dict, List, Any, Optional, Tuple
+
+import websockets
 
 # Add paths for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent / "common"))
@@ -344,6 +348,74 @@ class BadgeService:
                 "error": str(e)
             }
     
+    async def delete_badge(self, a_tag: str) -> Dict[str, Any]:
+        """
+        Delete a badge definition and all its awards (NIP-09 kind 5).
+
+        Queries relays for the badge definition (kind 30009) and all award
+        events (kind 8) referencing this badge, then publishes a kind 5
+        deletion event targeting all of them.
+
+        Args:
+            a_tag: Badge definition identifier (e.g. "30009:pubkey:identifier")
+
+        Returns:
+            Result dictionary with deletion status
+        """
+        parts = a_tag.split(":")
+        if len(parts) != 3 or parts[0] != "30009":
+            return {"success": False, "error": "Invalid a_tag format"}
+
+        issuer_hex = parts[1]
+
+        if issuer_hex != self.badge_creator.issuer_hex:
+            return {"success": False, "error": "Only the badge issuer can delete this badge"}
+
+        print(f"\n{'='*50}")
+        print(f"🗑️  DELETE BADGE: {a_tag}")
+        print(f"{'='*50}")
+
+        # Step 1 & 2: Find all event IDs (definition + awards)
+        print("\n🔍 Finding badge events...")
+        query_service = BadgeQueryService()
+        query_result = await query_service.get_badge_event_ids(a_tag)
+        event_ids = query_result["event_ids"]
+        print(f"   Found {query_result['definition_count']} definition(s), {query_result['award_count']} award(s)")
+
+        if not event_ids:
+            return {"success": False, "error": "No events found for this badge"}
+
+        # Step 3: Create and publish kind 5 deletion event
+        print(f"\n🗑️  Step 3: Deleting {len(event_ids)} event(s)...")
+        deletion_event = self.badge_creator.create_deletion_event(
+            event_ids=event_ids,
+            a_tags=[a_tag],
+            reason="Badge deleted by issuer"
+        )
+
+        relay_manager = RelayManager()
+        results = await relay_manager.publish_event(deletion_event, self.relay_urls)
+        relay_manager.print_summary()
+
+        published_count = sum(1 for r in results if r.published or r.verified)
+        verified_count = sum(1 for r in results if r.verified)
+
+        if published_count > 0:
+            print(f"✅ Deletion published to {published_count} relay(s) — {len(event_ids)} event(s) targeted")
+            return {
+                "success": True,
+                "deletion_event_id": deletion_event["id"],
+                "deleted_events": len(event_ids),
+                "published_relays": published_count,
+                "verified_relays": verified_count
+            }
+        else:
+            print("❌ Deletion event could not be published to any relay")
+            return {
+                "success": False,
+                "error": "No relay accepted the deletion event"
+            }
+
     async def create_and_award(
         self,
         badge_data: Dict[str, Any],
@@ -385,5 +457,85 @@ class BadgeService:
             "published_relays": award_result.get("published_relays"),
             "verified_relays": award_result.get("verified_relays"),
             "error": award_result.get("error")
+        }
+
+
+class BadgeQueryService:
+    """Lightweight service for querying badge events from relays (no signing needed)"""
+
+    def __init__(self):
+        self.relay_urls = settings.relay_urls
+
+    async def _query_relay(self, relay_url, req_id, filter_params, timeout=10):
+        """Query a single relay for events"""
+        results = []
+        try:
+            async with websockets.connect(relay_url, open_timeout=5) as ws:
+                await ws.send(json.dumps(["REQ", req_id, filter_params]))
+                start = asyncio.get_event_loop().time()
+                while True:
+                    if asyncio.get_event_loop().time() - start > timeout:
+                        break
+                    try:
+                        msg = await asyncio.wait_for(ws.recv(), timeout=2.5)
+                    except asyncio.TimeoutError:
+                        break
+                    try:
+                        data = json.loads(msg)
+                    except Exception:
+                        continue
+                    if not isinstance(data, list):
+                        continue
+                    if data[0] == "EVENT" and len(data) >= 3 and data[1] == req_id:
+                        results.append(data[2])
+                    if data[0] == "EOSE":
+                        break
+        except Exception as e:
+            print(f"Query error ({relay_url}): {e}")
+        return results
+
+    async def _query_multiple(self, filter_params, prefix):
+        """Query multiple relays and deduplicate by event ID"""
+        tasks = []
+        for i, relay in enumerate(self.relay_urls[:5]):
+            req_id = f"{prefix}_{int(time.time())}_{i}"
+            tasks.append(self._query_relay(relay, req_id, filter_params))
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        events_by_id = {}
+        for result in results:
+            if isinstance(result, list):
+                for ev in result:
+                    if ev.get("id"):
+                        events_by_id[ev["id"]] = ev
+        return list(events_by_id.values())
+
+    async def get_badge_event_ids(self, a_tag: str) -> Dict[str, Any]:
+        """
+        Get all event IDs (definition + awards) for a badge.
+        Used by NIP-07 flow to build the deletion event client-side.
+        """
+        parts = a_tag.split(":")
+        if len(parts) != 3 or parts[0] != "30009":
+            return {"event_ids": [], "definition_count": 0, "award_count": 0}
+
+        issuer_hex = parts[1]
+        identifier = parts[2]
+
+        definition_events = await self._query_multiple(
+            {"kinds": [30009], "authors": [issuer_hex], "#d": [identifier]},
+            "qdef"
+        )
+        award_events = await self._query_multiple(
+            {"kinds": [8], "authors": [issuer_hex], "#a": [a_tag]},
+            "qaward"
+        )
+
+        event_ids = [ev["id"] for ev in definition_events if ev.get("id")]
+        event_ids += [ev["id"] for ev in award_events if ev.get("id")]
+
+        return {
+            "event_ids": event_ids,
+            "definition_count": len(definition_events),
+            "award_count": len(award_events)
         }
 

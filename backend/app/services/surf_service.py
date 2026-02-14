@@ -115,6 +115,25 @@ class SurfService:
 
         return list(events_by_id.values())
 
+    @staticmethod
+    def _deduplicate_replaceable(badges: List[Dict]) -> List[Dict]:
+        """
+        Deduplicate replaceable events (kind 30009) by a_tag.
+
+        Multiple relays may return different versions of the same replaceable
+        event. This keeps only the latest version (highest created_at) for each
+        unique a_tag (author + d-tag combination).
+        """
+        by_a_tag = {}
+        for badge in badges:
+            a_tag = badge.get("a_tag")
+            if not a_tag:
+                continue
+            existing = by_a_tag.get(a_tag)
+            if not existing or badge.get("created_at", 0) > existing.get("created_at", 0):
+                by_a_tag[a_tag] = badge
+        return list(by_a_tag.values())
+
     # =========================================================================
     # Badge Discovery
     # =========================================================================
@@ -150,9 +169,10 @@ class SurfService:
             filter_params, "surf_recent", timeout=12
         )
 
-        # Parse and sort by created_at (most recent first)
+        # Parse, deduplicate replaceable events, sort by recency
         badges = [self._parse_badge_event(ev) for ev in events]
         badges = [b for b in badges if b is not None]
+        badges = self._deduplicate_replaceable(badges)
         badges.sort(key=lambda x: x.get("created_at", 0), reverse=True)
 
         badges = badges[:limit]
@@ -186,6 +206,7 @@ class SurfService:
 
         badges = [self._parse_badge_event(ev) for ev in events]
         badges = [b for b in badges if b is not None]
+        badges = self._deduplicate_replaceable(badges)
         badges.sort(key=lambda x: x.get("created_at", 0), reverse=True)
 
         badges = badges[:limit]
@@ -220,9 +241,10 @@ class SurfService:
             filter_params, "surf_search", timeout=15
         )
 
-        # Parse badges
+        # Parse badges and deduplicate replaceable events
         badges = [self._parse_badge_event(ev) for ev in events]
         badges = [b for b in badges if b is not None]
+        badges = self._deduplicate_replaceable(badges)
 
         # Filter by query (case-insensitive, multi-word support)
         query_lower = query.lower().strip()
@@ -286,9 +308,11 @@ class SurfService:
         if not events:
             return None
 
-        # Return the most recent version
-        events.sort(key=lambda x: x.get("created_at", 0), reverse=True)
-        return self._parse_badge_event(events[0])
+        # Deduplicate and return the most recent version
+        badges = [self._parse_badge_event(ev) for ev in events]
+        badges = [b for b in badges if b is not None]
+        badges = self._deduplicate_replaceable(badges)
+        return badges[0] if badges else None
 
     async def get_badge_owners(
         self,

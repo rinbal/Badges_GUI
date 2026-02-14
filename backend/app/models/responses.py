@@ -70,6 +70,16 @@ class AwardBadgeResponse(BaseModel):
     error: Optional[str] = None
 
 
+class DeleteBadgeResponse(BaseModel):
+    """Response for badge deletion (NIP-09)"""
+    success: bool
+    deletion_event_id: Optional[str] = None
+    deleted_events: int = 0
+    published_relays: int = 0
+    verified_relays: int = 0
+    error: Optional[str] = None
+
+
 class PendingBadgeResponse(BaseModel):
     """Response for a pending badge"""
     award_event_id: str
