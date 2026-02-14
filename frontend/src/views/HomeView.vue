@@ -219,15 +219,26 @@
             <span>Works everywhere</span>
           </div>
         </div>
-        <a
-          href="https://nostr.how/en/get-started"
-          target="_blank"
-          rel="noopener noreferrer"
-          class="btn btn-outline"
-        >
-          <span>Get Started with Nostr</span>
-          <Icon name="external-link" size="sm" />
-        </a>
+        <div class="nostr-ctas">
+          <a
+            href="https://nostrid.mybuho.de"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="btn btn-outline"
+          >
+            <span>Get your own Identity</span>
+            <Icon name="external-link" size="sm" />
+          </a>
+          <a
+            href="https://nostr.how/en/get-started"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="btn btn-outline"
+          >
+            <span>Get Started with Nostr</span>
+            <Icon name="external-link" size="sm" />
+          </a>
+        </div>
       </div>
     </section>
 
@@ -955,6 +966,13 @@ onUnmounted(() => {
   gap: 0.5rem;
   font-size: 0.875rem;
   color: var(--color-text);
+}
+
+.nostr-ctas {
+  display: flex;
+  justify-content: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
 }
 
 .benefit svg {

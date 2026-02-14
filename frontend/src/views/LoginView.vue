@@ -425,16 +425,16 @@ async function handleNsecLogin() {
 }
 
 .btn-text {
-  background: transparent;
-  color: var(--color-text-muted);
-  border: 1px solid var(--color-border);
+  background: var(--color-surface-elevated);
+  color: var(--color-text);
+  border: 1px solid var(--color-text-muted);
   font-size: 0.9375rem;
 }
 
 .btn-text:hover {
-  background: var(--color-surface-elevated);
-  color: var(--color-text);
-  border-color: var(--color-text-muted);
+  background: var(--color-surface-hover);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
 }
 
 .nsec-form {
