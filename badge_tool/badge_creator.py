@@ -209,6 +209,41 @@ class BadgeCreator:
                 "error": "No relay accepted the event"
             }
     
+    def create_deletion_event(self, event_ids: List[str], a_tags: List[str] = None, reason: str = "") -> Dict[str, Any]:
+        """
+        Create a Deletion event (kind 5) following NIP-09
+
+        Args:
+            event_ids: List of event IDs to delete (referenced via "e" tags)
+            a_tags: List of addressable event identifiers to delete (referenced via "a" tags)
+            reason: Optional reason for deletion (stored in content)
+
+        Returns:
+            Signed Deletion event
+        """
+        tags = [["e", eid] for eid in event_ids]
+        if a_tags:
+            tags.extend(["a", atag] for atag in a_tags)
+
+        ev = Event(
+            public_key=self.issuer_hex,
+            content=reason,
+            created_at=int(time.time()),
+            kind=5,
+            tags=tags
+        )
+        self.issuer_pk.sign_event(ev)
+
+        return {
+            "id": ev.id,
+            "pubkey": self.issuer_hex,
+            "created_at": int(ev.created_at),
+            "kind": ev.kind,
+            "tags": ev.tags,
+            "content": ev.content,
+            "sig": getattr(ev, "signature", None) or getattr(ev, "sig", None)
+        }
+
     def get_issuer_info(self) -> Dict[str, str]:
         """Get issuer information"""
         return {

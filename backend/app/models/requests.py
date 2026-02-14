@@ -138,6 +138,19 @@ class CreateAndAwardRequest(BaseModel):
         return validate_badge_identifier(v)
 
 
+class DeleteBadgeRequest(BaseModel):
+    """Request to delete an issued badge (NIP-09 kind 5)
+
+    For NIP-07 users: Include signed_event (kind 5 deletion event)
+    For nsec users: Omit signed_event (backend will create and sign using X-Nsec header)
+    """
+    a_tag: str = Field(..., description="Badge definition A-tag (30009:pubkey:identifier)")
+    signed_event: Optional[SignedNostrEvent] = Field(
+        None,
+        description="Pre-signed deletion event (kind 5)"
+    )
+
+
 class AcceptBadgeRequest(BaseModel):
     """Request to accept a badge
 

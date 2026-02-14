@@ -113,6 +113,24 @@ export const api = {
       signed_award_event: signedAwardEvent
     }),
 
+  /**
+   * Get event IDs for a badge (for building NIP-09 deletion event)
+   * @param {string} a_tag - Badge definition a-tag
+   */
+  getBadgeEventsForDeletion: (a_tag) =>
+    apiClient.get('/badges/delete/events', { params: { a_tag } }),
+
+  /**
+   * Delete an issued badge (NIP-09 kind 5)
+   * @param {string} a_tag - Badge definition a-tag
+   * @param {Object|null} signedEvent - Pre-signed deletion event for NIP-07
+   */
+  deleteBadge: (a_tag, signedEvent = null) =>
+    apiClient.post('/badges/delete', {
+      a_tag,
+      signed_event: signedEvent
+    }),
+
   // Badge Discovery
   getBadgeOwners: (a_tag, limit = 50, include_profiles = true) =>
     apiClient.get('/badges/owners', {

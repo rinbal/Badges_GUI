@@ -69,6 +69,15 @@
                 <Icon name="users" size="sm" />
                 {{ badge.holder_count || 0 }}
               </span>
+              <button
+                class="btn-delete"
+                :disabled="deletingBadge === badge.a_tag"
+                @click.stop="handleDelete(badge)"
+                title="Delete badge from Nostr"
+              >
+                <span v-if="deletingBadge === badge.a_tag" class="spinner-sm"></span>
+                <Icon v-else name="trash" size="sm" />
+              </button>
               <Icon
                 :name="expandedBadges.has(badge.a_tag) ? 'chevron-up' : 'chevron-down'"
                 size="sm"
@@ -117,14 +126,58 @@
         </div>
       </div>
     </main>
+
+    <!-- Delete Confirmation Modal -->
+    <Teleport to="body">
+      <Transition name="modal">
+        <div v-if="deleteConfirm.show" class="modal-overlay" @click.self="cancelDelete">
+          <div class="modal-content">
+            <div class="modal-icon">
+              <Icon name="alert-circle" size="lg" />
+            </div>
+            <h3>Delete "{{ deleteConfirm.badge?.name || deleteConfirm.badge?.identifier }}"?</h3>
+            <p class="modal-warning">
+              This will publish a NIP-09 deletion event for the badge definition and all award events.
+            </p>
+            <p v-if="(deleteConfirm.badge?.holder_count || 0) > 0" class="modal-holders">
+              {{ deleteConfirm.badge.holder_count }} holder(s) will lose this badge.
+            </p>
+            <p class="modal-instruction">
+              Type <strong>DELETE</strong> to confirm:
+            </p>
+            <input
+              ref="deleteInput"
+              v-model="deleteConfirm.input"
+              type="text"
+              class="modal-input"
+              placeholder="Type DELETE"
+              autocomplete="off"
+              @keyup.enter="confirmDelete"
+            />
+            <div class="modal-actions">
+              <button class="btn-cancel" @click="cancelDelete">Cancel</button>
+              <button
+                class="btn-confirm-delete"
+                :disabled="deleteConfirm.input !== 'DELETE' || deletingBadge"
+                @click="confirmDelete"
+              >
+                <span v-if="deletingBadge" class="spinner-sm"></span>
+                {{ deletingBadge ? 'Deleting...' : 'Delete Badge' }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, nextTick, onMounted } from 'vue'
 import { api } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
 import { useUIStore } from '@/stores/ui'
+import { createDeletionEvent, signEvent } from '@/utils/nip07'
 import Icon from '@/components/common/Icon.vue'
 import UserAvatar from '@/components/shared/UserAvatar.vue'
 
@@ -137,6 +190,9 @@ const badges = ref([])
 const expandedBadges = reactive(new Set())
 const loadingHolders = reactive(new Set())
 const badgeImageErrors = reactive(new Set())
+const deletingBadge = ref(null)
+const deleteConfirm = reactive({ show: false, badge: null, input: '' })
+const deleteInput = ref(null)
 
 // Methods
 async function loadBadges() {
@@ -206,6 +262,66 @@ function awardBadge(badge) {
   // Navigate to creator with badge pre-selected
   // For now, just show a message
   ui.showInfo('Use the Creator tab to award this badge')
+}
+
+function handleDelete(badge) {
+  deleteConfirm.badge = badge
+  deleteConfirm.input = ''
+  deleteConfirm.show = true
+  nextTick(() => deleteInput.value?.focus())
+}
+
+function cancelDelete() {
+  deleteConfirm.show = false
+  deleteConfirm.badge = null
+  deleteConfirm.input = ''
+}
+
+async function confirmDelete() {
+  if (deleteConfirm.input !== 'DELETE') return
+
+  const badge = deleteConfirm.badge
+  const name = badge.name || badge.identifier || 'this badge'
+
+  deletingBadge.value = badge.a_tag
+
+  try {
+    let signedDeletionEvent = null
+
+    if (auth.isNip07) {
+      // NIP-07: fetch event IDs from backend, sign deletion client-side
+      const eventsRes = await api.getBadgeEventsForDeletion(badge.a_tag)
+      const { event_ids } = eventsRes.data
+
+      if (!event_ids || event_ids.length === 0) {
+        ui.showError('No events found for this badge on relays')
+        return
+      }
+
+      const unsignedEvent = createDeletionEvent(event_ids, [badge.a_tag], 'Badge deleted by issuer')
+      signedDeletionEvent = await signEvent(unsignedEvent)
+
+      if (!signedDeletionEvent) {
+        ui.showError('Signing was rejected')
+        return
+      }
+    }
+
+    const response = await api.deleteBadge(badge.a_tag, signedDeletionEvent)
+
+    if (response.data.success) {
+      badges.value = badges.value.filter(b => b.a_tag !== badge.a_tag)
+      cancelDelete()
+      ui.showSuccess(`"${name}" deleted (${response.data.deleted_events} event(s) removed)`)
+    } else {
+      ui.showError(response.data.error || 'Failed to delete badge')
+    }
+  } catch (err) {
+    console.error('Delete badge error:', err)
+    ui.showError(err.response?.data?.detail || err.message || 'Failed to delete badge')
+  } finally {
+    deletingBadge.value = null
+  }
 }
 
 function shortPubkey(pubkey) {
@@ -450,6 +566,31 @@ onMounted(() => {
   color: var(--color-text-secondary);
 }
 
+.btn-delete {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-delete:hover:not(:disabled) {
+  border-color: var(--color-danger, #e53e3e);
+  color: var(--color-danger, #e53e3e);
+  background: rgba(229, 62, 62, 0.05);
+}
+
+.btn-delete:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .expand-icon {
   color: var(--color-text-muted);
 }
@@ -573,5 +714,151 @@ onMounted(() => {
   .holders-grid {
     grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
   }
+}
+
+/* ===========================================
+   Delete Confirmation Modal
+   =========================================== */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
+.modal-content {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 2rem;
+  max-width: 420px;
+  width: 100%;
+  text-align: center;
+}
+
+.modal-icon {
+  color: var(--color-danger, #e53e3e);
+  margin-bottom: 1rem;
+}
+
+.modal-content h3 {
+  font-size: 1.125rem;
+  margin: 0 0 0.75rem;
+}
+
+.modal-warning {
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+  margin: 0 0 0.5rem;
+  line-height: 1.5;
+}
+
+.modal-holders {
+  font-size: 0.875rem;
+  color: var(--color-danger, #e53e3e);
+  font-weight: 500;
+  margin: 0 0 0.75rem;
+}
+
+.modal-instruction {
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+  margin: 0 0 0.5rem;
+}
+
+.modal-input {
+  width: 100%;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-elevated);
+  color: var(--color-text);
+  font-size: 0.9375rem;
+  text-align: center;
+  letter-spacing: 2px;
+  font-weight: 600;
+  margin-bottom: 1.25rem;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.modal-input:focus {
+  border-color: var(--color-danger, #e53e3e);
+}
+
+.modal-actions {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.btn-cancel {
+  flex: 1;
+  padding: 0.625rem 1rem;
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-cancel:hover {
+  border-color: var(--color-text-muted);
+}
+
+.btn-confirm-delete {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  padding: 0.625rem 1rem;
+  background: var(--color-danger, #e53e3e);
+  color: white;
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-confirm-delete:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.btn-confirm-delete:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Modal Transition */
+.modal-enter-active,
+.modal-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.modal-enter-active .modal-content,
+.modal-leave-active .modal-content {
+  transition: transform 0.2s ease;
+}
+
+.modal-enter-from,
+.modal-leave-to {
+  opacity: 0;
+}
+
+.modal-enter-from .modal-content {
+  transform: scale(0.95);
+}
+
+.modal-leave-to .modal-content {
+  transform: scale(0.95);
 }
 </style>

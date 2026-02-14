@@ -142,6 +142,27 @@
          BADGE DETAIL PANEL (Slide-over)
          Shows detailed badge info and actions
          ======================================== -->
+    <!-- Reject Confirmation Modal -->
+    <Teleport to="body">
+      <Transition name="modal">
+        <div v-if="rejectConfirm.show" class="modal-overlay" @click.self="cancelReject">
+          <div class="modal-content">
+            <h3>Reject "{{ rejectConfirm.badge?.badge_name }}"?</h3>
+            <p class="modal-text">
+              This badge will be hidden from your pending list. It won't appear again unless you clear your browser data.
+            </p>
+            <div class="modal-issuer" v-if="rejectConfirm.badge?.issuer_name">
+              From <strong>{{ rejectConfirm.badge.issuer_name }}</strong>
+            </div>
+            <div class="modal-actions">
+              <button class="btn-modal-cancel" @click="cancelReject">Cancel</button>
+              <button class="btn-modal-reject" @click="confirmReject">Reject</button>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+
     <BadgeDetailPanel
       :badge="selectedBadge"
       :is-open="showDetailPanel"
@@ -169,7 +190,7 @@
  * - Empty states with CTAs
  */
 
-import { ref, onMounted } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { useBadgesStore } from '@/stores/badges'
 import { useUIStore } from '@/stores/ui'
 
@@ -203,6 +224,9 @@ const showDetailPanel = ref(false)
 
 /** Whether selected badge is pending */
 const selectedBadgeIsPending = ref(false)
+
+/** Reject confirmation modal state */
+const rejectConfirm = reactive({ show: false, badge: null })
 
 // ===========================================
 // Lifecycle
@@ -275,11 +299,29 @@ async function handleAccept(badge) {
 }
 
 /**
- * Reject a pending badge (hide from list via localStorage)
+ * Open reject confirmation modal
  */
 function handleReject(badge) {
+  rejectConfirm.badge = badge
+  rejectConfirm.show = true
+}
+
+/**
+ * Confirm rejection
+ */
+function confirmReject() {
+  const badge = rejectConfirm.badge
   badgesStore.rejectBadge(badge.award_event_id)
   uiStore.showInfo(`"${badge.badge_name}" rejected`)
+  cancelReject()
+}
+
+/**
+ * Cancel rejection
+ */
+function cancelReject() {
+  rejectConfirm.show = false
+  rejectConfirm.badge = null
 }
 
 /**
@@ -622,5 +664,110 @@ async function handleRemoveFromPanel(badge) {
   font-size: 0.8125rem;
   color: var(--color-text);
   line-height: 1.4;
+}
+
+/* ===========================================
+   Reject Confirmation Modal
+   =========================================== */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
+.modal-content {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 2rem;
+  max-width: 380px;
+  width: 100%;
+  text-align: center;
+}
+
+.modal-content h3 {
+  font-size: 1.125rem;
+  margin: 0 0 0.75rem;
+}
+
+.modal-text {
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+  margin: 0 0 0.75rem;
+  line-height: 1.5;
+}
+
+.modal-issuer {
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+  margin-bottom: 1.25rem;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.btn-modal-cancel {
+  flex: 1;
+  padding: 0.625rem 1rem;
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-modal-cancel:hover {
+  border-color: var(--color-text-muted);
+}
+
+.btn-modal-reject {
+  flex: 1;
+  padding: 0.625rem 1rem;
+  background: var(--color-danger, #e53e3e);
+  color: white;
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-modal-reject:hover {
+  opacity: 0.9;
+}
+
+/* Modal Transition */
+.modal-enter-active,
+.modal-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.modal-enter-active .modal-content,
+.modal-leave-active .modal-content {
+  transition: transform 0.2s ease;
+}
+
+.modal-enter-from,
+.modal-leave-to {
+  opacity: 0;
+}
+
+.modal-enter-from .modal-content {
+  transform: scale(0.95);
+}
+
+.modal-leave-to .modal-content {
+  transform: scale(0.95);
 }
 </style>

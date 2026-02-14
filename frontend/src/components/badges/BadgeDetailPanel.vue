@@ -101,9 +101,9 @@
               <!-- Owners List -->
               <div v-else-if="owners.length > 0" class="owners-list">
                 <div v-for="owner in displayedOwners" :key="owner.pubkey" class="owner-item">
-                  <img v-if="owner.picture" :src="owner.picture" class="owner-avatar" />
+                  <img v-if="owner.profile?.picture" :src="owner.profile.picture" class="owner-avatar" />
                   <span v-else class="owner-avatar placeholder">👤</span>
-                  <span class="owner-name">{{ owner.name || 'Nostr User' }}</span>
+                  <span class="owner-name">{{ owner.profile?.display_name || owner.profile?.name || 'Nostr User' }}</span>
                 </div>
 
                 <!-- Show More -->

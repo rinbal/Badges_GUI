@@ -12,12 +12,14 @@ from ..models.requests import (
     CreateBadgeTemplateRequest,
     CreateBadgeDefinitionRequest,
     AwardBadgeRequest,
-    CreateAndAwardRequest
+    CreateAndAwardRequest,
+    DeleteBadgeRequest
 )
 from ..models.responses import (
     BadgeTemplateResponse,
     CreateDefinitionResponse,
     AwardBadgeResponse,
+    DeleteBadgeResponse,
     ErrorResponse
 )
 from ..services.badge_service import BadgeService
@@ -413,6 +415,83 @@ async def create_and_award(
         "verified_relays": result.get("verified_relays", 0),
         "error": result.get("error")
     }
+
+
+@router.get("/delete/events")
+async def get_badge_events_for_deletion(
+    a_tag: str,
+    x_nsec: Optional[str] = Header(None),
+    x_pubkey: Optional[str] = Header(None)
+):
+    """
+    Get event IDs for a badge (definition + awards) needed to build a deletion event.
+    Used by NIP-07 flow: frontend needs the event IDs to sign the kind 5 event.
+
+    Args:
+        a_tag: Badge definition a-tag (e.g. "30009:pubkey:identifier")
+    """
+    _, pubkey_hex, _ = get_auth_context(x_nsec, x_pubkey)
+
+    parts = a_tag.split(":")
+    if len(parts) != 3 or parts[0] != "30009":
+        raise HTTPException(status_code=400, detail="Invalid a_tag format")
+
+    issuer_hex = parts[1]
+    if issuer_hex != pubkey_hex:
+        raise HTTPException(status_code=403, detail="Only the badge issuer can delete this badge")
+
+    from ..services.badge_service import BadgeQueryService
+    query_service = BadgeQueryService()
+    result = await query_service.get_badge_event_ids(a_tag)
+    return result
+
+
+@router.post("/delete", response_model=DeleteBadgeResponse)
+async def delete_badge(
+    request: DeleteBadgeRequest,
+    x_nsec: Optional[str] = Header(None),
+    x_pubkey: Optional[str] = Header(None)
+):
+    """
+    Delete an issued badge and all its awards (NIP-09 kind 5)
+
+    Publishes a kind 5 deletion event targeting the badge definition (kind 30009)
+    and all award events (kind 8). Only the original issuer can delete.
+
+    Supports two flows:
+    - NIP-07: Include signed_event in request body (no X-Nsec header needed)
+    - nsec: Omit signed_event, include X-Nsec header (backend signs)
+    """
+    # NIP-07 flow: pre-signed deletion event
+    if request.signed_event:
+        print(f"🗑️  NIP-07 flow: Publishing pre-signed deletion event")
+        service = PublishOnlyBadgeService()
+        result = await service.publish_signed_event(request.signed_event.model_dump())
+
+        return DeleteBadgeResponse(
+            success=result.get("success", False),
+            deletion_event_id=result.get("event_id"),
+            deleted_events=len([t for t in request.signed_event.tags if t[0] in ("e", "a")]),
+            published_relays=result.get("published_relays", 0),
+            verified_relays=result.get("verified_relays", 0),
+            error=result.get("error")
+        )
+
+    # nsec flow: backend queries for events and signs deletion
+    nsec = get_nsec_from_header(x_nsec)
+    print(f"🗑️  nsec flow: Deleting badge {request.a_tag}")
+
+    badge_service = BadgeService(nsec)
+    result = await badge_service.delete_badge(request.a_tag)
+
+    return DeleteBadgeResponse(
+        success=result.get("success", False),
+        deletion_event_id=result.get("deletion_event_id"),
+        deleted_events=result.get("deleted_events", 0),
+        published_relays=result.get("published_relays", 0),
+        verified_relays=result.get("verified_relays", 0),
+        error=result.get("error")
+    )
 
 
 @router.get("/owners")

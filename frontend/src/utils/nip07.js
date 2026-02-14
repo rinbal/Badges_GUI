@@ -250,6 +250,25 @@ function bech32Polymod(values) {
 }
 
 /**
+ * Create an unsigned deletion event (kind 5) following NIP-09
+ * @param {string[]} eventIds - Event IDs to delete (referenced via "e" tags)
+ * @param {string[]} aTags - Addressable event identifiers to delete (referenced via "a" tags)
+ * @param {string} reason - Optional reason for deletion
+ * @returns {Object} - Unsigned event ready for signing
+ */
+export function createDeletionEvent(eventIds, aTags = [], reason = '') {
+  const tags = eventIds.map(id => ['e', id])
+  aTags.forEach(aTag => tags.push(['a', aTag]))
+
+  return {
+    created_at: Math.floor(Date.now() / 1000),
+    kind: 5,
+    tags,
+    content: reason
+  }
+}
+
+/**
  * Create an unsigned badge request event (kind 30058)
  * @param {string} badgeATag - Badge definition a-tag (30009:pubkey:identifier)
  * @param {string} content - Message to issuer
