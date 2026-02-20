@@ -105,14 +105,14 @@
           @click="showUserSearch = !showUserSearch"
         >
           <Icon name="user" size="sm" />
-          <span>Find user</span>
+          <span>Find user profile</span>
         </button>
       </div>
 
       <!-- User Search (expandable) -->
       <Transition name="slide">
         <div v-if="showUserSearch" class="user-search-section">
-          <UserSearchInput placeholder="npub, user@domain.com, or hex..." />
+          <UserSearchInput placeholder="name, npub, NIP-05, or hex..." />
         </div>
       </Transition>
     </div>
@@ -358,10 +358,14 @@ async function loadBadges(append = false) {
     if (append) {
       // Deduplicate by a_tag
       const existingTags = new Set(badges.value.map(b => b.a_tag))
-      const uniqueNew = newBadges.filter(b => !existingTags.has(b.a_tag))
+      const uniqueNew = newBadges
+        .filter(b => !existingTags.has(b.a_tag))
+        .map(b => ({ ...b, holder_count: null }))  // null = counts loading
       badges.value = [...badges.value, ...uniqueNew]
+      loadHolderCounts(uniqueNew)
     } else {
-      badges.value = newBadges
+      badges.value = newBadges.map(b => ({ ...b, holder_count: null }))
+      loadHolderCounts(badges.value)
     }
   } catch (err) {
     console.error('Failed to load badges:', err)
@@ -369,6 +373,24 @@ async function loadBadges(append = false) {
   } finally {
     isLoading.value = false
     isLoadingMore.value = false
+  }
+}
+
+async function loadHolderCounts(badgeBatch) {
+  const aTags = badgeBatch.map(b => b.a_tag).filter(Boolean)
+  if (!aTags.length) return
+
+  try {
+    const response = await api.getBadgeCounts(aTags)
+    const counts = response.data.counts || {}
+    // Merge counts into the reactive badges array
+    badges.value = badges.value.map(b =>
+      counts[b.a_tag] !== undefined
+        ? { ...b, holder_count: counts[b.a_tag] }
+        : b
+    )
+  } catch (err) {
+    console.error('Failed to load holder counts:', err)
   }
 }
 
@@ -381,12 +403,30 @@ async function performSearch() {
 
   try {
     const response = await api.searchBadges(query, 100)
-    searchResults.value = response.data.badges || []
+    searchResults.value = (response.data.badges || []).map(b => ({ ...b, holder_count: null }))
+    loadSearchCounts(searchResults.value)
   } catch (err) {
     console.error('Search failed:', err)
     ui.showError('Search failed')
   } finally {
     isLoading.value = false
+  }
+}
+
+async function loadSearchCounts(badgeBatch) {
+  const aTags = badgeBatch.map(b => b.a_tag).filter(Boolean)
+  if (!aTags.length) return
+
+  try {
+    const response = await api.getBadgeCounts(aTags)
+    const counts = response.data.counts || {}
+    searchResults.value = searchResults.value.map(b =>
+      counts[b.a_tag] !== undefined
+        ? { ...b, holder_count: counts[b.a_tag] }
+        : b
+    )
+  } catch (err) {
+    console.error('Failed to load search holder counts:', err)
   }
 }
 

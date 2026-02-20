@@ -232,6 +232,7 @@ async function handleExtensionLogin() {
     } else {
       router.push(route.query.redirect || '/')
     }
+    uiStore.openRelayInfo()
   } else {
     if (result.error.includes('denied') || result.error.includes('rejected')) {
       error.value = 'Permission denied. Please approve the request in your extension.'
@@ -266,6 +267,7 @@ async function handleNsecLogin() {
     } else {
       router.push(route.query.redirect || '/')
     }
+    uiStore.openRelayInfo()
   } else {
     if (result.error.includes('invalid') || result.error.includes('Invalid')) {
       error.value = "That doesn't look like a valid key. Make sure it starts with 'nsec1'."

@@ -36,7 +36,8 @@
       </div>
       <div v-if="badge.holder_count !== undefined" class="holder-count">
         <IconUsers :size="12" />
-        <span>{{ badge.holder_count }}</span>
+        <span v-if="badge.holder_count === null" class="count-spinner"></span>
+        <span v-else>{{ badge.holder_count }}</span>
       </div>
     </div>
   </div>
@@ -201,5 +202,19 @@ function handleImageError(e) {
 .holder-count {
   font-weight: 500;
   color: var(--color-primary);
+}
+
+.count-spinner {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border: 1.5px solid var(--color-primary-soft);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 </style>

@@ -196,6 +196,20 @@ export const useUIStore = defineStore('ui', () => {
   }
 
   // =========================================================================
+  // RelayInfo Modal (shown after every login)
+  // =========================================================================
+
+  const relayInfoModal = ref({ isOpen: false })
+
+  function openRelayInfo() {
+    relayInfoModal.value = { isOpen: true }
+  }
+
+  function closeRelayInfo() {
+    relayInfoModal.value = { isOpen: false }
+  }
+
+  // =========================================================================
   // Pending Badge Request (survive login redirect)
   // =========================================================================
 
@@ -222,6 +236,7 @@ export const useUIStore = defineStore('ui', () => {
     requestBadgeModal.value.isOpen ||
     denyRequestModal.value.isOpen ||
     loginPromptModal.value.isOpen ||
+    relayInfoModal.value.isOpen ||
     activeModal.value !== null
   )
 
@@ -235,6 +250,7 @@ export const useUIStore = defineStore('ui', () => {
     closeRequestBadge()
     closeDenyRequest()
     closeLoginPrompt()
+    closeRelayInfo()
     closeModal()
   }
 
@@ -288,6 +304,11 @@ export const useUIStore = defineStore('ui', () => {
     loginPromptModal,
     openLoginPrompt,
     closeLoginPrompt,
+
+    // RelayInfo Modal
+    relayInfoModal,
+    openRelayInfo,
+    closeRelayInfo,
 
     // Pending Badge Request
     pendingBadgeRequest,

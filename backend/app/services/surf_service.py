@@ -545,6 +545,50 @@ class SurfService:
 
         return badges
 
+    async def get_holder_counts(self, a_tags: List[str]) -> Dict[str, int]:
+        """
+        Return holder counts for a batch of badge a-tags.
+
+        Queries are run in parallel (batches of 10) so the response time is
+        roughly the latency of a single relay query regardless of batch size.
+
+        Args:
+            a_tags: List of badge a-tags to count (max 50)
+
+        Returns:
+            Dict mapping a_tag -> holder count
+        """
+        a_tags = a_tags[:50]
+
+        async def _count(a_tag: str) -> int:
+            filter_params = {
+                "kinds": [KIND_BADGE_AWARD],
+                "#a": [a_tag],
+                "limit": 500
+            }
+            # Try the first two relays, stop as soon as one responds
+            for relay in self.relay_urls[:2]:
+                req_id = f"cnt_{a_tag[-8:]}_{int(time.time())}"
+                events = await self._query_relay(relay, req_id, filter_params, timeout=5)
+                if events:
+                    recipients = {
+                        tag[1]
+                        for ev in events
+                        for tag in ev.get("tags", [])
+                        if tag[0] == "p" and len(tag) > 1
+                    }
+                    return len(recipients)
+            return 0
+
+        counts: Dict[str, int] = {}
+        for i in range(0, len(a_tags), 10):
+            batch = a_tags[i:i + 10]
+            results = await asyncio.gather(*[_count(t) for t in batch], return_exceptions=True)
+            for a_tag, result in zip(batch, results):
+                counts[a_tag] = result if isinstance(result, int) else 0
+
+        return counts
+
     async def get_badges_with_stats(
         self,
         limit: int = 50

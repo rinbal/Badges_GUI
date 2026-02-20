@@ -49,7 +49,7 @@
            ======================================== -->
       <section v-if="activeTab === 'pending'" class="tab-content animate-fadeIn">
         <!-- Loading State -->
-        <div v-if="badgesStore.isLoading" class="pending-list">
+        <div v-if="badgesStore.isLoading || !badgesStore.hasFetchedPending" class="pending-list">
           <PendingBadgeSkeleton v-for="n in 2" :key="n" />
         </div>
 
@@ -90,7 +90,7 @@
            ======================================== -->
       <section v-else-if="activeTab === 'collection'" class="tab-content animate-fadeIn">
         <!-- Loading State -->
-        <div v-if="badgesStore.isLoading" class="collection-grid">
+        <div v-if="badgesStore.isLoading || !badgesStore.hasFetchedAccepted" class="collection-grid">
           <CollectionBadgeSkeleton v-for="n in 6" :key="n" />
         </div>
 

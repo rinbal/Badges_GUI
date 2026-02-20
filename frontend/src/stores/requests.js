@@ -27,6 +27,7 @@ export const useRequestsStore = defineStore('requests', () => {
   const incomingCount = ref(0)        // Total incoming count
   const pendingCount = ref(0)         // Pending incoming count
   const isLoading = ref(false)
+  const hasFetched = ref(false)
   const error = ref(null)
 
   // Getters
@@ -139,6 +140,7 @@ export const useRequestsStore = defineStore('requests', () => {
       fetchOutgoingRequests(),
       fetchIncomingRequests()
     ])
+    hasFetched.value = true
   }
 
   /**
@@ -421,6 +423,7 @@ export const useRequestsStore = defineStore('requests', () => {
     incomingRequests.value = []
     incomingCount.value = 0
     pendingCount.value = 0
+    hasFetched.value = false
     error.value = null
   }
 
@@ -431,6 +434,7 @@ export const useRequestsStore = defineStore('requests', () => {
     incomingCount,
     pendingCount,
     isLoading,
+    hasFetched,
     error,
 
     // Getters
