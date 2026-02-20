@@ -23,8 +23,8 @@
     <!-- Issuer Info -->
     <div class="issuer-section" @click="$emit('view-issuer', request)">
       <UserAvatar
-        :picture="request.issuer_profile?.picture"
-        :name="request.issuer_profile?.name || request.issuer_profile?.display_name"
+        :picture="request.issuer_picture"
+        :name="request.issuer_name"
         :pubkey="request.issuer_pubkey"
         size="sm"
         clickable
@@ -121,13 +121,12 @@ const truncatedMessage = computed(() => {
 })
 
 const issuerName = computed(() =>
-  props.request.issuer_profile?.name ||
-  props.request.issuer_profile?.display_name ||
+  props.request.issuer_name ||
   'Unknown Issuer'
 )
 
 const shortIssuerNpub = computed(() => {
-  const npub = props.request.issuer_profile?.npub
+  const npub = props.request.issuer_npub
   if (npub) {
     return `${npub.slice(0, 8)}...${npub.slice(-4)}`
   }

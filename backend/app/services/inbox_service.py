@@ -129,21 +129,29 @@ class InboxService:
                 badge_pairs.append((last_a_tag, tag[1]))
                 last_a_tag = None
         
-        # Enrich with badge info
-        accepted_badges = []
-        
+        # --- Pass 1: collect valid pairs and resolve issuer pubkeys ---
+        valid_pairs = []
         for a_tag, award_event_id in badge_pairs:
             try:
                 _, issuer_hex, identifier = a_tag.split(":")
-            except:
+            except Exception:
                 continue
-            
+            valid_pairs.append((a_tag, award_event_id, issuer_hex, identifier))
+
+        if not valid_pairs:
+            return []
+
+        # --- Batch-fetch all unique issuer profiles in parallel (batches of 10) ---
+        issuer_hexes = [vp[2] for vp in valid_pairs]
+        profiles = await self._fetch_profiles_batch(issuer_hexes)
+
+        # --- Pass 2: assemble response using cached profiles ---
+        accepted_badges = []
+        for a_tag, award_event_id, issuer_hex, identifier in valid_pairs:
             issuer_npub = PublicKey(bytes.fromhex(issuer_hex)).bech32()
-            
-            # Get badge info and issuer profile
             badge_info = await self._get_badge_info(issuer_hex, identifier)
-            issuer_info = await self._get_profile_info(issuer_hex)
-            
+            profile = profiles.get(issuer_hex)
+
             accepted_badges.append({
                 "a_tag": a_tag,
                 "award_event_id": award_event_id,
@@ -152,10 +160,10 @@ class InboxService:
                 "badge_image": badge_info["image"],
                 "issuer_hex": issuer_hex,
                 "issuer_npub": issuer_npub,
-                "issuer_name": issuer_info["name"],
-                "issuer_picture": issuer_info["picture"]
+                "issuer_name": (profile.get("name") or profile.get("display_name")) if profile else None,
+                "issuer_picture": profile.get("picture") if profile else None,
             })
-        
+
         return accepted_badges
     
     async def get_pending_badges(self) -> List[Dict[str, Any]]:
@@ -201,25 +209,32 @@ class InboxService:
                 seen.add(ev["id"])
                 unique_awards.append(ev)
         
-        # Filter out accepted ones and enrich
-        pending_badges = []
-        
+        # --- Pass 1: collect valid awards and resolve issuer pubkeys ---
+        valid_awards = []
         for ev in unique_awards:
             a_tag = next((x[1] for x in ev.get("tags", []) if x[0] == "a"), None)
             if not a_tag or a_tag in accepted_a_tags:
                 continue
-            
             try:
                 _, issuer_hex, identifier = a_tag.split(":")
-            except:
+            except Exception:
                 continue
-            
+            valid_awards.append((ev, a_tag, issuer_hex, identifier))
+
+        if not valid_awards:
+            return []
+
+        # --- Batch-fetch all unique issuer profiles in parallel (batches of 10) ---
+        issuer_hexes = [vaw[2] for vaw in valid_awards]
+        profiles = await self._fetch_profiles_batch(issuer_hexes)
+
+        # --- Pass 2: assemble response using cached profiles ---
+        pending_badges = []
+        for ev, a_tag, issuer_hex, identifier in valid_awards:
             issuer_npub = PublicKey(bytes.fromhex(issuer_hex)).bech32()
-            
-            # Get badge info and issuer profile
             badge_info = await self._get_badge_info(issuer_hex, identifier)
-            issuer_info = await self._get_profile_info(issuer_hex)
-            
+            profile = profiles.get(issuer_hex)
+
             pending_badges.append({
                 "award_event_id": ev["id"],
                 "a_tag": a_tag,
@@ -228,10 +243,10 @@ class InboxService:
                 "badge_image": badge_info["image"],
                 "issuer_hex": issuer_hex,
                 "issuer_npub": issuer_npub,
-                "issuer_name": issuer_info["name"],
-                "issuer_picture": issuer_info["picture"]
+                "issuer_name": (profile.get("name") or profile.get("display_name")) if profile else None,
+                "issuer_picture": profile.get("picture") if profile else None,
             })
-        
+
         return pending_badges
     
     async def accept_badge(
@@ -339,31 +354,68 @@ class InboxService:
         info = await self._get_badge_info(issuer_hex, identifier)
         return info["description"]
     
-    async def _get_profile_info(self, pubkey_hex: str) -> Dict[str, str]:
-        """Fetch profile info (name, picture) from kind 0"""
+    async def _fetch_issuer_profile(self, pubkey_hex: str) -> Optional[Dict[str, Optional[str]]]:
+        """
+        Fetch a single issuer's profile (name, display_name, picture) from kind 0.
+        Optimised for speed: tries the first 2 relays with a 3-second timeout.
+        Returns None when the profile is not found on any relay.
+        """
         filter_params = {
             "kinds": [0],
             "authors": [pubkey_hex],
             "limit": 1
         }
-        
-        result = {
-            "name": "(no name)",
-            "picture": ""
-        }
-        
-        for relay in self.relay_urls[:3]:
-            events = await self._query_relay(relay, f"meta_{pubkey_hex[:8]}", filter_params)
-            if events:
-                try:
+
+        for relay in self.relay_urls[:2]:
+            try:
+                events = await self._query_relay(
+                    relay,
+                    f"ip_{pubkey_hex[:8]}",
+                    filter_params,
+                    timeout=3
+                )
+                if events:
                     meta = json.loads(events[0]["content"])
-                    result["name"] = meta.get("name") or meta.get("display_name") or "(no name)"
-                    result["picture"] = meta.get("picture") or ""
-                except:
-                    pass
-                break
-        
-        return result
+                    return {
+                        "name": meta.get("name") or None,
+                        "display_name": meta.get("display_name") or None,
+                        "picture": meta.get("picture") or None,
+                    }
+            except Exception:
+                continue
+
+        return None
+
+    async def _fetch_profiles_batch(
+        self, pubkey_hexes: List[str]
+    ) -> Dict[str, Optional[Dict[str, Optional[str]]]]:
+        """
+        Fetch profiles for multiple issuers in parallel, processed in batches of 10.
+        Deduplicates the input list before fetching.
+        Returns a mapping of pubkey_hex -> profile dict (or None if not found).
+        """
+        unique = list(dict.fromkeys(pubkey_hexes))  # deduplicate, preserve order
+        results: Dict[str, Optional[Dict]] = {}
+
+        for i in range(0, len(unique), 10):
+            batch = unique[i:i + 10]
+            tasks = [self._fetch_issuer_profile(pk) for pk in batch]
+            profiles = await asyncio.gather(*tasks, return_exceptions=True)
+
+            for pk, profile in zip(batch, profiles):
+                results[pk] = None if isinstance(profile, Exception) else profile
+
+        return results
+
+    async def _get_profile_info(self, pubkey_hex: str) -> Dict[str, str]:
+        """Fetch profile info (name, picture) from kind 0 — legacy single-profile helper."""
+        profile = await self._fetch_issuer_profile(pubkey_hex)
+        if profile:
+            return {
+                "name": profile.get("name") or profile.get("display_name") or "(no name)",
+                "picture": profile.get("picture") or "",
+            }
+        return {"name": "(no name)", "picture": ""}
     
     async def _get_profile_name(self, pubkey_hex: str) -> str:
         """Fetch profile name (kind 0)"""
