@@ -219,10 +219,12 @@ class SurfService:
         limit: int = 50
     ) -> List[Dict]:
         """
-        Search for badges by name or description.
+        Search for badges by name, description, identifier, issuer name,
+        npub, or NIP-05 address.
 
-        Note: Since Nostr doesn't support full-text search, we fetch recent
-        badges and filter client-side. For production, consider indexing.
+        If the query resolves to a pubkey (npub / hex / NIP-05) the badges
+        issued by that specific user are returned directly.  Otherwise a
+        broader text search is performed, including issuer display names.
 
         Args:
             query: Search query string
@@ -231,7 +233,14 @@ class SurfService:
         Returns:
             List of matching badge definitions
         """
-        # Fetch a larger set to search through
+        query = query.strip()
+
+        # --- Step 1: try to interpret query as a direct pubkey identifier ---
+        pubkey = await self._resolve_query_to_pubkey(query)
+        if pubkey:
+            return await self.get_badges_by_issuer(pubkey, limit)
+
+        # --- Step 2: text search ---
         filter_params = {
             "kinds": [KIND_BADGE_DEFINITION],
             "limit": 200
@@ -241,13 +250,17 @@ class SurfService:
             filter_params, "surf_search", timeout=15
         )
 
-        # Parse badges and deduplicate replaceable events
+        # Parse and deduplicate replaceable events
         badges = [self._parse_badge_event(ev) for ev in events]
         badges = [b for b in badges if b is not None]
         badges = self._deduplicate_replaceable(badges)
 
-        # Filter by query (case-insensitive, multi-word support)
-        query_lower = query.lower().strip()
+        # Enrich with issuer profiles BEFORE filtering so we can match on
+        # issuer_name and issuer_npub as well
+        await self._enrich_with_issuer_profiles(badges)
+
+        # Filter by query (case-insensitive, all words must match)
+        query_lower = query.lower()
         query_words = query_lower.split()
 
         matching = []
@@ -255,25 +268,69 @@ class SurfService:
             name = (badge.get("name") or "").lower()
             desc = (badge.get("description") or "").lower()
             identifier = (badge.get("identifier") or "").lower()
-            searchable = f"{name} {desc} {identifier}"
+            issuer_name = (badge.get("issuer_name") or "").lower()
+            issuer_npub = (badge.get("issuer_npub") or "").lower()
+            searchable = f"{name} {desc} {identifier} {issuer_name} {issuer_npub}"
 
-            # Match if ALL words are found somewhere in the badge
             if all(word in searchable for word in query_words):
                 matching.append(badge)
 
-        # Sort by relevance (name match first, then by recency)
+        # Sort: exact badge-name phrase match > all words in name > recency
         def sort_key(badge):
             name = (badge.get("name") or "").lower()
-            # Prioritize: exact phrase match > all words in name > partial match
             exact_match = query_lower in name
             words_in_name = all(word in name for word in query_words)
             return (not exact_match, not words_in_name, -badge.get("created_at", 0))
 
         matching.sort(key=sort_key)
+        return matching[:limit]
 
-        matching = matching[:limit]
-        await self._enrich_with_issuer_profiles(matching)
-        return matching
+    async def _resolve_query_to_pubkey(self, query: str) -> Optional[str]:
+        """
+        Try to interpret query as a specific user identifier.
+
+        Handles:
+        - npub1... bech32 public key
+        - 64-character hex public key
+        - NIP-05 address (user@domain.com)
+
+        Returns hex pubkey string, or None if query is not a user identifier.
+        """
+        # npub bech32
+        if query.startswith("npub1") and len(query) >= 60:
+            try:
+                return PublicKey.from_npub(query).hex()
+            except Exception:
+                pass
+
+        # raw hex pubkey (64 hex chars)
+        if len(query) == 64 and all(c in "0123456789abcdefABCDEF" for c in query):
+            return query.lower()
+
+        # NIP-05 address
+        if "@" in query and not query.startswith("@"):
+            return await self._resolve_nip05(query)
+
+        return None
+
+    async def _resolve_nip05(self, identifier: str) -> Optional[str]:
+        """
+        Resolve a NIP-05 identifier (user@domain) to a hex pubkey.
+        Uses Python's stdlib urllib so no extra dependency is required.
+        """
+        try:
+            local, domain = identifier.split("@", 1)
+            url = f"https://{domain}/.well-known/nostr.json?name={local}"
+
+            def _fetch() -> dict:
+                import urllib.request
+                with urllib.request.urlopen(url, timeout=5) as resp:
+                    return json.loads(resp.read())
+
+            data = await asyncio.to_thread(_fetch)
+            return data.get("names", {}).get(local) or None
+        except Exception:
+            return None
 
     async def get_badge_details(
         self,

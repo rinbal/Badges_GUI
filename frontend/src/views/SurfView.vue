@@ -15,7 +15,7 @@
           <input
             v-model="searchQuery"
             type="text"
-            placeholder="Search by name..."
+            placeholder="Search badges..."
             class="search-input"
             @keyup.enter="performSearch"
           />
@@ -27,7 +27,31 @@
           >
             <Icon name="x" size="sm" />
           </button>
+          <button
+            class="info-btn"
+            :class="{ active: tooltipPinned }"
+            aria-label="Search help"
+            @mouseenter="onInfoMouseEnter"
+            @mouseleave="onInfoMouseLeave"
+            @click="onInfoClick"
+          >
+            <Icon name="info" size="sm" />
+          </button>
         </div>
+
+        <!-- Search tooltip -->
+        <Transition name="tooltip">
+          <div v-if="tooltipVisible" class="search-tooltip">
+            <p class="tooltip-title">Search supports</p>
+            <ul class="tooltip-list">
+              <li>Badge name or description</li>
+              <li>Badge identifier (unique slug)</li>
+              <li>Issuer username or display name</li>
+              <li><code>npub1...</code> public key</li>
+              <li><code>user@domain.com</code> NIP-05 address</li>
+            </ul>
+          </div>
+        </Transition>
       </div>
 
       <!-- Sort & Filter Row -->
@@ -165,8 +189,8 @@
       </div>
     </main>
 
-    <!-- Click outside to close sort menu -->
-    <div v-if="showSortMenu" class="backdrop" @click="showSortMenu = false"></div>
+    <!-- Click outside to close sort menu / pinned tooltip -->
+    <div v-if="showSortMenu || tooltipPinned" class="backdrop" @click="showSortMenu = false; tooltipPinned = false; tooltipVisible = false"></div>
   </div>
 </template>
 
@@ -187,7 +211,7 @@ const ui = useUIStore()
 const CONFIG = {
   BATCH_SIZE: 48,              // Badges per request - balance between UX and relay load
   SCROLL_THRESHOLD: 800,       // px from bottom to trigger next load (increased for better UX)
-  SEARCH_DEBOUNCE: 300,        // ms to wait before searching
+  SEARCH_DEBOUNCE: 2000,       // ms to wait before searching (relay-friendly)
   SEARCH_MIN_CHARS: 1,         // Minimum characters to trigger search
   SKELETON_COUNT: 12           // Number of skeleton cards during initial load
 }
@@ -229,6 +253,11 @@ const showUserSearch = ref(false)
 const sentinelRef = ref(null)
 let observer = null
 let searchTimeout = null
+
+// Search tooltip
+const tooltipVisible = ref(false)
+const tooltipPinned = ref(false)
+let hoverTimer = null
 
 // =============================================================================
 // Computed
@@ -444,17 +473,35 @@ function setupObserver() {
 // Lifecycle
 // =============================================================================
 
+// Search tooltip handlers
+function onInfoMouseEnter() {
+  clearTimeout(hoverTimer)
+  hoverTimer = setTimeout(() => {
+    tooltipVisible.value = true
+  }, 500)
+}
+
+function onInfoMouseLeave() {
+  clearTimeout(hoverTimer)
+  if (!tooltipPinned.value) {
+    tooltipVisible.value = false
+  }
+}
+
+function onInfoClick() {
+  tooltipPinned.value = !tooltipPinned.value
+  tooltipVisible.value = tooltipPinned.value
+}
+
 // Keyboard handlers
 function handleKeydown(e) {
   if (e.key === 'Escape') {
-    if (showSortMenu.value) {
-      showSortMenu.value = false
-    }
-    if (showUserSearch.value) {
-      showUserSearch.value = false
-    }
-    if (isSearchMode.value) {
-      clearSearch()
+    if (showSortMenu.value) showSortMenu.value = false
+    if (showUserSearch.value) showUserSearch.value = false
+    if (isSearchMode.value) clearSearch()
+    if (tooltipPinned.value) {
+      tooltipPinned.value = false
+      tooltipVisible.value = false
     }
   }
 }
@@ -468,6 +515,7 @@ onMounted(() => {
 onUnmounted(() => {
   if (observer) observer.disconnect()
   if (searchTimeout) clearTimeout(searchTimeout)
+  if (hoverTimer) clearTimeout(hoverTimer)
   document.removeEventListener('keydown', handleKeydown)
 })
 
@@ -538,6 +586,7 @@ watch(badges, () => {
 }
 
 .search-wrapper {
+  position: relative;
   max-width: 480px;
   margin: 0 auto 1rem;
 }
@@ -590,6 +639,81 @@ watch(badges, () => {
 .clear-btn:hover {
   background: var(--color-surface-elevated);
   color: var(--color-text);
+}
+
+.info-btn {
+  background: none;
+  border: none;
+  padding: 0.375rem;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  flex-shrink: 0;
+}
+
+.info-btn:hover,
+.info-btn.active {
+  color: var(--color-primary);
+}
+
+/* Search Tooltip */
+.search-tooltip {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 0.875rem 1rem;
+  box-shadow: var(--shadow-lg);
+  z-index: 200;
+}
+
+.tooltip-title {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+  margin: 0 0 0.5rem;
+}
+
+.tooltip-list {
+  list-style: disc;
+  padding-left: 1.125rem;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3125rem;
+}
+
+.tooltip-list li {
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+  padding-left: 0.125rem;
+}
+
+.tooltip-list code {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  background: var(--color-surface-elevated);
+  padding: 0.125rem 0.375rem;
+  border-radius: var(--radius-sm);
+  color: var(--color-primary);
+}
+
+.tooltip-enter-active,
+.tooltip-leave-active {
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.tooltip-enter-from,
+.tooltip-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
 }
 
 /* Filter Row */

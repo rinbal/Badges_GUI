@@ -196,6 +196,23 @@ export const useUIStore = defineStore('ui', () => {
   }
 
   // =========================================================================
+  // Pending Badge Request (survive login redirect)
+  // =========================================================================
+
+  const pendingBadgeRequest = ref({
+    badgeATag: null,
+    badge: null
+  })
+
+  function setPendingBadgeRequest(badgeATag, badge) {
+    pendingBadgeRequest.value = { badgeATag, badge }
+  }
+
+  function clearPendingBadgeRequest() {
+    pendingBadgeRequest.value = { badgeATag: null, badge: null }
+  }
+
+  // =========================================================================
   // Computed - Any Modal Open
   // =========================================================================
 
@@ -271,6 +288,11 @@ export const useUIStore = defineStore('ui', () => {
     loginPromptModal,
     openLoginPrompt,
     closeLoginPrompt,
+
+    // Pending Badge Request
+    pendingBadgeRequest,
+    setPendingBadgeRequest,
+    clearPendingBadgeRequest,
 
     // Utility
     hasOpenModal,
