@@ -70,6 +70,13 @@
                 {{ badge.holder_count || 0 }}
               </span>
               <button
+                class="btn-send-again"
+                @click.stop="openReissue(badge)"
+                title="Send again to new recipients"
+              >
+                <Icon name="send" size="sm" />
+              </button>
+              <button
                 class="btn-delete"
                 :disabled="deletingBadge === badge.a_tag"
                 @click.stop="handleDelete(badge)"
@@ -96,7 +103,7 @@
 
               <div v-else-if="!badge.holders || badge.holders.length === 0" class="no-holders">
                 <p>No recipients yet</p>
-                <button class="btn-small" @click="awardBadge(badge)">
+                <button class="btn-small" @click="openReissue(badge)">
                   <Icon name="send" size="sm" />
                   Award Badge
                 </button>
@@ -126,6 +133,70 @@
         </div>
       </div>
     </main>
+
+    <!-- Reissue Modal -->
+    <Teleport to="body">
+      <Transition name="modal">
+        <div v-if="reissueModal.show" class="modal-overlay" @click.self="closeReissue">
+          <div class="modal-content reissue-modal">
+            <!-- Header -->
+            <div class="reissue-header">
+              <div class="reissue-title-icon">
+                <Icon name="send" size="md" />
+              </div>
+              <div>
+                <h3>Send Again</h3>
+                <p class="reissue-subtitle">Award this badge to additional recipients</p>
+              </div>
+            </div>
+
+            <!-- Badge Preview (locked) -->
+            <div class="reissue-badge-preview">
+              <div class="reissue-badge-image">
+                <img
+                  v-if="reissueModal.badge?.image"
+                  :src="reissueModal.badge.image"
+                  :alt="reissueModal.badge.name"
+                />
+                <div v-else class="reissue-badge-placeholder">
+                  <Icon name="award" size="md" />
+                </div>
+              </div>
+              <div class="reissue-badge-info">
+                <strong class="reissue-badge-name">{{ reissueModal.badge?.name }}</strong>
+                <span class="reissue-badge-identifier">{{ reissueModal.badge?.identifier }}</span>
+                <p v-if="reissueModal.badge?.description" class="reissue-badge-description">
+                  {{ reissueModal.badge.description }}
+                </p>
+              </div>
+            </div>
+
+            <!-- Recipient Input -->
+            <div class="reissue-recipients">
+              <label class="reissue-label">Recipients</label>
+              <RecipientInput
+                v-model="reissueRecipientsText"
+                :count="reissueRecipients.length"
+              />
+            </div>
+
+            <!-- Actions -->
+            <div class="modal-actions reissue-actions">
+              <button class="btn-cancel" @click="closeReissue">Cancel</button>
+              <button
+                class="btn-reissue"
+                :disabled="reissueRecipients.length === 0 || isReissuing"
+                @click="confirmReissue"
+              >
+                <span v-if="isReissuing" class="spinner-sm"></span>
+                <Icon v-else name="send" size="sm" />
+                {{ isReissuing ? 'Sending...' : 'Send Again' }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
 
     <!-- Delete Confirmation Modal -->
     <Teleport to="body">
@@ -173,16 +244,19 @@
 </template>
 
 <script setup>
-import { ref, reactive, nextTick, onMounted } from 'vue'
+import { ref, reactive, computed, nextTick, onMounted } from 'vue'
 import { api } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
 import { useUIStore } from '@/stores/ui'
+import { useBadgesStore } from '@/stores/badges'
 import { createDeletionEvent, signEvent } from '@/utils/nip07'
 import Icon from '@/components/common/Icon.vue'
 import UserAvatar from '@/components/shared/UserAvatar.vue'
+import RecipientInput from '@/components/common/RecipientInput.vue'
 
 const auth = useAuthStore()
 const ui = useUIStore()
+const badgesStore = useBadgesStore()
 
 // State
 const isLoading = ref(false)
@@ -193,6 +267,18 @@ const badgeImageErrors = reactive(new Set())
 const deletingBadge = ref(null)
 const deleteConfirm = reactive({ show: false, badge: null, input: '' })
 const deleteInput = ref(null)
+
+// Reissue modal
+const reissueModal = reactive({ show: false, badge: null })
+const reissueRecipientsText = ref('')
+const isReissuing = ref(false)
+
+const reissueRecipients = computed(() =>
+  reissueRecipientsText.value
+    .split(/[\n,]/)
+    .map(r => r.trim())
+    .filter(r => r.startsWith('npub1') && r.length === 63)
+)
 
 // Methods
 async function loadBadges() {
@@ -258,10 +344,43 @@ function viewHolder(pubkey) {
   ui.openLookupUser(pubkey)
 }
 
-function awardBadge(badge) {
-  // Navigate to creator with badge pre-selected
-  // For now, just show a message
-  ui.showInfo('Use the Creator tab to award this badge')
+function openReissue(badge) {
+  reissueModal.badge = badge
+  reissueRecipientsText.value = ''
+  reissueModal.show = true
+}
+
+function closeReissue() {
+  reissueModal.show = false
+  reissueModal.badge = null
+  reissueRecipientsText.value = ''
+}
+
+async function confirmReissue() {
+  if (reissueRecipients.value.length === 0) return
+
+  const badge = reissueModal.badge
+  isReissuing.value = true
+
+  const result = await badgesStore.createAndAwardBadge(badge, reissueRecipients.value)
+
+  isReissuing.value = false
+
+  if (result.success) {
+    const count = result.data.recipients_count
+    ui.showSuccess(`"${badge.name}" sent to ${count} recipient${count !== 1 ? 's' : ''}`)
+
+    // Update holder count and clear cached holders so they reload on next expand
+    const liveBadge = badges.value.find(b => b.a_tag === badge.a_tag)
+    if (liveBadge) {
+      liveBadge.holder_count = (liveBadge.holder_count || 0) + count
+      delete liveBadge.holders
+    }
+
+    closeReissue()
+  } else {
+    ui.showError(result.error || 'Failed to send badge. Please try again.')
+  }
 }
 
 function handleDelete(badge) {
@@ -714,6 +833,170 @@ onMounted(() => {
   .holders-grid {
     grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
   }
+}
+
+/* ===========================================
+   Send Again Button
+   =========================================== */
+.btn-send-again {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-send-again:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  background: var(--color-primary-soft);
+}
+
+/* ===========================================
+   Reissue Modal
+   =========================================== */
+.reissue-modal {
+  max-width: 520px;
+  text-align: left;
+}
+
+.reissue-header {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  margin-bottom: 1.25rem;
+}
+
+.reissue-title-icon {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-primary-soft);
+  border-radius: var(--radius-md);
+  color: var(--color-primary);
+  flex-shrink: 0;
+}
+
+.reissue-header h3 {
+  font-size: 1.125rem;
+  margin: 0 0 0.125rem;
+}
+
+.reissue-subtitle {
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+.reissue-badge-preview {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.875rem;
+  padding: 0.875rem;
+  background: var(--color-surface-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  margin-bottom: 1.25rem;
+}
+
+.reissue-badge-image {
+  width: 52px;
+  height: 52px;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  flex-shrink: 0;
+  background: var(--color-surface);
+}
+
+.reissue-badge-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.reissue-badge-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--color-primary-soft) 0%, var(--color-surface-elevated) 100%);
+  color: var(--color-primary);
+}
+
+.reissue-badge-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  min-width: 0;
+}
+
+.reissue-badge-name {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.reissue-badge-identifier {
+  font-size: 0.75rem;
+  font-family: var(--font-mono);
+  color: var(--color-text-muted);
+}
+
+.reissue-badge-description {
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+  margin: 0.25rem 0 0;
+  line-height: 1.4;
+}
+
+.reissue-recipients {
+  margin-bottom: 1.25rem;
+}
+
+.reissue-label {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-text);
+  margin-bottom: 0.5rem;
+}
+
+.reissue-actions {
+  justify-content: flex-end;
+}
+
+.btn-reissue {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  padding: 0.625rem 1.25rem;
+  background: var(--color-primary);
+  color: white;
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.btn-reissue:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+}
+
+.btn-reissue:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 /* ===========================================

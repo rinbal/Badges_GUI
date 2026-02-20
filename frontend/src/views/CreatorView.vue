@@ -402,6 +402,34 @@
         </div>
       </div>
     </Transition>
+
+    <!-- Save as Template Modal -->
+    <Teleport to="body">
+      <Transition name="modal">
+        <div v-if="showSaveTemplateModal" class="modal-overlay" @click.self="onSaveTemplateSkip">
+          <div class="modal-content">
+            <div class="modal-icon">
+              <Icon name="bookmark" size="lg" />
+            </div>
+            <h3>Save as Template?</h3>
+            <p class="modal-description">
+              Keep <strong>{{ form.name }}</strong> for quick access - award it again in the future without re-entering the details.
+            </p>
+            <div class="modal-actions">
+              <button class="btn-skip" @click="onSaveTemplateSkip">Skip</button>
+              <button
+                class="btn-save-template"
+                :disabled="isSavingTemplate"
+                @click="onSaveTemplateConfirm"
+              >
+                <span v-if="isSavingTemplate" class="btn-spinner"></span>
+                {{ isSavingTemplate ? 'Saving...' : 'Save Template' }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
   </div>
 </template>
 
@@ -440,6 +468,11 @@ const isSaving = ref(false)
 const progressStatus = ref('')
 const progressDetail = ref('')
 const progressPercent = ref(0)
+
+// Save-as-template prompt (shown after a successful custom badge award)
+const showSaveTemplateModal = ref(false)
+const isSavingTemplate = ref(false)
+const templateSavedInSession = ref(false)
 
 // Computed
 const appTemplateCount = computed(() => badgesStore.appTemplates.length)
@@ -510,6 +543,7 @@ function resetState() {
   form.value = { identifier: '', name: '', description: '', image: '' }
   recipientsText.value = ''
   identifierError.value = ''
+  templateSavedInSession.value = false
 }
 
 // Template selection
@@ -579,6 +613,7 @@ async function saveAsTemplate() {
   isSaving.value = false
 
   if (result.success) {
+    templateSavedInSession.value = true
     uiStore.showSuccess(`Template "${form.value.name}" saved`)
   } else {
     uiStore.showError(result.error || 'Could not save template')
@@ -631,10 +666,35 @@ async function handleSubmit() {
   if (result.success) {
     const count = result.data.recipients_count
     uiStore.showSuccess(`"${badgeData.name}" awarded to ${count} recipient${count !== 1 ? 's' : ''}`)
-    goBack()
+
+    if (activeMode.value === 'create' && !templateSavedInSession.value) {
+      showSaveTemplateModal.value = true
+    } else {
+      goBack()
+    }
   } else {
     uiStore.showError(result.error || 'Failed to create badge. Please try again.')
   }
+}
+
+async function onSaveTemplateConfirm() {
+  isSavingTemplate.value = true
+  const result = await badgesStore.createTemplate({ ...form.value })
+  isSavingTemplate.value = false
+
+  if (result.success) {
+    uiStore.showSuccess(`Template "${form.value.name}" saved`)
+  } else {
+    uiStore.showError(result.error || 'Could not save template')
+  }
+
+  showSaveTemplateModal.value = false
+  goBack()
+}
+
+function onSaveTemplateSkip() {
+  showSaveTemplateModal.value = false
+  goBack()
 }
 
 async function deleteTemplate(template) {
@@ -1798,5 +1858,113 @@ onMounted(() => {
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+/* Save as Template Modal */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
+.modal-content {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 2rem;
+  max-width: 380px;
+  width: 100%;
+  text-align: center;
+}
+
+.modal-icon {
+  color: var(--color-primary);
+  margin-bottom: 1rem;
+}
+
+.modal-content h3 {
+  font-size: 1.125rem;
+  margin: 0 0 0.5rem;
+}
+
+.modal-description {
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+  margin: 0 0 1.5rem;
+  line-height: 1.5;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.btn-skip {
+  flex: 1;
+  padding: 0.625rem 1rem;
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.btn-skip:hover {
+  border-color: var(--color-text-muted);
+}
+
+.btn-save-template {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  padding: 0.625rem 1rem;
+  background: var(--color-primary);
+  color: white;
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.btn-save-template:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+}
+
+.btn-save-template:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Modal Transition */
+.modal-enter-active,
+.modal-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.modal-enter-active .modal-content,
+.modal-leave-active .modal-content {
+  transition: transform 0.2s ease;
+}
+
+.modal-enter-from,
+.modal-leave-to {
+  opacity: 0;
+}
+
+.modal-enter-from .modal-content,
+.modal-leave-to .modal-content {
+  transform: scale(0.95);
 }
 </style>
