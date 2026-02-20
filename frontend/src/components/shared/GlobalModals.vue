@@ -40,6 +40,12 @@
     :badge="ui.loginPromptModal.badge"
     @close="ui.closeLoginPrompt()"
   />
+
+  <!-- RelayInfo Modal -->
+  <RelayInfoModal
+    v-if="ui.relayInfoModal.isOpen"
+    @close="ui.closeRelayInfo()"
+  />
 </template>
 
 <script setup>
@@ -49,6 +55,7 @@ import BadgeDetailModal from './BadgeDetailModal.vue'
 import RequestBadgeModal from './RequestBadgeModal.vue'
 import DenyRequestModal from './DenyRequestModal.vue'
 import LoginPromptModal from './LoginPromptModal.vue'
+import RelayInfoModal from './RelayInfoModal.vue'
 
 const ui = useUIStore()
 

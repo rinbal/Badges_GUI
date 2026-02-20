@@ -349,7 +349,22 @@ export const api = {
   getBadgeOwners: (aTag, limit = 50, includeProfiles = true) =>
     apiClient.get('/surf/badge/owners', {
       params: { a_tag: aTag, limit, include_profiles: includeProfiles }
-    })
+    }),
+
+  /**
+   * Get holder counts for a batch of badges (background enrichment)
+   * @param {string[]} aTags - List of badge a-tags (max 50)
+   */
+  getBadgeCounts: (aTags) =>
+    apiClient.post('/surf/counts', { a_tags: aTags }),
+
+  /**
+   * Search Nostr profiles by name or display name
+   * @param {string} query - Search query (min 3 chars)
+   * @param {number} limit - Maximum number of results
+   */
+  searchProfiles: (query, limit = 10) =>
+    apiClient.get('/profile/search', { params: { q: query, limit } })
 }
 
 export default apiClient

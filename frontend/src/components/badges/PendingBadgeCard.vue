@@ -74,7 +74,13 @@ const badgeName = computed(() => props.badge.badge_name || props.badge.name || '
 const badgeDescription = computed(() => props.badge.badge_description || props.badge.description || '')
 const badgeImage = computed(() => imageError.value ? null : (props.badge.badge_image || props.badge.image))
 const issuerPicture = computed(() => avatarError.value ? null : props.badge.issuer_picture)
-const issuerName = computed(() => props.badge.issuer_name || 'Unknown')
+const issuerName = computed(() => {
+  const name = props.badge.issuer_name
+  if (name) return name
+  const npub = props.badge.issuer_npub
+  if (npub) return `${npub.slice(0, 12)}...${npub.slice(-4)}`
+  return 'Unknown'
+})
 
 function onImageError() { imageError.value = true }
 function onAvatarError() { avatarError.value = true }

@@ -1,0 +1,30 @@
+# Netlify configuration — example / template
+#
+# If you are forking or self-hosting this project on Netlify:
+#   1. Copy this file:  cp example_netlify.toml netlify.toml
+#   2. Adjust the [build] settings if your folder structure differs
+#   3. Set your backend API URL in Netlify → Site settings → Environment variables:
+#        VITE_API_URL = https://your-backend-url/api/v1
+
+[build]
+  # Directory containing the frontend code
+  base = "frontend"
+  # Build command
+  command = "npm run build"
+  # Output directory (Vite outputs to 'dist' by default)
+  publish = "dist"
+
+# Handle SPA routing - redirect all routes to index.html
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# Security headers
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-XSS-Protection = "1; mode=block"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"

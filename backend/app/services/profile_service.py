@@ -4,6 +4,7 @@ Profile Service - Handles profile data fetching
 
 import json
 import sys
+import time
 import asyncio
 import websockets
 from pathlib import Path
@@ -129,6 +130,80 @@ class ProfileService:
             "created_at": None
         }
     
+    async def search_profiles(self, query: str, limit: int = 10) -> List[Dict]:
+        """
+        Search for Nostr profiles by name or display name using the NIP-50
+        search extension (supported by many popular relays).
+
+        Results are also filtered client-side to ensure the query appears in
+        the name or display_name field.
+
+        Args:
+            query: Search string (name, username, display name)
+            limit: Maximum number of results to return
+
+        Returns:
+            List of profile dicts: hex, npub, name, display_name, picture, nip05
+        """
+        filter_params = {
+            "kinds": [0],
+            "search": query,
+            "limit": limit * 3  # Fetch extra; client-side filter may trim results
+        }
+
+        # Query all relays concurrently
+        tasks = [
+            self._query_relay(
+                relay,
+                f"psearch_{int(time.time())}_{i}",
+                filter_params,
+                timeout=5
+            )
+            for i, relay in enumerate(self.relay_urls)
+        ]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        seen: set = set()
+        profiles: List[Dict] = []
+        query_lower = query.lower()
+
+        for result in results:
+            if not isinstance(result, list):
+                continue
+            for ev in result:
+                pk = ev.get("pubkey")
+                if not pk or pk in seen:
+                    continue
+                seen.add(pk)
+                try:
+                    meta = json.loads(ev.get("content", "{}"))
+                    name = (meta.get("name") or "").lower()
+                    display_name = (meta.get("display_name") or "").lower()
+
+                    # Require query to appear in name or display_name
+                    if query_lower not in name and query_lower not in display_name:
+                        continue
+
+                    npub = PublicKey(bytes.fromhex(pk)).bech32()
+                    profiles.append({
+                        "hex": pk,
+                        "npub": npub,
+                        "name": meta.get("name"),
+                        "display_name": meta.get("display_name"),
+                        "picture": meta.get("picture"),
+                        "nip05": meta.get("nip05"),
+                    })
+
+                    if len(profiles) >= limit:
+                        break
+                except Exception:
+                    continue
+
+            if len(profiles) >= limit:
+                break
+
+        return profiles
+
     async def get_profile_badges(self, pubkey: str) -> Dict[str, List[Dict]]:
         """
         Get accepted and pending badges for a pubkey

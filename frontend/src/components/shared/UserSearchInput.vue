@@ -30,7 +30,7 @@
     </div>
 
     <!-- Recent Searches (optional) -->
-    <div v-if="showRecent && isFocused && recentSearches.length > 0 && !searchValue && !isResolving" class="recent-searches">
+    <div v-if="showRecent && isFocused && recentSearches.length > 0 && !searchValue && !isResolving && nameSearchResults.length === 0" class="recent-searches">
       <span class="recent-label">Recent</span>
       <div
         v-for="recent in recentSearches"
@@ -43,8 +43,8 @@
       </div>
     </div>
 
-    <!-- Input Detection Preview -->
-    <div v-if="searchValue && isValidInput && !isResolving" class="detection-preview" :class="detectedType">
+    <!-- Input Detection Preview (only for direct key types, not name search) -->
+    <div v-if="searchValue && isValidInput && !isResolving && detectedType !== 'name'" class="detection-preview" :class="detectedType">
       <span class="detection-type">
         <IconCheck :size="12" />
         {{ detectedTypeLabel }}
@@ -55,9 +55,44 @@
       </span>
     </div>
 
+    <!-- Name Search Results Dropdown -->
+    <div v-if="isFocused && detectedType === 'name' && (isNameSearching || nameSearchAttempted)" class="name-results">
+      <div v-if="isNameSearching" class="name-results-loading">
+        <IconLoader2 :size="14" class="spin" />
+        <span>Searching profiles...</span>
+      </div>
+      <template v-else-if="nameSearchResults.length > 0">
+        <div
+          v-for="profile in nameSearchResults"
+          :key="profile.hex"
+          class="name-result-item"
+          @mousedown.prevent="selectProfile(profile)"
+        >
+          <div class="result-avatar">
+            <img
+              v-if="profile.picture"
+              :src="profile.picture"
+              class="result-avatar-img"
+              @error="e => e.target.style.display = 'none'"
+            />
+            <IconUser v-else :size="14" />
+          </div>
+          <div class="result-info">
+            <span class="result-display-name">{{ profile.display_name || profile.name || 'Unknown' }}</span>
+            <span v-if="profile.name && profile.display_name && profile.name !== profile.display_name" class="result-username">@{{ profile.name }}</span>
+            <span v-if="profile.nip05" class="result-nip05">{{ profile.nip05 }}</span>
+          </div>
+          <span class="result-npub">{{ profile.npub?.slice(0, 10) }}...</span>
+        </div>
+      </template>
+      <div v-else class="name-results-empty">
+        No profiles found for "{{ searchValue }}"
+      </div>
+    </div>
+
     <!-- Validation Hint -->
     <p v-if="searchValue && !isValidInput && !isResolving" class="hint-text">
-      Enter npub, NIP-05 (user@domain.com), or hex pubkey
+      Enter a name, npub, NIP-05, or hex pubkey
     </p>
 
     <!-- Resolve Error -->
@@ -70,19 +105,21 @@
 <script setup>
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useUIStore } from '@/stores/ui'
+import { api } from '@/api/client'
 import {
   IconSearch,
   IconX,
   IconArrowRight,
   IconHistory,
   IconLoader2,
-  IconCheck
+  IconCheck,
+  IconUser
 } from '@tabler/icons-vue'
 
 const props = defineProps({
   placeholder: {
     type: String,
-    default: 'npub, user@domain.com, or hex...'
+    default: 'name, npub, NIP-05, or hex...'
   },
   showRecent: {
     type: Boolean,
@@ -109,6 +146,12 @@ const isResolving = ref(false)
 const resolveError = ref('')
 let autoSearchTimeout = null
 
+// Name search state
+const nameSearchResults = ref([])
+const isNameSearching = ref(false)
+const nameSearchAttempted = ref(false)
+let nameSearchTimeout = null
+
 // Storage key for recent searches
 const STORAGE_KEY = 'badges_recent_user_searches'
 
@@ -126,6 +169,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   if (autoSearchTimeout) clearTimeout(autoSearchTimeout)
+  if (nameSearchTimeout) clearTimeout(nameSearchTimeout)
 })
 
 // Check if value looks like a NIP-05 identifier (name@domain.com)
@@ -158,22 +202,10 @@ async function resolveNip05(identifier) {
 const isValidInput = computed(() => {
   const val = searchValue.value.trim()
   if (!val) return false
-
-  // Check for npub format
-  if (val.startsWith('npub1') && val.length === 63) {
-    return true
-  }
-
-  // Check for hex format (64 chars)
-  if (/^[a-f0-9]{64}$/i.test(val)) {
-    return true
-  }
-
-  // Check for NIP-05 format (name@domain.com)
-  if (isNip05Format(val)) {
-    return true
-  }
-
+  if (val.startsWith('npub1') && val.length === 63) return true
+  if (/^[a-f0-9]{64}$/i.test(val)) return true
+  if (isNip05Format(val)) return true
+  if (val.length >= 1) return true  // name / display name search
   return false
 })
 
@@ -184,6 +216,7 @@ const detectedType = computed(() => {
   if (val.startsWith('npub1') && val.length === 63) return 'npub'
   if (/^[a-f0-9]{64}$/i.test(val)) return 'hex'
   if (isNip05Format(val)) return 'nip05'
+  if (val.length >= 1) return 'name'
   return null
 })
 
@@ -196,21 +229,41 @@ const detectedTypeLabel = computed(() => {
   }
 })
 
-// Auto-search watcher
+// Auto-search watcher — direct key types (npub / hex / nip05) only
 watch(isValidInput, (valid) => {
   if (autoSearchTimeout) clearTimeout(autoSearchTimeout)
   resolveError.value = ''
 
-  if (valid && props.autoSearch) {
+  if (valid && props.autoSearch && detectedType.value !== 'name') {
     autoSearchTimeout = setTimeout(() => {
       handleSearch()
     }, props.autoSearchDelay)
   }
 })
 
+// Name search watcher — debounced profile lookup by name
+watch(searchValue, () => {
+  if (nameSearchTimeout) clearTimeout(nameSearchTimeout)
+  nameSearchResults.value = []
+  nameSearchAttempted.value = false
+  isNameSearching.value = false
+
+  if (detectedType.value === 'name') {
+    nameSearchTimeout = setTimeout(() => {
+      handleNameSearch()
+    }, 500)
+  }
+})
+
 // Methods
 async function handleSearch() {
   if (!isValidInput.value || isResolving.value) return
+
+  // For name type: trigger name search instead of direct lookup
+  if (detectedType.value === 'name') {
+    await handleNameSearch()
+    return
+  }
 
   let pubkey = searchValue.value.trim()
   resolveError.value = ''
@@ -228,15 +281,39 @@ async function handleSearch() {
     isResolving.value = false
   }
 
-  // Save to recent searches
   saveToRecent(pubkey)
-
-  // Emit and open lookup
   emit('search', pubkey)
   ui.openLookupUser(pubkey)
-
-  // Clear and blur
   searchValue.value = ''
+  inputRef.value?.blur()
+}
+
+async function handleNameSearch() {
+  const query = searchValue.value.trim()
+  if (query.length < 1) return
+
+  isNameSearching.value = true
+  nameSearchAttempted.value = false
+
+  try {
+    const response = await api.searchProfiles(query)
+    nameSearchResults.value = response.data.profiles || []
+  } catch (err) {
+    console.error('Profile search failed:', err)
+    nameSearchResults.value = []
+  } finally {
+    isNameSearching.value = false
+    nameSearchAttempted.value = true
+  }
+}
+
+function selectProfile(profile) {
+  saveToRecent(profile.hex)
+  emit('search', profile.hex)
+  ui.openLookupUser(profile.hex)
+  searchValue.value = ''
+  nameSearchResults.value = []
+  nameSearchAttempted.value = false
   inputRef.value?.blur()
 }
 
@@ -249,6 +326,9 @@ function handleBlur() {
 
 function clearSearch() {
   searchValue.value = ''
+  nameSearchResults.value = []
+  nameSearchAttempted.value = false
+  isNameSearching.value = false
   inputRef.value?.focus()
 }
 
@@ -406,6 +486,100 @@ function shortKey(pubkey) {
 .recent-item:hover {
   background: var(--color-surface-elevated);
   color: var(--color-text);
+}
+
+/* Name Search Results */
+.name-results {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin-top: 0.5rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  z-index: 10;
+  overflow: hidden;
+}
+
+.name-results-loading,
+.name-results-empty {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.875rem 1rem;
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+}
+
+.name-result-item {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.625rem 1rem;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.name-result-item:hover {
+  background: var(--color-surface-elevated);
+}
+
+.result-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: var(--color-surface-elevated);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-muted);
+}
+
+.result-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.result-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.0625rem;
+}
+
+.result-display-name {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.result-username {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.result-nip05 {
+  font-size: 0.6875rem;
+  color: var(--color-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.result-npub {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
 }
 
 /* Detection Preview */

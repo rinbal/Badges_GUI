@@ -143,7 +143,7 @@
               Copy ID
             </button>
             <button
-              v-if="canRequest"
+              v-if="showRequestButton"
               class="btn btn-primary"
               @click="requestBadge"
             >
@@ -220,10 +220,9 @@ const holdersPreview = computed(() =>
   holders.value.slice(0, holdersPreviewLimit)
 )
 
-const canRequest = computed(() => {
-  if (!auth.isAuthenticated) return false
-  // Can't request your own badge
-  if (badge.value?.issuer_pubkey === auth.hex) return false
+// Hide the button only when the authenticated user is the issuer of this badge
+const showRequestButton = computed(() => {
+  if (auth.isAuthenticated && badge.value?.issuer_pubkey === auth.hex) return false
   return true
 })
 
@@ -321,6 +320,12 @@ async function copyATag() {
 }
 
 function requestBadge() {
+  if (!auth.isAuthenticated) {
+    ui.setPendingBadgeRequest(props.badgeATag, badge.value)
+    close()
+    ui.openLoginPrompt(badge.value)
+    return
+  }
   emit('request', badge.value)
   close()
   ui.openRequestBadge(props.badgeATag, badge.value)

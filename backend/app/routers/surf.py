@@ -8,7 +8,7 @@ Provides endpoints for:
 - Getting badge holders
 """
 
-from typing import Optional, List
+from typing import Optional, List, Dict
 from fastapi import APIRouter, Query
 from pydantic import BaseModel
 from ..services.surf_service import SurfService
@@ -55,6 +55,14 @@ class BadgeListResponse(BaseModel):
     """Response for badge list endpoints"""
     badges: List[BadgeInfo]
     count: int
+
+
+class HolderCountsRequest(BaseModel):
+    a_tags: List[str]
+
+
+class HolderCountsResponse(BaseModel):
+    counts: Dict[str, int]
 
 
 # =========================================================================
@@ -152,6 +160,23 @@ async def get_badges_by_issuer(
     )
 
     return BadgeListResponse(badges=badges, count=len(badges))
+
+
+@router.post("/counts", response_model=HolderCountsResponse)
+async def get_holder_counts(body: HolderCountsRequest):
+    """
+    Get holder counts for a batch of badges.
+
+    Accepts a list of badge a-tags and returns the number of unique holders
+    for each. Counts are fetched in parallel so the response time is
+    independent of batch size (up to 50 a-tags).
+
+    This endpoint is intentionally separate from the badge list endpoints so
+    that badge cards can render immediately and counts load in the background.
+    """
+    surf_service = SurfService()
+    counts = await surf_service.get_holder_counts(body.a_tags)
+    return HolderCountsResponse(counts=counts)
 
 
 @router.get("/badge/details", response_model=BadgeInfo)

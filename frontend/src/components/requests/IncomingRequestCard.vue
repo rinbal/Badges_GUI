@@ -22,15 +22,15 @@
     <!-- Requester Info -->
     <div class="requester-section" @click="$emit('view-requester', request)">
       <UserAvatar
-        :picture="request.requester_profile?.picture"
-        :name="request.requester_profile?.name || request.requester_profile?.display_name"
+        :picture="request.requester_picture"
+        :name="request.requester_name"
         :pubkey="request.requester_pubkey"
         size="md"
         clickable
       />
       <div class="requester-info">
         <span class="requester-name">
-          {{ request.requester_profile?.name || request.requester_profile?.display_name || 'Anonymous' }}
+          {{ request.requester_name || (request.requester_npub ? `${request.requester_npub.slice(0, 12)}...${request.requester_npub.slice(-4)}` : 'Anonymous') }}
         </span>
         <span class="request-time">{{ formatTime(request.created_at) }}</span>
       </div>

@@ -49,7 +49,7 @@
            ======================================== -->
       <section v-if="activeTab === 'incoming'" class="tab-content animate-fadeIn">
         <!-- Loading State -->
-        <div v-if="requestsStore.isLoading && requestsStore.incomingRequests.length === 0" class="requests-list">
+        <div v-if="(requestsStore.isLoading || !requestsStore.hasFetched) && requestsStore.incomingRequests.length === 0" class="requests-list">
           <RequestCardSkeleton v-for="n in 3" :key="n" />
         </div>
 
@@ -110,7 +110,7 @@
            ======================================== -->
       <section v-else-if="activeTab === 'outgoing'" class="tab-content animate-fadeIn">
         <!-- Loading State -->
-        <div v-if="requestsStore.isLoading && requestsStore.outgoingRequests.length === 0" class="requests-list">
+        <div v-if="(requestsStore.isLoading || !requestsStore.hasFetched) && requestsStore.outgoingRequests.length === 0" class="requests-list">
           <RequestCardSkeleton v-for="n in 3" :key="n" />
         </div>
 

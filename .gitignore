@@ -36,6 +36,10 @@ venv.bak/
 .DS_Store
 .claude
 
+# Netlify
+netlify.toml
+.netlify/
+
 # Node.js
 node_modules/
 npm-debug.log*

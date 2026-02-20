@@ -34,6 +34,8 @@ export const useBadgesStore = defineStore('badges', () => {
   const acceptedBadges = ref([])
   const rejectedBadgeIds = ref(new Set(JSON.parse(localStorage.getItem('rejectedBadgeIds') || '[]')))
   const isLoading = ref(false)
+  const hasFetchedPending = ref(false)
+  const hasFetchedAccepted = ref(false)
   const error = ref(null)
 
   // Getters
@@ -252,7 +254,7 @@ export const useBadgesStore = defineStore('badges', () => {
   async function fetchPendingBadges() {
     isLoading.value = true
     error.value = null
-    
+
     try {
       const response = await api.getPendingBadges()
       pendingBadges.value = response.data
@@ -260,13 +262,14 @@ export const useBadgesStore = defineStore('badges', () => {
       error.value = err.response?.data?.detail || err.message
     } finally {
       isLoading.value = false
+      hasFetchedPending.value = true
     }
   }
 
   async function fetchAcceptedBadges() {
     isLoading.value = true
     error.value = null
-    
+
     try {
       const response = await api.getAcceptedBadges()
       acceptedBadges.value = response.data
@@ -274,6 +277,7 @@ export const useBadgesStore = defineStore('badges', () => {
       error.value = err.response?.data?.detail || err.message
     } finally {
       isLoading.value = false
+      hasFetchedAccepted.value = true
     }
   }
 
@@ -409,6 +413,8 @@ export const useBadgesStore = defineStore('badges', () => {
   function clearBadges() {
     pendingBadges.value = []
     acceptedBadges.value = []
+    hasFetchedPending.value = false
+    hasFetchedAccepted.value = false
   }
 
   function clearUserTemplates() {
@@ -425,6 +431,8 @@ export const useBadgesStore = defineStore('badges', () => {
     pendingBadges,
     acceptedBadges,
     isLoading,
+    hasFetchedPending,
+    hasFetchedAccepted,
     error,
 
     // Getters
