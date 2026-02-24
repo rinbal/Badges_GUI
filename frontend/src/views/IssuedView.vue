@@ -20,10 +20,23 @@
 
     <!-- Content -->
     <main class="content">
-      <!-- Loading State -->
-      <div v-if="isLoading && badges.length === 0" class="loading-state">
-        <div class="spinner"></div>
-        <p>Loading your badges...</p>
+      <!-- Loading Skeleton -->
+      <div v-if="isLoading && badges.length === 0" class="badges-list">
+        <div v-for="n in 4" :key="n" class="badge-card">
+          <div class="badge-header skeleton-header">
+            <div class="skeleton-image"></div>
+            <div class="skeleton-info">
+              <div class="skeleton-name"></div>
+              <div class="skeleton-identifier"></div>
+            </div>
+            <div class="skeleton-stats">
+              <div class="skeleton-count"></div>
+              <div class="skeleton-btn"></div>
+              <div class="skeleton-btn"></div>
+              <div class="skeleton-btn"></div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- Empty State -->
@@ -69,6 +82,16 @@
                 <Icon name="users" size="sm" />
                 {{ badge.holder_count || 0 }}
               </span>
+              <button
+                class="btn-save-template"
+                :class="{ 'is-saved': savedTemplateIdentifiers.has(badge.identifier) }"
+                :disabled="savedTemplateIdentifiers.has(badge.identifier) || savingTemplateFor === badge.a_tag"
+                :title="savedTemplateIdentifiers.has(badge.identifier) ? 'Already saved as template' : 'Save as template'"
+                @click.stop="saveToTemplate(badge)"
+              >
+                <span v-if="savingTemplateFor === badge.a_tag" class="spinner-sm"></span>
+                <Icon v-else name="template" size="sm" />
+              </button>
               <button
                 class="btn-send-again"
                 @click.stop="openReissue(badge)"
@@ -265,6 +288,7 @@ const expandedBadges = reactive(new Set())
 const loadingHolders = reactive(new Set())
 const badgeImageErrors = reactive(new Set())
 const deletingBadge = ref(null)
+const savingTemplateFor = ref(null)
 const deleteConfirm = reactive({ show: false, badge: null, input: '' })
 const deleteInput = ref(null)
 
@@ -447,9 +471,31 @@ function shortPubkey(pubkey) {
   return `${pubkey.slice(0, 6)}...${pubkey.slice(-4)}`
 }
 
+// Template helpers
+const savedTemplateIdentifiers = computed(() =>
+  new Set(badgesStore.userTemplates.map(t => t.identifier))
+)
+
+async function saveToTemplate(badge) {
+  savingTemplateFor.value = badge.a_tag
+  const result = await badgesStore.createTemplate({
+    identifier: badge.identifier,
+    name: badge.name,
+    description: badge.description || '',
+    image: badge.image || ''
+  })
+  if (result.success) {
+    ui.showSuccess(`"${badge.name}" saved to templates`)
+  } else {
+    ui.showError(result.error || 'Could not save template')
+  }
+  savingTemplateFor.value = null
+}
+
 // Lifecycle
 onMounted(() => {
   loadBadges()
+  badgesStore.fetchUserTemplates()
 })
 </script>
 
@@ -516,26 +562,82 @@ onMounted(() => {
 }
 
 /* ===========================================
-   Loading & Empty States
+   Loading Skeleton
    =========================================== */
-.loading-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 1rem;
-  padding: 4rem 2rem;
-  color: var(--color-text-muted);
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }
 
-.spinner {
+.skeleton-image,
+.skeleton-name,
+.skeleton-identifier,
+.skeleton-count,
+.skeleton-btn {
+  background: linear-gradient(
+    90deg,
+    var(--color-surface-elevated) 25%,
+    var(--color-surface-hover) 50%,
+    var(--color-surface-elevated) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+  border-radius: var(--radius-sm);
+}
+
+.skeleton-header {
+  cursor: default !important;
+}
+
+.skeleton-header:hover {
+  background: transparent !important;
+}
+
+.skeleton-image {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-md);
+  flex-shrink: 0;
+}
+
+.skeleton-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.skeleton-name {
+  height: 1rem;
+  width: 42%;
+}
+
+.skeleton-identifier {
+  height: 0.75rem;
+  width: 28%;
+}
+
+.skeleton-stats {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.skeleton-count {
+  height: 28px;
+  width: 52px;
+  border-radius: var(--radius-full);
+}
+
+.skeleton-btn {
   width: 32px;
   height: 32px;
-  border: 3px solid var(--color-border);
-  border-top-color: var(--color-primary);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
+  border-radius: var(--radius-md);
 }
+
+/* ===========================================
+   Empty States
+   =========================================== */
 
 .spinner-sm {
   width: 16px;
@@ -856,6 +958,39 @@ onMounted(() => {
   border-color: var(--color-primary);
   color: var(--color-primary);
   background: var(--color-primary-soft);
+}
+
+/* ===========================================
+   Save to Template Button
+   =========================================== */
+.btn-save-template {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-save-template:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  background: var(--color-primary-soft);
+}
+
+.btn-save-template.is-saved {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.btn-save-template:disabled:not(.is-saved) {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 /* ===========================================

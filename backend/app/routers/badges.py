@@ -9,7 +9,7 @@ Supports two authentication flows:
 from typing import List, Optional
 from fastapi import APIRouter, HTTPException, Header
 from ..models.requests import (
-    CreateBadgeTemplateRequest,
+    SyncTemplatesRequest,
     CreateBadgeDefinitionRequest,
     AwardBadgeRequest,
     CreateAndAwardRequest,
@@ -23,6 +23,7 @@ from ..models.responses import (
     ErrorResponse
 )
 from ..services.badge_service import BadgeService
+from ..services.template_service import TemplateService
 from ..services.key_service import KeyService
 from ..services.profile_service import ProfileService
 from ..config import settings
@@ -132,112 +133,55 @@ async def get_app_templates():
 
 
 @router.get("/templates/user", response_model=List[BadgeTemplateResponse])
-async def get_user_templates():
+async def get_user_templates(
+    x_nsec: Optional[str] = Header(None),
+    x_pubkey: Optional[str] = Header(None)
+):
     """
-    Get user-created badge templates
-
-    Returns custom badge templates created by users.
-    These can be modified and deleted.
-    No authentication required.
+    Get user's badge templates from Nostr relays (NIP-78 kind 30078).
+    Requires authentication (X-Nsec or X-Pubkey header).
     """
-    templates = BadgeService.get_user_templates()
+    _, pubkey_hex, _ = get_auth_context(x_nsec, x_pubkey)
+    service = TemplateService()
+    templates = await service.fetch_templates(pubkey_hex)
     return [BadgeTemplateResponse(**t) for t in templates]
 
 
-@router.get("/templates", response_model=List[BadgeTemplateResponse])
-async def get_templates():
-    """
-    Get user badge templates (backward compatibility)
-
-    Deprecated: Use /templates/user or /templates/app instead.
-    Returns user templates only.
-    """
-    templates = BadgeService.get_user_templates()
-    return [BadgeTemplateResponse(**t) for t in templates]
-
-
-@router.post("/templates", response_model=BadgeTemplateResponse)
-async def create_template(
-    request: CreateBadgeTemplateRequest,
+@router.post("/templates/sync")
+async def sync_templates(
+    request: SyncTemplatesRequest,
     x_nsec: Optional[str] = Header(None),
     x_pubkey: Optional[str] = Header(None)
 ):
     """
-    Create a new user badge template
+    Sync user templates to Nostr relays (NIP-78 kind 30078).
 
-    Saves the template to a JSON file for later use.
-    Cannot use identifiers reserved by app templates.
-    Requires authentication (X-Nsec or X-Pubkey header).
+    NIP-07: provide signed_event (backend publishes pre-signed kind 30078 event)
+    nsec: provide action + data (backend fetches current list, applies change, signs, publishes)
     """
-    get_auth_context(x_nsec, x_pubkey)  # Validate auth (either method)
+    service = TemplateService()
 
-    success, error = BadgeService.save_template(request.model_dump())
-
-    if not success:
-        raise HTTPException(status_code=400, detail=error or "Failed to save template")
-
-    return BadgeTemplateResponse(**request.model_dump())
-
-
-@router.delete("/templates/{identifier}")
-async def delete_template(
-    identifier: str,
-    x_nsec: Optional[str] = Header(None),
-    x_pubkey: Optional[str] = Header(None)
-):
-    """
-    Delete a user badge template
-
-    Removes the template JSON file.
-    App templates cannot be deleted.
-    Requires authentication (X-Nsec or X-Pubkey header).
-    """
-    get_auth_context(x_nsec, x_pubkey)  # Validate auth (either method)
-
-    success, error = BadgeService.delete_template(identifier)
-
-    if not success:
-        status_code = 404 if error == "Template not found" else 400
-        if "App templates" in (error or ""):
-            status_code = 403
-        raise HTTPException(status_code=status_code, detail=error)
-
-    return {"success": True, "message": f"Template '{identifier}' deleted"}
-
-
-@router.put("/templates/{identifier}", response_model=BadgeTemplateResponse)
-async def update_template(
-    identifier: str,
-    request: CreateBadgeTemplateRequest,
-    x_nsec: Optional[str] = Header(None),
-    x_pubkey: Optional[str] = Header(None)
-):
-    """
-    Update an existing user badge template
-
-    Updates the template JSON file with new values.
-    The identifier cannot be changed - only name, description, and image.
-    App templates cannot be modified.
-    Requires authentication (X-Nsec or X-Pubkey header).
-    """
-    get_auth_context(x_nsec, x_pubkey)  # Validate auth (either method)
-
-    # Ensure the identifier in the URL matches the request body
-    if request.identifier != identifier:
-        raise HTTPException(
-            status_code=400,
-            detail="Identifier in URL must match identifier in request body"
+    if request.signed_event:
+        # NIP-07 flow: publish pre-signed event
+        if request.signed_event.kind != 30078:
+            raise HTTPException(status_code=400, detail="signed_event must be kind 30078")
+        result = await service.publish_signed_event(request.signed_event.model_dump())
+    else:
+        # nsec flow: apply change and publish
+        nsec = get_nsec_from_header(x_nsec)
+        if not request.action:
+            raise HTTPException(status_code=400, detail="action required for nsec flow")
+        result = await service.sync_templates(
+            nsec=nsec,
+            action=request.action,
+            template=request.template,
+            identifier=request.identifier
         )
 
-    success, error = BadgeService.update_template(identifier, request.model_dump())
+    if not result["success"]:
+        raise HTTPException(status_code=502, detail=result.get("error", "Failed to publish"))
 
-    if not success:
-        status_code = 404 if error == "Template not found" else 400
-        if "App templates" in (error or ""):
-            status_code = 403
-        raise HTTPException(status_code=status_code, detail=error)
-
-    return BadgeTemplateResponse(**request.model_dump())
+    return result
 
 
 @router.post("/create-definition", response_model=CreateDefinitionResponse)

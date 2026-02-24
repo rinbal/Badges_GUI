@@ -148,6 +148,22 @@ export function createProfileBadgesEvent(badgeTags) {
 }
 
 /**
+ * Create an app-specific data event (NIP-78, kind 30078)
+ * Used to store arbitrary app data on Nostr relays, keyed by dTag.
+ * @param {string} dTag - Unique identifier for this app data (e.g. "badgebox-templates")
+ * @param {string} content - JSON-serialized app data
+ * @returns {Object} - Unsigned event ready for signing
+ */
+export function createAppDataEvent(dTag, content) {
+  return {
+    created_at: Math.floor(Date.now() / 1000),
+    kind: 30078,
+    tags: [['d', dTag]],
+    content
+  }
+}
+
+/**
  * Convert hex pubkey to npub (bech32)
  * Uses a simple implementation without external dependencies
  * @param {string} hex - 64-character hex public key

@@ -178,3 +178,23 @@ class RemoveBadgeRequest(BaseModel):
         description="Pre-signed profile badges event (kind 30008)"
     )
 
+
+class SyncTemplatesRequest(BaseModel):
+    """Request to sync user templates via NIP-78 (kind 30078).
+
+    NIP-07 flow: provide signed_event (full updated template list, pre-signed kind 30078)
+    nsec flow: provide action + template/identifier (backend fetches current, applies, signs, publishes)
+    """
+    signed_event: Optional[SignedNostrEvent] = Field(
+        None, description="Pre-signed kind 30078 event (NIP-07 flow)"
+    )
+    action: Optional[str] = Field(
+        None, description="nsec flow action: 'create' | 'delete' | 'update'"
+    )
+    template: Optional[Dict[str, Any]] = Field(
+        None, description="Template data for create/update"
+    )
+    identifier: Optional[str] = Field(
+        None, description="Template identifier for delete/update"
+    )
+
