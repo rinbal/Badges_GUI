@@ -64,17 +64,13 @@ export const api = {
   getUserTemplates: () =>
     apiClient.get('/badges/templates/user'),
 
-  getTemplates: () =>
-    apiClient.get('/badges/templates'),
-
-  createTemplate: (template) =>
-    apiClient.post('/badges/templates', template),
-
-  deleteTemplate: (identifier) =>
-    apiClient.delete(`/badges/templates/${identifier}`),
-
-  updateTemplate: (identifier, template) =>
-    apiClient.put(`/badges/templates/${identifier}`, template),
+  /**
+   * Sync user templates to Nostr relays (NIP-78 kind 30078)
+   * NIP-07: provide { signed_event } (pre-signed kind 30078 event)
+   * nsec:   provide { action, template?, identifier? }
+   */
+  syncTemplates: (data) =>
+    apiClient.post('/badges/templates/sync', data),
 
   /**
    * Create badge definition

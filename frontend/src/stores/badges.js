@@ -16,9 +16,13 @@ import {
   createBadgeDefinitionEvent,
   createBadgeAwardEvent,
   createProfileBadgesEvent,
+  createAppDataEvent,
   signEvent,
   npubToHex
 } from '@/utils/nip07'
+
+// NIP-78 d-tag for user templates
+const TEMPLATES_D_TAG = 'badgebox-templates'
 
 // Template source constants
 const TEMPLATE_SOURCE = Object.freeze({
@@ -99,7 +103,7 @@ export const useBadgesStore = defineStore('badges', () => {
   }
 
   /**
-   * Fetch user-created templates from API
+   * Fetch user templates from Nostr relays via backend (NIP-78 kind 30078)
    */
   async function fetchUserTemplates() {
     isLoading.value = true
@@ -122,65 +126,113 @@ export const useBadgesStore = defineStore('badges', () => {
     await Promise.all([fetchAppTemplates(), fetchUserTemplates()])
   }
 
-  // Alias for backward compatibility
-  const fetchTemplates = fetchUserTemplates
+  /**
+   * Build and sign a kind 30078 event containing the full template list (NIP-07 flow)
+   */
+  async function _buildSignedTemplatesEvent(templatesList) {
+    const event = createAppDataEvent(TEMPLATES_D_TAG, JSON.stringify(templatesList))
+    return await signEvent(event)
+  }
 
   /**
-   * Create a new user template
+   * Create a new user template and publish to Nostr relays (NIP-78 kind 30078)
+   * NIP-07: signs full updated list in browser, backend publishes
+   * nsec: backend fetches current list, adds, signs, publishes
    */
   async function createTemplate(template) {
     isLoading.value = true
     error.value = null
 
+    const authStore = useAuthStore()
+    const newEntry = {
+      identifier: template.identifier,
+      name: template.name,
+      description: template.description || '',
+      image: template.image || ''
+    }
+
     try {
-      const response = await api.createTemplate(template)
-      userTemplates.value.push(response.data)
-      return { success: true, template: response.data }
+      if (authStore.isNip07) {
+        const newList = [...userTemplates.value, newEntry]
+        const signedEvent = await _buildSignedTemplatesEvent(newList)
+        const response = await api.syncTemplates({ signed_event: signedEvent })
+        if (response.data.success) userTemplates.value = newList
+        return { success: response.data.success, error: response.data.error, template: newEntry }
+      } else {
+        const response = await api.syncTemplates({ action: 'create', template: newEntry })
+        if (response.data.success) userTemplates.value.push(newEntry)
+        return { success: response.data.success, error: response.data.error, template: newEntry }
+      }
     } catch (err) {
-      error.value = err.response?.data?.detail || err.message
-      return { success: false, error: error.value }
+      const msg = err.response?.data?.detail || err.message
+      error.value = msg
+      return { success: false, error: msg }
     } finally {
       isLoading.value = false
     }
   }
 
   /**
-   * Delete a user template (app templates cannot be deleted)
+   * Delete a user template and republish updated list to Nostr relays
    */
   async function deleteTemplate(identifier) {
     isLoading.value = true
     error.value = null
 
+    const authStore = useAuthStore()
+
     try {
-      await api.deleteTemplate(identifier)
-      userTemplates.value = userTemplates.value.filter(t => t.identifier !== identifier)
-      return { success: true }
+      if (authStore.isNip07) {
+        const newList = userTemplates.value.filter(t => t.identifier !== identifier)
+        const signedEvent = await _buildSignedTemplatesEvent(newList)
+        const response = await api.syncTemplates({ signed_event: signedEvent })
+        if (response.data.success) userTemplates.value = newList
+        return { success: response.data.success }
+      } else {
+        const response = await api.syncTemplates({ action: 'delete', identifier })
+        if (response.data.success)
+          userTemplates.value = userTemplates.value.filter(t => t.identifier !== identifier)
+        return { success: response.data.success }
+      }
     } catch (err) {
-      error.value = err.response?.data?.detail || err.message
-      return { success: false, error: error.value }
+      const msg = err.response?.data?.detail || err.message
+      error.value = msg
+      return { success: false, error: msg }
     } finally {
       isLoading.value = false
     }
   }
 
   /**
-   * Update an existing user template (app templates cannot be modified)
+   * Update a user template and republish updated list to Nostr relays
    */
   async function updateTemplate(identifier, template) {
     isLoading.value = true
     error.value = null
 
+    const authStore = useAuthStore()
+
     try {
-      const response = await api.updateTemplate(identifier, template)
-      // Update the template in the local state
-      const index = userTemplates.value.findIndex(t => t.identifier === identifier)
-      if (index !== -1) {
-        userTemplates.value[index] = response.data
+      if (authStore.isNip07) {
+        const newList = userTemplates.value.map(t =>
+          t.identifier === identifier ? { ...t, ...template } : t
+        )
+        const signedEvent = await _buildSignedTemplatesEvent(newList)
+        const response = await api.syncTemplates({ signed_event: signedEvent })
+        if (response.data.success) userTemplates.value = newList
+        return { success: response.data.success }
+      } else {
+        const response = await api.syncTemplates({ action: 'update', identifier, template })
+        if (response.data.success) {
+          const idx = userTemplates.value.findIndex(t => t.identifier === identifier)
+          if (idx !== -1) userTemplates.value[idx] = { ...userTemplates.value[idx], ...template }
+        }
+        return { success: response.data.success }
       }
-      return { success: true, template: response.data }
     } catch (err) {
-      error.value = err.response?.data?.detail || err.message
-      return { success: false, error: error.value }
+      const msg = err.response?.data?.detail || err.message
+      error.value = msg
+      return { success: false, error: msg }
     } finally {
       isLoading.value = false
     }
@@ -417,10 +469,6 @@ export const useBadgesStore = defineStore('badges', () => {
     hasFetchedAccepted.value = false
   }
 
-  function clearUserTemplates() {
-    userTemplates.value = []
-  }
-
   function clearAppTemplates() {
     appTemplatesRaw.value = []
   }
@@ -446,13 +494,12 @@ export const useBadgesStore = defineStore('badges', () => {
     acceptedCount,
 
     // Actions
-    fetchTemplates,         // Alias for fetchUserTemplates
-    fetchAppTemplates,      // Fetch app templates from API
-    fetchUserTemplates,     // Fetch user templates from API
+    fetchAppTemplates,      // Fetch app templates from API (filesystem)
+    fetchUserTemplates,     // Fetch user templates from Nostr relays (NIP-78)
     fetchAllTemplates,      // Fetch both app and user templates
-    createTemplate,
-    deleteTemplate,
-    updateTemplate,
+    createTemplate,         // NIP-78: publish updated list with new template
+    deleteTemplate,         // NIP-78: publish updated list without deleted template
+    updateTemplate,         // NIP-78: publish updated list with modified template
     createAndAwardBadge,
     fetchPendingBadges,
     fetchAcceptedBadges,
@@ -460,7 +507,6 @@ export const useBadgesStore = defineStore('badges', () => {
     removeBadge,
     rejectBadge,
     clearBadges,
-    clearUserTemplates,
     clearAppTemplates
   }
 })
