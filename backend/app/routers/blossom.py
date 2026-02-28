@@ -2,6 +2,7 @@
 Blossom Media Proxy - CORS proxy for blossom server list requests
 """
 
+import json
 import httpx
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
@@ -20,6 +21,7 @@ async def blossom_list(request: BlossomListRequest):
     """
     Proxy GET {server}/list/{pubkey} to bypass CORS restrictions.
     On 401/403, retries without auth header (some servers don't need it).
+    Returns an empty array if the server responds with non-JSON content.
     """
     url = f"{request.server.rstrip('/')}/list/{request.pubkey}"
     headers = {}
@@ -40,8 +42,19 @@ async def blossom_list(request: BlossomListRequest):
                     detail=f"Blossom server returned {resp.status_code}"
                 )
 
-            return resp.json()
+            try:
+                data = resp.json()
+            except (json.JSONDecodeError, ValueError):
+                # Server returned non-JSON (HTML error page, empty body, etc.)
+                return []
 
+            # Ensure we always return a list
+            if isinstance(data, list):
+                return data
+            return []
+
+        except HTTPException:
+            raise
         except httpx.TimeoutException:
             raise HTTPException(status_code=504, detail="Blossom server timeout")
         except httpx.RequestError as e:
