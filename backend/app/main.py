@@ -8,6 +8,7 @@ from .config import settings
 from .routers import (
     auth_router,
     badges_router,
+    blossom_router,
     inbox_router,
     profile_router,
     relays_router,
@@ -55,6 +56,7 @@ app.include_router(profile_router, prefix="/api/v1")
 app.include_router(relays_router, prefix="/api/v1")
 app.include_router(requests_router, prefix="/api/v1")
 app.include_router(surf_router, prefix="/api/v1")
+app.include_router(blossom_router, prefix="/api/v1")
 
 
 @app.get("/")

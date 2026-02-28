@@ -9,4 +9,5 @@ from .profile import router as profile_router
 from .relays import router as relays_router
 from .requests import router as requests_router
 from .surf import router as surf_router
+from .blossom import router as blossom_router
 
