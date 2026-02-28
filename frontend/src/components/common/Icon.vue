@@ -60,7 +60,10 @@ import {
   IconLoader2,
   IconLayoutGrid,
   IconEye,
-  IconEyeOff
+  IconEyeOff,
+  IconDownload,
+  IconDeviceMobile,
+  IconRocket
 } from '@tabler/icons-vue'
 
 const props = defineProps({
@@ -173,7 +176,10 @@ const icons = {
   'sparkles': IconSparkles,
   'loader': IconLoader2,
   'eye': IconEye,
-  'eye-off': IconEyeOff
+  'eye-off': IconEyeOff,
+  'download': IconDownload,
+  'device-mobile': IconDeviceMobile,
+  'rocket': IconRocket
 }
 
 const iconComponent = computed(() => {
