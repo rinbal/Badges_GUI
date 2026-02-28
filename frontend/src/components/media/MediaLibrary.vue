@@ -1,0 +1,596 @@
+<template>
+  <div class="media-library">
+
+    <!-- ===== Top section: two-column on desktop, stacked on mobile ===== -->
+    <div class="library-header">
+      <!-- Left: filters + actions -->
+      <div class="header-left">
+        <MediaFilters />
+        <div class="header-actions">
+          <button v-if="mediaStore.selectedCount > 0" class="btn-sm btn-sm--danger" @click="onDeleteSelected">
+            <Icon name="trash" size="sm" />
+            <span>Delete {{ mediaStore.selectedCount }}</span>
+          </button>
+          <button class="btn-sm" title="Refresh" @click="blossom.refresh()">
+            <Icon name="refresh" size="sm" />
+          </button>
+        </div>
+      </div>
+
+      <!-- Right: compact upload + server indicator -->
+      <div class="header-right">
+        <MediaUploader :disabled="isUploading" @upload="onUpload" />
+        <ServerIndicator />
+      </div>
+    </div>
+
+    <!-- ===== Total size summary ===== -->
+    <div v-if="mediaStore.fileCount > 0" class="size-summary">
+      {{ formatSize(mediaStore.totalSize) }} across {{ mediaStore.fileCount }} file{{ mediaStore.fileCount !== 1 ? 's' : '' }}
+    </div>
+
+    <!-- ===== Upload progress ===== -->
+    <div v-if="uploadEntries.length > 0" class="upload-progress">
+      <div v-for="[id, entry] in uploadEntries" :key="id" class="progress-item">
+        <span class="progress-name">{{ entry.name }}</span>
+        <template v-if="entry.status === 'uploading'">
+          <div class="progress-bar-track">
+            <div class="progress-bar-fill" :style="{ width: entry.progress + '%' }"></div>
+          </div>
+          <span class="progress-pct">{{ entry.progress }}%</span>
+        </template>
+        <span v-else-if="entry.status === 'error'" class="progress-error">{{ entry.error }}</span>
+      </div>
+    </div>
+
+    <!-- ===== Loading state ===== -->
+    <div v-if="mediaStore.isLoading && mediaStore.fileCount === 0" class="state-loading">
+      <Icon name="loader" size="lg" spin />
+      <p>Fetching your media from Blossom servers...</p>
+    </div>
+
+    <!-- ===== Empty state ===== -->
+    <div v-else-if="!mediaStore.isLoading && mediaStore.fileCount === 0" class="state-empty">
+      <div class="empty-illustration">
+        <div class="empty-icon-ring">
+          <Icon name="upload" size="xl" />
+        </div>
+      </div>
+      <h3>Upload your first file</h3>
+      <p>Drag and drop or click the upload area above to add media to your Blossom servers.</p>
+      <div class="empty-tips">
+        <span class="tip">PNG, JPG, GIF, WebP</span>
+        <span class="tip-dot"></span>
+        <span class="tip">MP4, WebM</span>
+        <span class="tip-dot"></span>
+        <span class="tip">MP3, WAV</span>
+        <span class="tip-dot"></span>
+        <span class="tip">Up to 20 MB</span>
+      </div>
+    </div>
+
+    <!-- ===== No results for current filter ===== -->
+    <div v-else-if="mediaStore.sortedFiles.length === 0" class="state-no-results">
+      <Icon name="filter" size="lg" />
+      <p>No files match the current filter.</p>
+    </div>
+
+    <!-- ===== Media grid ===== -->
+    <MediaGrid
+      v-else
+      :files="mediaStore.sortedFiles"
+      :selected-files="mediaStore.selectedFiles"
+      @preview="onPreview"
+      @delete="onDelete"
+      @download="onDownload"
+      @toggle="mediaStore.toggleSelection"
+    />
+
+    <!-- ===== Lightbox ===== -->
+    <MediaPreview
+      :file="previewFile"
+      :has-prev="previewIndex > 0"
+      :has-next="previewIndex < mediaStore.sortedFiles.length - 1"
+      @close="previewFile = null"
+      @prev="navigatePreview(-1)"
+      @next="navigatePreview(1)"
+      @download="onDownload"
+    />
+
+    <!-- ===== Confirmation modal (delete / download) ===== -->
+    <Teleport to="body">
+      <Transition name="modal">
+        <div v-if="confirmAction" class="modal-overlay" @click.self="confirmAction = null">
+          <div class="modal-card">
+            <h3>{{ confirmAction.title }}</h3>
+            <p>{{ confirmAction.message }}</p>
+            <div v-if="isDownloading" class="modal-progress">
+              <Icon name="loader" size="sm" spin />
+              <span>Downloading...</span>
+            </div>
+            <div v-else class="modal-actions">
+              <button class="btn-modal btn-modal--secondary" @click="confirmAction = null">Cancel</button>
+              <button
+                class="btn-modal"
+                :class="confirmAction.type === 'delete' ? 'btn-modal--danger' : 'btn-modal--primary'"
+                @click="executeConfirmAction"
+              >
+                {{ confirmAction.confirmLabel }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+  </div>
+</template>
+
+<script setup>
+import { ref, computed } from 'vue'
+import { useMediaStore } from '@/stores/media'
+import { useUIStore } from '@/stores/ui'
+import { useBlossom } from '@/composables/useBlossom'
+import Icon from '@/components/common/Icon.vue'
+import MediaFilters from './MediaFilters.vue'
+import MediaUploader from './MediaUploader.vue'
+import MediaGrid from './MediaGrid.vue'
+import MediaPreview from './MediaPreview.vue'
+import ServerIndicator from './ServerIndicator.vue'
+
+const mediaStore = useMediaStore()
+const uiStore = useUIStore()
+const blossom = useBlossom()
+
+const previewFile = ref(null)
+const confirmAction = ref(null)
+const isDownloading = ref(false)
+
+const uploadEntries = computed(() => Array.from(mediaStore.uploadQueue.entries()))
+const isUploading = computed(() => uploadEntries.value.some(([, e]) => e.status === 'uploading'))
+
+const previewIndex = computed(() => {
+  if (!previewFile.value) return -1
+  return mediaStore.sortedFiles.findIndex(f => f.hash === previewFile.value.hash)
+})
+
+function onUpload(files) {
+  blossom.uploadFiles(files)
+}
+
+function onPreview(file) {
+  previewFile.value = file
+}
+
+function navigatePreview(dir) {
+  const idx = previewIndex.value + dir
+  if (idx >= 0 && idx < mediaStore.sortedFiles.length) {
+    previewFile.value = mediaStore.sortedFiles[idx]
+  }
+}
+
+function onDelete(hash) {
+  confirmAction.value = {
+    type: 'delete',
+    title: 'Delete File',
+    message: 'This will remove the file from all configured Blossom servers. This cannot be undone.',
+    confirmLabel: 'Delete',
+    data: hash
+  }
+}
+
+function onDeleteSelected() {
+  confirmAction.value = {
+    type: 'delete-selected',
+    title: 'Delete Files',
+    message: `This will delete ${mediaStore.selectedCount} file${mediaStore.selectedCount !== 1 ? 's' : ''} from all configured Blossom servers. This cannot be undone.`,
+    confirmLabel: 'Delete All',
+    data: null
+  }
+}
+
+function onDownload(file) {
+  confirmAction.value = {
+    type: 'download',
+    title: 'Download File',
+    message: `Download this file (${formatSize(file.size)}) to your local machine?`,
+    confirmLabel: 'Download',
+    data: file
+  }
+}
+
+async function executeConfirmAction() {
+  const action = confirmAction.value
+  if (!action) return
+
+  if (action.type === 'delete') {
+    await blossom.deleteFiles([action.data])
+    confirmAction.value = null
+  } else if (action.type === 'delete-selected') {
+    await blossom.deleteFiles([...mediaStore.selectedFiles])
+    mediaStore.clearSelection()
+    confirmAction.value = null
+  } else if (action.type === 'download') {
+    await executeDownload(action.data)
+  }
+}
+
+async function executeDownload(file) {
+  isDownloading.value = true
+  try {
+    const response = await fetch(file.url)
+    const blob = await response.blob()
+    const ext = getFileExtension(file)
+    const filename = file.hash.slice(0, 16) + '.' + ext
+
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+
+    confirmAction.value = null
+  } catch {
+    uiStore.showError('Download failed. The file may no longer be available.')
+  } finally {
+    isDownloading.value = false
+  }
+}
+
+function getFileExtension(file) {
+  const type = file.type || ''
+  const sub = type.split('/').pop()?.toLowerCase() || ''
+  const map = { jpeg: 'jpg', mpeg: 'mp3', quicktime: 'mov', 'svg+xml': 'svg' }
+  return map[sub] || sub || 'bin'
+}
+
+function formatSize(bytes) {
+  if (!bytes) return '0 B'
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+</script>
+
+<style scoped>
+.media-library {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* ===================================================================
+   Header: two-column layout
+   =================================================================== */
+.library-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.header-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.header-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.625rem;
+  flex-shrink: 0;
+  width: 280px;
+}
+
+/* ===================================================================
+   Small buttons
+   =================================================================== */
+.btn-sm {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 0.625rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  font-size: 0.8125rem;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.btn-sm:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+}
+
+.btn-sm--danger {
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+}
+
+.btn-sm--danger:hover {
+  background: var(--color-danger-soft);
+}
+
+/* ===================================================================
+   Size summary
+   =================================================================== */
+.size-summary {
+  font-size: 0.8125rem;
+  color: var(--color-text-subtle);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ===================================================================
+   Upload progress
+   =================================================================== */
+.upload-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.progress-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: 0.8125rem;
+}
+
+.progress-name {
+  color: var(--color-text);
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.progress-bar-track {
+  flex: 1;
+  height: 4px;
+  background: var(--color-border);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background: var(--color-primary);
+  border-radius: 2px;
+  transition: width 0.2s ease;
+}
+
+.progress-pct {
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  width: 2.5rem;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.progress-error {
+  color: var(--color-danger);
+  font-size: 0.8125rem;
+}
+
+/* ===================================================================
+   States: loading, empty, no-results
+   =================================================================== */
+.state-loading,
+.state-no-results {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: var(--color-text-muted);
+}
+
+.state-loading p,
+.state-no-results p {
+  margin: 0.5rem 0 0;
+  font-size: 0.875rem;
+}
+
+/* Enhanced empty state */
+.state-empty {
+  text-align: center;
+  padding: 3rem 1rem;
+}
+
+.empty-illustration {
+  margin-bottom: 1.25rem;
+}
+
+.empty-icon-ring {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 4.5rem;
+  height: 4.5rem;
+  border-radius: var(--radius-full);
+  border: 2px dashed var(--color-border);
+  color: var(--color-text-subtle);
+  animation: pulse-ring 3s ease-in-out infinite;
+}
+
+@keyframes pulse-ring {
+  0%, 100% { border-color: var(--color-border); }
+  50% { border-color: var(--color-primary); }
+}
+
+.state-empty h3 {
+  margin: 0 0 0.375rem;
+  color: var(--color-text);
+  font-size: 1.125rem;
+}
+
+.state-empty p {
+  margin: 0 0 1rem;
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+  max-width: 380px;
+  margin-left: auto;
+  margin-right: auto;
+  line-height: 1.5;
+}
+
+.empty-tips {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.tip {
+  font-size: 0.75rem;
+  color: var(--color-text-subtle);
+  padding: 0.125rem 0.5rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+}
+
+.tip-dot {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--color-text-subtle);
+}
+
+/* ===================================================================
+   Delete confirmation modal
+   =================================================================== */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-card {
+  background: var(--color-surface-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  max-width: 400px;
+  width: 90%;
+}
+
+.modal-card h3 {
+  margin: 0 0 0.75rem;
+  color: var(--color-text);
+}
+
+.modal-card p {
+  margin: 0 0 1.25rem;
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+}
+
+.btn-modal {
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius-md);
+  font-weight: 500;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  border: none;
+}
+
+.btn-modal--secondary {
+  background: var(--color-surface);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+}
+
+.btn-modal--secondary:hover {
+  background: var(--color-surface-hover);
+}
+
+.btn-modal--primary {
+  background: var(--color-primary);
+  color: white;
+}
+
+.btn-modal--primary:hover {
+  background: var(--color-primary-hover);
+}
+
+.btn-modal--danger {
+  background: var(--color-danger);
+  color: white;
+}
+
+.btn-modal--danger:hover {
+  opacity: 0.9;
+}
+
+.modal-progress {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0;
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+}
+
+/* Modal transition */
+.modal-enter-active,
+.modal-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.modal-enter-from,
+.modal-leave-to {
+  opacity: 0;
+}
+
+/* ===================================================================
+   Responsive: mobile stacked layout
+   =================================================================== */
+@media (max-width: 768px) {
+  .library-header {
+    flex-direction: column;
+  }
+
+  .header-right {
+    width: 100%;
+    align-items: stretch;
+    flex-direction: column-reverse;
+  }
+}
+
+@media (max-width: 480px) {
+  .progress-name {
+    max-width: 100px;
+  }
+}
+</style>

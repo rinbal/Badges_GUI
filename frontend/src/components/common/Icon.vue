@@ -63,7 +63,11 @@ import {
   IconEyeOff,
   IconDownload,
   IconDeviceMobile,
-  IconRocket
+  IconRocket,
+  IconSortDescending,
+  IconPlayerPlay,
+  IconServer,
+  IconMaximize
 } from '@tabler/icons-vue'
 
 const props = defineProps({
@@ -179,7 +183,11 @@ const icons = {
   'eye-off': IconEyeOff,
   'download': IconDownload,
   'device-mobile': IconDeviceMobile,
-  'rocket': IconRocket
+  'rocket': IconRocket,
+  'sort-descending': IconSortDescending,
+  'player-play': IconPlayerPlay,
+  'server': IconServer,
+  'maximize': IconMaximize
 }
 
 const iconComponent = computed(() => {

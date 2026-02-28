@@ -227,18 +227,26 @@
           <div class="form-group">
             <label for="image">Image URL</label>
             <div class="input-with-preview">
-              <input
-                id="image"
-                v-model="form.image"
-                type="url"
-                placeholder="https://..."
-              />
+              <div class="input-with-button">
+                <input
+                  id="image"
+                  v-model="form.image"
+                  type="url"
+                  placeholder="https://..."
+                />
+                <button type="button" class="btn-browse" @click="showMediaPicker = true" title="Browse media">
+                  <Icon name="photo" size="sm" />
+                  <span>Browse</span>
+                </button>
+              </div>
               <div v-if="form.image" class="input-preview">
                 <img :src="form.image" @error="onImageError" />
               </div>
             </div>
-            <p class="field-hint">Direct link to badge image (PNG, JPG, GIF)</p>
+            <p class="field-hint">Direct link to badge image or select from your media library</p>
           </div>
+
+          <MediaPicker v-model="showMediaPicker" @select="form.image = $event" />
 
           <template v-if="!editingTemplate">
             <div class="form-divider"></div>
@@ -440,6 +448,7 @@ import { useBadgesStore } from '@/stores/badges'
 import { useUIStore } from '@/stores/ui'
 import RecipientInput from '@/components/common/RecipientInput.vue'
 import Icon from '@/components/common/Icon.vue'
+import MediaPicker from '@/components/media/MediaPicker.vue'
 
 const authStore = useAuthStore()
 const badgesStore = useBadgesStore()
@@ -470,6 +479,7 @@ const progressDetail = ref('')
 const progressPercent = ref(0)
 
 // Save-as-template prompt (shown after a successful custom badge award)
+const showMediaPicker = ref(false)
 const showSaveTemplateModal = ref(false)
 const isSavingTemplate = ref(false)
 const templateSavedInSession = ref(false)
@@ -1344,6 +1354,38 @@ onMounted(() => {
   display: flex;
   gap: 0.75rem;
   align-items: center;
+}
+
+.input-with-button {
+  display: flex;
+  gap: 0.5rem;
+  flex: 1;
+}
+
+.input-with-button input {
+  flex: 1;
+}
+
+.btn-browse {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: all var(--transition-fast);
+}
+
+.btn-browse:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+  border-color: var(--color-border-hover);
 }
 
 .input-with-preview input {
