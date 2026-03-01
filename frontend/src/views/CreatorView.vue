@@ -38,8 +38,16 @@
       </div>
 
       <!-- User Templates Shortcut -->
+      <div v-if="!badgesStore.hasFetchedUserTemplates" class="templates-shortcut templates-shortcut--loading">
+        <div class="spinner-sm"></div>
+        <span class="shortcut-text">Loading templates...</span>
+      </div>
+      <div v-else-if="badgesStore.userTemplateCount === 0" class="templates-shortcut templates-shortcut--empty">
+        <Icon name="template" size="md" class="shortcut-icon" />
+        <span class="shortcut-text">No saved templates yet</span>
+      </div>
       <button
-        v-if="badgesStore.userTemplateCount > 0"
+        v-else
         class="templates-shortcut"
         @click="selectMode('templates')"
       >
@@ -960,6 +968,17 @@ onMounted(() => {
 
 .templates-shortcut:hover {
   border-color: var(--color-primary);
+}
+
+.templates-shortcut--loading,
+.templates-shortcut--empty {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.templates-shortcut--loading:hover,
+.templates-shortcut--empty:hover {
+  border-color: var(--color-border);
 }
 
 .shortcut-icon {

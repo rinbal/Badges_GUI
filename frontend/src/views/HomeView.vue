@@ -299,7 +299,13 @@
           <div class="protocol-card-header">
             <span class="protocol-card-emoji">✨</span>
             <h3>Request Extension</h3>
-            <span class="new-tag">NEW on NOSTR</span>
+            <a
+              class="new-tag"
+              href="https://github.com/nostr-protocol/nips/pull/2204"
+              target="_blank"
+              rel="noopener noreferrer"
+              title="View proposed NIP on GitHub"
+            >NEW on NOSTR</a>
             <button
               class="info-btn"
               @click="toggleProtocolInfo('request')"
@@ -310,8 +316,13 @@
             </button>
           </div>
           <div v-if="activeProtocolInfo === 'request'" class="info-accordion">
-            <p>Our extension to NIP-58 enables users to request badges from creators. Submit proof of eligibility, track your requests, and get notified when approved!</p>
-            <span class="info-status">📝 PR coming soon</span>
+            <p>A brand new Nostr-native protocol — not yet part of any NIP. Users can request badges from creators, submit proof of eligibility, track their requests, and get notified when approved.</p>
+            <a
+              class="info-link"
+              href="https://github.com/nostr-protocol/nips/pull/2204"
+              target="_blank"
+              rel="noopener noreferrer"
+            >📝 View open PR on GitHub</a>
           </div>
           <div class="kind-chips">
             <button class="kind-chip" @click="showKindInfo('30058')">
@@ -458,7 +469,7 @@ function handleBadgeClick(badge) {
 }
 
 function openLoginModal() {
-  uiStore.openModal('login')
+  uiStore.openLoginPrompt()
 }
 
 // Keyboard handler for Escape
@@ -1056,9 +1067,16 @@ onUnmounted(() => {
   background: var(--color-primary);
   color: white;
   font-size: 0.625rem;
+  text-decoration: none;
+  cursor: pointer;
   font-weight: 700;
   border-radius: var(--radius-full);
   letter-spacing: 0.05em;
+  transition: opacity 0.15s;
+}
+
+.new-tag:hover {
+  opacity: 0.85;
 }
 
 .info-btn {

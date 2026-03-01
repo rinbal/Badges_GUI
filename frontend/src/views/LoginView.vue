@@ -1130,4 +1130,17 @@ async function afterLogin() {
   color: var(--color-primary-hover);
   text-decoration: underline;
 }
+
+/* ===========================================
+   Mobile Responsive
+   =========================================== */
+@media (max-width: 480px) {
+  .login {
+    padding: 1rem 0.5rem;
+  }
+
+  .login-card {
+    padding: 1.5rem;
+  }
+}
 </style>
