@@ -49,7 +49,7 @@
            ======================================== -->
       <section v-if="activeTab === 'incoming'" class="tab-content animate-fadeIn">
         <!-- Loading State -->
-        <div v-if="(requestsStore.isLoading || !requestsStore.hasFetched) && requestsStore.incomingRequests.length === 0" class="requests-list">
+        <div v-if="(requestsStore.isLoadingIncoming || !requestsStore.hasFetched) && requestsStore.incomingRequests.length === 0" class="requests-list">
           <RequestCardSkeleton v-for="n in 3" :key="n" />
         </div>
 
@@ -106,19 +106,19 @@
           <div v-if="requestsStore.incomingHasPrev || requestsStore.incomingHasNext" class="pagination">
             <button
               class="page-btn"
-              :disabled="!requestsStore.incomingHasPrev || requestsStore.isLoading"
+              :disabled="!requestsStore.incomingHasPrev || requestsStore.isLoadingIncoming"
               @click="prevIncomingPage()"
             >
-              <Icon v-if="requestsStore.isLoading && requestsStore.incomingHasPrev" name="refresh" size="sm" :spin="true" />
+              <Icon v-if="requestsStore.isLoadingIncoming && requestsStore.incomingHasPrev" name="refresh" size="sm" :spin="true" />
               <span v-else>← Previous</span>
             </button>
             <span class="page-indicator">Page {{ requestsStore.incomingPage }}</span>
             <button
               class="page-btn"
-              :disabled="!requestsStore.incomingHasNext || requestsStore.isLoading"
+              :disabled="!requestsStore.incomingHasNext || requestsStore.isLoadingIncoming"
               @click="nextIncomingPage()"
             >
-              <Icon v-if="requestsStore.isLoading && requestsStore.incomingHasNext" name="refresh" size="sm" :spin="true" />
+              <Icon v-if="requestsStore.isLoadingIncoming && requestsStore.incomingHasNext" name="refresh" size="sm" :spin="true" />
               <span v-else>Next →</span>
             </button>
           </div>
@@ -131,7 +131,7 @@
            ======================================== -->
       <section v-else-if="activeTab === 'outgoing'" class="tab-content animate-fadeIn">
         <!-- Loading State -->
-        <div v-if="(requestsStore.isLoading || !requestsStore.hasFetched) && requestsStore.outgoingRequests.length === 0" class="requests-list">
+        <div v-if="(requestsStore.isLoadingOutgoing || !requestsStore.hasFetched) && requestsStore.outgoingRequests.length === 0" class="requests-list">
           <RequestCardSkeleton v-for="n in 3" :key="n" />
         </div>
 
@@ -140,11 +140,11 @@
           <div class="empty-icon">
             <Icon name="send" size="xl" />
           </div>
-          <h3>No sent requests</h3>
-          <p>Badge requests you send to other issuers will appear here so you can track their status.</p>
+          <h3>No badge requests sent yet</h3>
+          <p>All your badge requests appear here — pending, accepted, denied, or withdrawn — so you always have a full history.</p>
           <div class="empty-hint">
             <Icon name="info" size="sm" class="hint-icon" />
-            <span>Browse badges and request ones you'd like to earn!</span>
+            <span>Browse badges on the Surf tab and tap "Request Badge" to apply for ones you'd like to earn.</span>
           </div>
         </div>
 
@@ -183,19 +183,19 @@
           <div v-if="requestsStore.outgoingHasPrev || requestsStore.outgoingHasNext" class="pagination">
             <button
               class="page-btn"
-              :disabled="!requestsStore.outgoingHasPrev || requestsStore.isLoading"
+              :disabled="!requestsStore.outgoingHasPrev || requestsStore.isLoadingOutgoing"
               @click="prevOutgoingPage()"
             >
-              <Icon v-if="requestsStore.isLoading && requestsStore.outgoingHasPrev" name="refresh" size="sm" :spin="true" />
+              <Icon v-if="requestsStore.isLoadingOutgoing && requestsStore.outgoingHasPrev" name="refresh" size="sm" :spin="true" />
               <span v-else>← Previous</span>
             </button>
             <span class="page-indicator">Page {{ requestsStore.outgoingPage }}</span>
             <button
               class="page-btn"
-              :disabled="!requestsStore.outgoingHasNext || requestsStore.isLoading"
+              :disabled="!requestsStore.outgoingHasNext || requestsStore.isLoadingOutgoing"
               @click="nextOutgoingPage()"
             >
-              <Icon v-if="requestsStore.isLoading && requestsStore.outgoingHasNext" name="refresh" size="sm" :spin="true" />
+              <Icon v-if="requestsStore.isLoadingOutgoing && requestsStore.outgoingHasNext" name="refresh" size="sm" :spin="true" />
               <span v-else>Next →</span>
             </button>
           </div>

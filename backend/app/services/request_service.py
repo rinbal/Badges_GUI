@@ -604,20 +604,34 @@ class RequestService:
         """
         Get a lightweight count of incoming requests.
 
-        Does not perform full enrichment — skips proof verification, badge info, etc.
-        Returns total active (non-withdrawn) count. State breakdown is approximated
-        (all active counted as pending) for speed; the full tab load provides accurate state.
+        Queries active requests, denials, and awards in parallel to compute
+        an accurate pending count without full per-request enrichment.
         """
         if not self.user_hex:
             return {"count": 0, "pending_count": 0}
 
-        filter_params = {
-            "kinds": [KIND_BADGE_REQUEST],
-            "#p": [self.user_hex],
-            "limit": 100
-        }
+        raw, denial_results, award_results = await asyncio.gather(
+            self._query_multiple_relays(
+                {"kinds": [KIND_BADGE_REQUEST], "#p": [self.user_hex], "limit": 100},
+                "in_req_count"
+            ),
+            self._query_multiple_relays(
+                {"kinds": [KIND_BADGE_DENIAL], "authors": [self.user_hex], "limit": 200},
+                "in_req_denials_count"
+            ),
+            self._query_multiple_relays(
+                {"kinds": [KIND_BADGE_AWARD], "authors": [self.user_hex], "limit": 200},
+                "in_req_awards_count"
+            ),
+            return_exceptions=True
+        )
 
-        raw = await self._query_multiple_relays(filter_params, "in_req_count")
+        if isinstance(raw, Exception):
+            raw = []
+        if isinstance(denial_results, Exception):
+            denial_results = []
+        if isinstance(award_results, Exception):
+            award_results = []
 
         active = [
             req for req in raw
@@ -627,7 +641,41 @@ class RequestService:
             )
         ]
 
-        return {"count": len(active), "pending_count": len(active)}
+        if not active:
+            return {"count": 0, "pending_count": 0}
+
+        # Build set of denied request IDs (skip revoked denials)
+        denied_request_ids = set()
+        for denial in denial_results:
+            dtags = denial.get("tags", [])
+            if any(tag[0] == "status" and tag[1] == "revoked" for tag in dtags):
+                continue
+            e_tag = next((tag[1] for tag in dtags if tag[0] == "e"), None)
+            if e_tag:
+                denied_request_ids.add(e_tag)
+
+        # Build set of (badge_a_tag, requester_pubkey) pairs that are fulfilled
+        awarded_pairs = set()
+        for award in award_results:
+            atags = award.get("tags", [])
+            a_tag = next((tag[1] for tag in atags if tag[0] == "a"), None)
+            if a_tag:
+                for tag in atags:
+                    if tag[0] == "p":
+                        awarded_pairs.add((a_tag, tag[1]))
+
+        # Pending = active requests that are neither denied nor fulfilled
+        pending_count = 0
+        for req in active:
+            if req["id"] in denied_request_ids:
+                continue
+            rtags = req.get("tags", [])
+            badge_a_tag = next((tag[1] for tag in rtags if tag[0] == "a"), None)
+            if badge_a_tag and (badge_a_tag, req["pubkey"]) in awarded_pairs:
+                continue
+            pending_count += 1
+
+        return {"count": len(active), "pending_count": pending_count}
 
     # =========================================================================
     # Request Enrichment
@@ -637,8 +685,7 @@ class RequestService:
         """Enrich an outgoing request with badge and issuer info"""
         tags = request.get("tags", [])
 
-        if any(tag[0] == "status" and tag[1] == "withdrawn" for tag in tags):
-            return None  # Don't show withdrawn requests
+        is_withdrawn = any(tag[0] == "status" and tag[1] == "withdrawn" for tag in tags)
 
         badge_a_tag = next((tag[1] for tag in tags if tag[0] == "a"), None)
         if not badge_a_tag:
@@ -648,6 +695,35 @@ class RequestService:
             _, issuer_hex, identifier = badge_a_tag.split(":")
         except ValueError:
             return None
+
+        issuer_npub = PublicKey(bytes.fromhex(issuer_hex)).bech32()
+
+        if is_withdrawn:
+            # Withdrawn requests: fetch only badge/issuer info, skip state determination
+            results = await asyncio.gather(
+                self._get_badge_info(issuer_hex, identifier),
+                self._get_profile_info(issuer_hex),
+                return_exceptions=True
+            )
+            badge_info = results[0] if isinstance(results[0], dict) else {"name": "", "description": "", "image": ""}
+            issuer_info = results[1] if isinstance(results[1], dict) else {"name": "", "picture": ""}
+            return {
+                "event_id": request["id"],
+                "badge_a_tag": badge_a_tag,
+                "badge_name": badge_info["name"],
+                "badge_description": badge_info["description"],
+                "badge_image": badge_info["image"],
+                "issuer_pubkey": issuer_hex,
+                "issuer_npub": issuer_npub,
+                "issuer_name": issuer_info["name"],
+                "issuer_picture": issuer_info["picture"],
+                "content": request.get("content", ""),
+                "proofs": [],
+                "state": "withdrawn",
+                "created_at": request["created_at"],
+                "denial_reason": None,
+                "denial_created_at": None
+            }
 
         proof_tags = [tag for tag in tags if tag[0] == "proof"]
 
@@ -681,8 +757,6 @@ class RequestService:
             if denial_info:
                 denial_reason = denial_info.get("reason")
                 denial_created_at = denial_info.get("created_at")
-
-        issuer_npub = PublicKey(bytes.fromhex(issuer_hex)).bech32()
 
         return {
             "event_id": request["id"],
@@ -945,10 +1019,9 @@ class RequestService:
         event_id: str,
         requester_pubkey: str
     ) -> Dict:
-        """Verify a note proof (kind 1)"""
+        """Fetch a note proof event (any kind) for display"""
         filter_params = {
             "ids": [event_id],
-            "kinds": [KIND_NOTE],
             "limit": 1
         }
 
