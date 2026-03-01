@@ -15,3 +15,4 @@ wheel
 
 # Web framework utilities (if needed for web interfaces)
 werkzeug
+httpx

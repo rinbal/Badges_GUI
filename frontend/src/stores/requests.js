@@ -47,7 +47,9 @@ export const useRequestsStore = defineStore('requests', () => {
 
   // ── Loading state ────────────────────────────────────────────────────────
 
-  const isLoading = ref(false)
+  const isLoadingIncoming = ref(false)
+  const isLoadingOutgoing = ref(false)
+  const isLoading = computed(() => isLoadingIncoming.value || isLoadingOutgoing.value)
   const hasFetched = ref(false)
   const error = ref(null)
 
@@ -83,7 +85,7 @@ export const useRequestsStore = defineStore('requests', () => {
   // ── Internal page fetcher ────────────────────────────────────────────────
 
   async function _fetchIncomingPage(page) {
-    isLoading.value = true
+    isLoadingIncoming.value = true
     error.value = null
     try {
       const cursor = incomingCursors.value[page - 1]
@@ -97,18 +99,16 @@ export const useRequestsStore = defineStore('requests', () => {
       if (response.data.has_more && incomingCursors.value.length <= page) {
         incomingCursors.value.push(response.data.next_until)
       }
-
-      pendingCount.value = response.data.requests.filter(r => r.state === 'pending').length
     } catch (err) {
       error.value = err.response?.data?.detail || err.message
       console.error('Failed to fetch incoming requests:', err)
     } finally {
-      isLoading.value = false
+      isLoadingIncoming.value = false
     }
   }
 
   async function _fetchOutgoingPage(page) {
-    isLoading.value = true
+    isLoadingOutgoing.value = true
     error.value = null
     try {
       const cursor = outgoingCursors.value[page - 1]
@@ -125,7 +125,7 @@ export const useRequestsStore = defineStore('requests', () => {
       error.value = err.response?.data?.detail || err.message
       console.error('Failed to fetch outgoing requests:', err)
     } finally {
-      isLoading.value = false
+      isLoadingOutgoing.value = false
     }
   }
 
@@ -147,30 +147,31 @@ export const useRequestsStore = defineStore('requests', () => {
 
   /** Navigate to next page of incoming requests */
   async function nextIncomingPage() {
-    if (!incomingHasNext.value || isLoading.value) return
+    if (!incomingHasNext.value || isLoadingIncoming.value) return
     await _fetchIncomingPage(incomingPage.value + 1)
   }
 
   /** Navigate to previous page of incoming requests */
   async function prevIncomingPage() {
-    if (!incomingHasPrev.value || isLoading.value) return
+    if (!incomingHasPrev.value || isLoadingIncoming.value) return
     await _fetchIncomingPage(incomingPage.value - 1)
   }
 
   /** Navigate to next page of outgoing requests */
   async function nextOutgoingPage() {
-    if (!outgoingHasNext.value || isLoading.value) return
+    if (!outgoingHasNext.value || isLoadingOutgoing.value) return
     await _fetchOutgoingPage(outgoingPage.value + 1)
   }
 
   /** Navigate to previous page of outgoing requests */
   async function prevOutgoingPage() {
-    if (!outgoingHasPrev.value || isLoading.value) return
+    if (!outgoingHasPrev.value || isLoadingOutgoing.value) return
     await _fetchOutgoingPage(outgoingPage.value - 1)
   }
 
   /** Fetch both tabs in parallel (used on mount) */
   async function fetchAll() {
+    hasFetched.value = false
     await Promise.all([
       fetchOutgoingRequests(),
       fetchIncomingRequests()
@@ -384,6 +385,8 @@ export const useRequestsStore = defineStore('requests', () => {
     outgoingPage.value = 1
     outgoingCursors.value = [null]
     outgoingHasNext.value = false
+    isLoadingIncoming.value = false
+    isLoadingOutgoing.value = false
     hasFetched.value = false
     error.value = null
   }
@@ -401,6 +404,8 @@ export const useRequestsStore = defineStore('requests', () => {
     outgoingHasNext,
     outgoingHasPrev,
     isLoading,
+    isLoadingIncoming,
+    isLoadingOutgoing,
     hasFetched,
     error,
 
