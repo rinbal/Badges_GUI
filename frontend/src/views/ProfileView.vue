@@ -234,8 +234,10 @@ onMounted(() => {
   loadProfile()
 })
 
-watch(() => route.params.pubkey, () => {
-  loadProfile()
+watch(() => route.params.pubkey, (newPubkey) => {
+  if (newPubkey !== undefined) {
+    loadProfile()
+  }
 })
 
 // ===========================================

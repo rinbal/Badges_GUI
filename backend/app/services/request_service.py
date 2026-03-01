@@ -1019,10 +1019,9 @@ class RequestService:
         event_id: str,
         requester_pubkey: str
     ) -> Dict:
-        """Verify a note proof (kind 1)"""
+        """Fetch a note proof event (any kind) for display"""
         filter_params = {
             "ids": [event_id],
-            "kinds": [KIND_NOTE],
             "limit": 1
         }
 

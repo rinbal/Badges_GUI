@@ -23,28 +23,45 @@
 
             <div class="proof-body">
               <div class="proof-top">
-                <span class="proof-type-label">{{ proof.proof_type === 'zap' ? 'Zap' : 'Note' }}</span>
-                <span class="proof-status" :class="proof.verified ? 'verified' : 'unverified'">
-                  <IconCheck v-if="proof.verified" :size="11" />
-                  <IconAlertTriangle v-else :size="11" />
-                  {{ proof.verified ? 'Verified' : 'Unverified' }}
+                <span class="proof-type-label">
+                  {{ proof.proof_type === 'zap' ? 'Zap Receipt' : 'Nostr Note' }}
                 </span>
+                <a
+                  :href="`https://njump.me/${proof.event_id}`"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="view-link"
+                >
+                  Open on Nostr
+                  <IconExternalLink :size="11" />
+                </a>
               </div>
 
+              <!-- Zap: amount + sender -->
               <p v-if="proof.proof_type === 'zap' && proof.amount_sats" class="proof-detail">
                 {{ proof.amount_sats.toLocaleString() }} sats
-                <span v-if="proof.sender_name" class="proof-from"> · {{ proof.sender_name }}</span>
+                <span v-if="proof.sender_name" class="proof-from"> · from {{ proof.sender_name }}</span>
               </p>
+
+              <!-- Note: content preview -->
               <p v-else-if="proof.proof_type !== 'zap' && proof.content" class="proof-detail">
                 {{ proof.content }}
               </p>
 
-              <p v-if="proof.error" class="proof-error">{{ proof.error }}</p>
+              <!-- Preview unavailable — always has the link above as fallback -->
+              <p v-else class="proof-unavailable">
+                Preview not available — open on Nostr to review
+              </p>
 
               <span v-if="proof.created_at" class="proof-time">{{ formatTime(proof.created_at) }}</span>
             </div>
 
           </div>
+        </div>
+
+        <div class="popup-footer">
+          <IconInfoCircle :size="13" class="footer-icon" />
+          <span>Open each link to review the proof manually</span>
         </div>
 
       </div>
@@ -59,8 +76,8 @@ import {
   IconX,
   IconBolt,
   IconFileText,
-  IconCheck,
-  IconAlertTriangle
+  IconExternalLink,
+  IconInfoCircle
 } from '@tabler/icons-vue'
 
 defineProps({
@@ -105,7 +122,7 @@ function formatTime(ts) {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   width: 100%;
-  max-width: 400px;
+  max-width: 420px;
   max-height: 80vh;
   display: flex;
   flex-direction: column;
@@ -118,6 +135,7 @@ function formatTime(ts) {
   justify-content: space-between;
   padding: 1rem 1.25rem;
   border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
 }
 
 .popup-title {
@@ -153,12 +171,13 @@ function formatTime(ts) {
   display: flex;
   flex-direction: column;
   gap: 0.625rem;
+  flex: 1;
 }
 
 .proof-item {
   display: flex;
   gap: 0.75rem;
-  padding: 0.75rem;
+  padding: 0.875rem;
   background: var(--color-surface-elevated);
   border-radius: var(--radius-md);
 }
@@ -171,6 +190,7 @@ function formatTime(ts) {
   height: 36px;
   border-radius: var(--radius-md);
   flex-shrink: 0;
+  margin-top: 0.125rem;
 }
 .proof-icon.zap {
   background: rgba(250, 200, 0, 0.12);
@@ -186,12 +206,13 @@ function formatTime(ts) {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 0.375rem;
 }
 
 .proof-top {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 0.5rem;
 }
 
@@ -201,29 +222,30 @@ function formatTime(ts) {
   color: var(--color-text);
 }
 
-.proof-status {
+.view-link {
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
-  font-size: 0.6875rem;
+  font-size: 0.75rem;
   font-weight: 500;
-  padding: 0.125rem 0.5rem;
+  color: var(--color-primary);
+  text-decoration: none;
+  padding: 0.2rem 0.5rem;
   border-radius: var(--radius-full);
+  background: var(--color-primary-soft);
+  transition: opacity 0.15s;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
-.proof-status.verified {
-  background: var(--color-success-soft);
-  color: var(--color-success);
-}
-.proof-status.unverified {
-  background: var(--color-warning-soft);
-  color: var(--color-warning);
+.view-link:hover {
+  opacity: 0.8;
 }
 
 .proof-detail {
   margin: 0;
   font-size: 0.8125rem;
   color: var(--color-text-secondary);
-  line-height: 1.4;
+  line-height: 1.5;
   word-break: break-word;
 }
 
@@ -231,14 +253,31 @@ function formatTime(ts) {
   color: var(--color-text-muted);
 }
 
-.proof-error {
+.proof-unavailable {
   margin: 0;
   font-size: 0.75rem;
-  color: var(--color-danger);
+  color: var(--color-text-muted);
+  font-style: italic;
 }
 
 .proof-time {
   font-size: 0.6875rem;
+  color: var(--color-text-muted);
+}
+
+.popup-footer {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.75rem 1.25rem;
+  border-top: 1px solid var(--color-border);
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+.footer-icon {
+  flex-shrink: 0;
   color: var(--color-text-muted);
 }
 </style>
