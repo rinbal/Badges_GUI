@@ -370,7 +370,11 @@ export const api = {
    * @param {number} limit - Maximum number of results
    */
   searchProfiles: (query, limit = 10) =>
-    apiClient.get('/profile/search', { params: { q: query, limit } })
+    apiClient.get('/profile/search', { params: { q: query, limit } }),
+
+  // Blossom Media
+  blossomList: (server, pubkey, auth) =>
+    apiClient.post('/blossom/list', { server, pubkey, auth })
 }
 
 export default apiClient

@@ -8,6 +8,7 @@
         </transition>
       </router-view>
     </main>
+    <PwaInstallBanner />
     <ToastContainer />
     <GlobalModals />
   </div>
@@ -16,6 +17,7 @@
 <script setup>
 import { onMounted } from 'vue'
 import AppHeader from '@/components/common/AppHeader.vue'
+import PwaInstallBanner from '@/components/common/PwaInstallBanner.vue'
 import ToastContainer from '@/components/common/ToastContainer.vue'
 import GlobalModals from '@/components/shared/GlobalModals.vue'
 import { useAuthStore } from '@/stores/auth'

@@ -14,6 +14,15 @@
           <Icon name="sparkles" size="md" class="nav-icon" />
           <span class="nav-text">Create</span>
         </router-link>
+        <router-link
+          v-if="authStore.isAuthenticated"
+          to="/media"
+          class="nav-link"
+          title="Upload and manage media"
+        >
+          <Icon name="photo" size="md" class="nav-icon" />
+          <span class="nav-text">Media</span>
+        </router-link>
         <router-link to="/inbox" class="nav-link" title="View your badges">
           <Icon name="inbox" size="md" class="nav-icon" />
           <span class="nav-text">Inbox</span>
@@ -152,6 +161,11 @@ watch(() => authStore.isAuthenticated, (isAuth) => {
 .nav-link[href="/creator"].router-link-active {
   background: var(--color-success-soft, rgba(34, 197, 94, 0.1));
   color: var(--color-success, #22c55e);
+}
+
+.nav-link[href="/media"].router-link-active {
+  background: rgba(236, 72, 153, 0.1);
+  color: #ec4899;
 }
 
 .nav-link[href="/inbox"].router-link-active {

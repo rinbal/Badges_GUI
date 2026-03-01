@@ -60,7 +60,14 @@ import {
   IconLoader2,
   IconLayoutGrid,
   IconEye,
-  IconEyeOff
+  IconEyeOff,
+  IconDownload,
+  IconDeviceMobile,
+  IconRocket,
+  IconSortDescending,
+  IconPlayerPlay,
+  IconServer,
+  IconMaximize
 } from '@tabler/icons-vue'
 
 const props = defineProps({
@@ -173,7 +180,14 @@ const icons = {
   'sparkles': IconSparkles,
   'loader': IconLoader2,
   'eye': IconEye,
-  'eye-off': IconEyeOff
+  'eye-off': IconEyeOff,
+  'download': IconDownload,
+  'device-mobile': IconDeviceMobile,
+  'rocket': IconRocket,
+  'sort-descending': IconSortDescending,
+  'player-play': IconPlayerPlay,
+  'server': IconServer,
+  'maximize': IconMaximize
 }
 
 const iconComponent = computed(() => {

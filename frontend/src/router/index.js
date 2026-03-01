@@ -19,6 +19,12 @@ const routes = [
     meta: { requiresAuth: true }
   },
   {
+    path: '/media',
+    name: 'media',
+    component: () => import('@/views/MediaView.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
     path: '/inbox',
     name: 'inbox',
     component: () => import('@/views/InboxView.vue'),
