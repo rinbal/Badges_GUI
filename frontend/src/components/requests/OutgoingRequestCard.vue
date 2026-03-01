@@ -45,11 +45,17 @@
 
     <!-- Proofs -->
     <div v-if="request.proofs && request.proofs.length > 0" class="proofs-section">
-      <span class="proofs-label">
+      <button class="proofs-label" @click="showProofs = true">
         <IconLink :size="14" />
         {{ request.proofs.length }} proof{{ request.proofs.length !== 1 ? 's' : '' }} attached
-      </span>
+      </button>
     </div>
+
+    <ProofsPopup
+      v-if="showProofs"
+      :proofs="request.proofs"
+      @close="showProofs = false"
+    />
 
     <!-- State and Time -->
     <div class="meta-section">
@@ -87,6 +93,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import UserAvatar from '@/components/shared/UserAvatar.vue'
+import ProofsPopup from './ProofsPopup.vue'
 import {
   IconAward,
   IconChevronRight,
@@ -113,6 +120,7 @@ const props = defineProps({
 defineEmits(['withdraw', 'view-badge', 'view-issuer'])
 
 const badgeImageError = ref(false)
+const showProofs = ref(false)
 
 const truncatedMessage = computed(() => {
   const msg = props.request.content || ''
@@ -356,6 +364,12 @@ function formatTime(timestamp) {
   border-radius: var(--radius-full);
   font-size: 0.75rem;
   font-weight: 500;
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.proofs-label:hover {
+  opacity: 0.8;
 }
 
 /* Meta Section */

@@ -124,7 +124,15 @@
                 <span>Loading holders...</span>
               </div>
 
-              <div v-else-if="!badge.holders || badge.holders.length === 0" class="no-holders">
+              <div v-else-if="badge.holders === null" class="no-holders fetch-error">
+                <p>Oops, couldn't load — relays seem busy right now. Come try again in a few minutes.</p>
+                <button class="btn-small" @click="loadHolders(badge)">
+                  <Icon name="refresh" size="sm" />
+                  Try Again
+                </button>
+              </div>
+
+              <div v-else-if="badge.holders && badge.holders.length === 0" class="no-holders">
                 <p>No recipients yet</p>
                 <button class="btn-small" @click="openReissue(badge)">
                   <Icon name="send" size="sm" />
@@ -272,7 +280,7 @@ import { api } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
 import { useUIStore } from '@/stores/ui'
 import { useBadgesStore } from '@/stores/badges'
-import { createDeletionEvent, signEvent } from '@/utils/nip07'
+import { createDeletionEvent } from '@/utils/nip07'
 import Icon from '@/components/common/Icon.vue'
 import UserAvatar from '@/components/shared/UserAvatar.vue'
 import RecipientInput from '@/components/common/RecipientInput.vue'
@@ -359,6 +367,7 @@ async function loadHolders(badge) {
     badge.holder_count = response.data.total_count || 0
   } catch (err) {
     console.error('Failed to load holders:', err)
+    badge.holders = null
   } finally {
     loadingHolders.delete(badge.a_tag)
   }
@@ -431,8 +440,8 @@ async function confirmDelete() {
   try {
     let signedDeletionEvent = null
 
-    if (auth.isNip07) {
-      // NIP-07: fetch event IDs from backend, sign deletion client-side
+    if (auth.isClientSigning) {
+      // Client-signing (NIP-07/Amber): fetch event IDs from backend, sign deletion client-side
       const eventsRes = await api.getBadgeEventsForDeletion(badge.a_tag)
       const { event_ids } = eventsRes.data
 
@@ -442,7 +451,7 @@ async function confirmDelete() {
       }
 
       const unsignedEvent = createDeletionEvent(event_ids, [badge.a_tag], 'Badge deleted by issuer')
-      signedDeletionEvent = await signEvent(unsignedEvent)
+      signedDeletionEvent = await auth.signEvent(unsignedEvent)
 
       if (!signedDeletionEvent) {
         ui.showError('Signing was rejected')
@@ -844,6 +853,10 @@ onMounted(() => {
 .no-holders p {
   margin: 0 0 1rem;
   font-size: 0.875rem;
+}
+
+.no-holders.fetch-error p {
+  color: var(--color-danger, #e53e3e);
 }
 
 .btn-small {

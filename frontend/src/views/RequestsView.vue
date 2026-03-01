@@ -101,6 +101,27 @@
           <div v-if="filteredIncoming.length === 0" class="no-results">
             <p>No {{ incomingFilter }} requests</p>
           </div>
+
+          <!-- Pagination -->
+          <div v-if="requestsStore.incomingHasPrev || requestsStore.incomingHasNext" class="pagination">
+            <button
+              class="page-btn"
+              :disabled="!requestsStore.incomingHasPrev || requestsStore.isLoading"
+              @click="prevIncomingPage()"
+            >
+              <Icon v-if="requestsStore.isLoading && requestsStore.incomingHasPrev" name="refresh" size="sm" :spin="true" />
+              <span v-else>← Previous</span>
+            </button>
+            <span class="page-indicator">Page {{ requestsStore.incomingPage }}</span>
+            <button
+              class="page-btn"
+              :disabled="!requestsStore.incomingHasNext || requestsStore.isLoading"
+              @click="nextIncomingPage()"
+            >
+              <Icon v-if="requestsStore.isLoading && requestsStore.incomingHasNext" name="refresh" size="sm" :spin="true" />
+              <span v-else>Next →</span>
+            </button>
+          </div>
         </template>
       </section>
 
@@ -156,6 +177,27 @@
 
           <div v-if="filteredOutgoing.length === 0" class="no-results">
             <p>No {{ outgoingFilter }} requests</p>
+          </div>
+
+          <!-- Pagination -->
+          <div v-if="requestsStore.outgoingHasPrev || requestsStore.outgoingHasNext" class="pagination">
+            <button
+              class="page-btn"
+              :disabled="!requestsStore.outgoingHasPrev || requestsStore.isLoading"
+              @click="prevOutgoingPage()"
+            >
+              <Icon v-if="requestsStore.isLoading && requestsStore.outgoingHasPrev" name="refresh" size="sm" :spin="true" />
+              <span v-else>← Previous</span>
+            </button>
+            <span class="page-indicator">Page {{ requestsStore.outgoingPage }}</span>
+            <button
+              class="page-btn"
+              :disabled="!requestsStore.outgoingHasNext || requestsStore.isLoading"
+              @click="nextOutgoingPage()"
+            >
+              <Icon v-if="requestsStore.isLoading && requestsStore.outgoingHasNext" name="refresh" size="sm" :spin="true" />
+              <span v-else>Next →</span>
+            </button>
           </div>
         </template>
       </section>
@@ -279,6 +321,34 @@ async function handleWithdraw(request) {
   } else {
     uiStore.showError(result.error || 'Failed to withdraw request')
   }
+}
+
+// ===========================================
+// Pagination helpers
+// ===========================================
+
+function scrollTop() {
+  window.scrollTo({ top: 0, behavior: 'smooth' })
+}
+
+async function prevIncomingPage() {
+  await requestsStore.prevIncomingPage()
+  scrollTop()
+}
+
+async function nextIncomingPage() {
+  await requestsStore.nextIncomingPage()
+  scrollTop()
+}
+
+async function prevOutgoingPage() {
+  await requestsStore.prevOutgoingPage()
+  scrollTop()
+}
+
+async function nextOutgoingPage() {
+  await requestsStore.nextOutgoingPage()
+  scrollTop()
 }
 
 // ===========================================
@@ -495,6 +565,43 @@ function viewBadge(request) {
   text-align: center;
   padding: 3rem 1rem;
   color: var(--color-text-muted);
+}
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 1.5rem 0 0.5rem;
+}
+
+.page-btn {
+  padding: 0.5rem 1.25rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.page-btn:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.page-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.page-indicator {
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+  min-width: 60px;
+  text-align: center;
 }
 
 /* ===========================================

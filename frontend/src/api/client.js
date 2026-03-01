@@ -29,8 +29,8 @@ apiClient.interceptors.request.use(
     if (authStore.isNsec && authStore.nsec) {
       // nsec flow: send private key for backend signing
       config.headers['X-Nsec'] = authStore.nsec
-    } else if (authStore.isNip07 && authStore.hex) {
-      // NIP-07 flow: send pubkey for identification (read operations)
+    } else if (authStore.isClientSigning && authStore.hex) {
+      // NIP-07 / Amber flow: send pubkey for identification (read operations)
       config.headers['X-Pubkey'] = authStore.hex
     }
 
@@ -211,16 +211,26 @@ export const api = {
     }),
 
   /**
-   * Get outgoing badge requests (requests you sent)
+   * Get outgoing badge requests (requests you sent), paginated
+   * @param {Object} options
+   * @param {number} [options.limit=10] - Page size
+   * @param {number|null} [options.until] - created_at cursor for next page
    */
-  getOutgoingRequests: () =>
-    apiClient.get('/requests/outgoing'),
+  getOutgoingRequests: ({ limit = 10, until = null } = {}) =>
+    apiClient.get('/requests/outgoing', {
+      params: { limit, ...(until && { until }) }
+    }),
 
   /**
-   * Get incoming badge requests (requests for your badges)
+   * Get incoming badge requests (requests for your badges), paginated
+   * @param {Object} options
+   * @param {number} [options.limit=10] - Page size
+   * @param {number|null} [options.until] - created_at cursor for next page
    */
-  getIncomingRequests: () =>
-    apiClient.get('/requests/incoming'),
+  getIncomingRequests: ({ limit = 10, until = null } = {}) =>
+    apiClient.get('/requests/incoming', {
+      params: { limit, ...(until && { until }) }
+    }),
 
   /**
    * Get count of incoming badge requests

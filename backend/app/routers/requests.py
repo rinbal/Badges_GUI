@@ -7,7 +7,7 @@ Supports two authentication flows:
 """
 
 from typing import List, Optional
-from fastapi import APIRouter, HTTPException, Header
+from fastapi import APIRouter, HTTPException, Header, Query
 from ..models.badge_requests import (
     CreateBadgeRequestRequest,
     WithdrawBadgeRequestRequest,
@@ -15,6 +15,7 @@ from ..models.badge_requests import (
     RevokeDenialRequest,
     AwardFromRequestRequest,
     BadgeRequestResponse,
+    PaginatedBadgeRequestsResponse,
     CreateBadgeRequestResponse,
     WithdrawBadgeRequestResponse,
     DenyBadgeRequestResponse,
@@ -169,15 +170,18 @@ async def withdraw_badge_request(
     )
 
 
-@router.get("/outgoing", response_model=List[BadgeRequestResponse])
+@router.get("/outgoing", response_model=PaginatedBadgeRequestsResponse)
 async def get_outgoing_requests(
+    limit: int = Query(20, ge=1, le=100, description="Number of requests per page"),
+    until: Optional[int] = Query(None, description="created_at cursor for pagination (exclusive)"),
     x_nsec: Optional[str] = Header(None),
     x_pubkey: Optional[str] = Header(None)
 ):
     """
-    Get outgoing badge requests (requests you have sent)
+    Get outgoing badge requests (requests you have sent), paginated.
 
-    Returns list of badge requests with their current state (pending/fulfilled/denied).
+    Returns up to `limit` most recent requests. If `has_more` is true,
+    pass `next_until` as the `until` parameter to load the next page.
     """
     nsec, pubkey_hex, is_nip07 = get_auth_context(x_nsec, x_pubkey)
 
@@ -186,41 +190,51 @@ async def get_outgoing_requests(
     else:
         request_service = RequestService(nsec)
 
-    requests = await request_service.get_outgoing_requests()
+    page = await request_service.get_outgoing_requests(limit=limit, until=until)
 
-    return [BadgeRequestResponse(
-        event_id=r["event_id"],
-        badge_a_tag=r["badge_a_tag"],
-        badge_name=r["badge_name"],
-        badge_description=r.get("badge_description"),
-        badge_image=r.get("badge_image"),
-        issuer_pubkey=r.get("issuer_pubkey"),
-        issuer_npub=r.get("issuer_npub"),
-        issuer_name=r.get("issuer_name"),
-        issuer_picture=r.get("issuer_picture"),
-        content=r.get("content", ""),
-        proofs=[ProofInfo(**p) for p in r.get("proofs", [])],
-        state=r.get("state", "pending"),
-        created_at=r["created_at"],
-        denial_reason=r.get("denial_reason"),
-        denial_created_at=r.get("denial_created_at")
-    ) for r in requests]
+    return PaginatedBadgeRequestsResponse(
+        requests=[
+            BadgeRequestResponse(
+                event_id=r["event_id"],
+                badge_a_tag=r["badge_a_tag"],
+                badge_name=r["badge_name"],
+                badge_description=r.get("badge_description"),
+                badge_image=r.get("badge_image"),
+                issuer_pubkey=r.get("issuer_pubkey"),
+                issuer_npub=r.get("issuer_npub"),
+                issuer_name=r.get("issuer_name"),
+                issuer_picture=r.get("issuer_picture"),
+                content=r.get("content", ""),
+                proofs=[ProofInfo(**p) for p in r.get("proofs", [])],
+                state=r.get("state", "pending"),
+                created_at=r["created_at"],
+                denial_reason=r.get("denial_reason"),
+                denial_created_at=r.get("denial_created_at")
+            )
+            for r in page["requests"]
+        ],
+        has_more=page["has_more"],
+        next_until=page["next_until"]
+    )
 
 
 # =============================================================================
 # Issuer Endpoints
 # =============================================================================
 
-@router.get("/incoming", response_model=List[BadgeRequestResponse])
+@router.get("/incoming", response_model=PaginatedBadgeRequestsResponse)
 async def get_incoming_requests(
+    limit: int = Query(20, ge=1, le=100, description="Number of requests per page"),
+    until: Optional[int] = Query(None, description="created_at cursor for pagination (exclusive)"),
     x_nsec: Optional[str] = Header(None),
     x_pubkey: Optional[str] = Header(None)
 ):
     """
-    Get incoming badge requests (requests for badges you created)
+    Get incoming badge requests (requests for badges you created), paginated.
 
-    Returns list of badge requests from other users for your badges.
-    Includes verified proofs (note/zap).
+    Returns up to `limit` most recent requests with full enrichment (proofs, badge info,
+    requester profile, state). If `has_more` is true, pass `next_until` as the `until`
+    parameter to load the next page.
     """
     nsec, pubkey_hex, is_nip07 = get_auth_context(x_nsec, x_pubkey)
 
@@ -229,25 +243,32 @@ async def get_incoming_requests(
     else:
         request_service = RequestService(nsec)
 
-    requests = await request_service.get_incoming_requests()
+    page = await request_service.get_incoming_requests(limit=limit, until=until)
 
-    return [BadgeRequestResponse(
-        event_id=r["event_id"],
-        badge_a_tag=r["badge_a_tag"],
-        badge_name=r["badge_name"],
-        badge_description=r.get("badge_description"),
-        badge_image=r.get("badge_image"),
-        requester_pubkey=r.get("requester_pubkey"),
-        requester_npub=r.get("requester_npub"),
-        requester_name=r.get("requester_name"),
-        requester_picture=r.get("requester_picture"),
-        content=r.get("content", ""),
-        proofs=[ProofInfo(**p) for p in r.get("proofs", [])],
-        state=r.get("state", "pending"),
-        created_at=r["created_at"],
-        denial_reason=r.get("denial_reason"),
-        denial_created_at=r.get("denial_created_at")
-    ) for r in requests]
+    return PaginatedBadgeRequestsResponse(
+        requests=[
+            BadgeRequestResponse(
+                event_id=r["event_id"],
+                badge_a_tag=r["badge_a_tag"],
+                badge_name=r["badge_name"],
+                badge_description=r.get("badge_description"),
+                badge_image=r.get("badge_image"),
+                requester_pubkey=r.get("requester_pubkey"),
+                requester_npub=r.get("requester_npub"),
+                requester_name=r.get("requester_name"),
+                requester_picture=r.get("requester_picture"),
+                content=r.get("content", ""),
+                proofs=[ProofInfo(**p) for p in r.get("proofs", [])],
+                state=r.get("state", "pending"),
+                created_at=r["created_at"],
+                denial_reason=r.get("denial_reason"),
+                denial_created_at=r.get("denial_created_at")
+            )
+            for r in page["requests"]
+        ],
+        has_more=page["has_more"],
+        next_until=page["next_until"]
+    )
 
 
 @router.get("/incoming/count", response_model=IncomingRequestsCountResponse)

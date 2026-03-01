@@ -14,9 +14,17 @@
 </template>
 
 <script setup>
+import { onMounted } from 'vue'
 import AppHeader from '@/components/common/AppHeader.vue'
 import ToastContainer from '@/components/common/ToastContainer.vue'
 import GlobalModals from '@/components/shared/GlobalModals.vue'
+import { useAuthStore } from '@/stores/auth'
+
+const authStore = useAuthStore()
+
+onMounted(() => {
+  authStore.initAuth()
+})
 </script>
 
 <style scoped>

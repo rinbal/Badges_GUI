@@ -35,19 +35,19 @@ class RelayManager:
         self.results: List[RelayResult] = []
     
     async def publish_event(self, event: Dict[str, Any], relays: List[str]) -> List[RelayResult]:
-        """Publish event to multiple relays with comprehensive diagnostics"""
-        self.results = []
-        
-        for relay in relays:
-            result = RelayResult(relay=relay)
-            self.results.append(result)
-            
+        """Publish event to all relays in parallel with comprehensive diagnostics"""
+        results = [RelayResult(relay=relay) for relay in relays]
+        self.results = results
+
+        async def _publish_one(result: RelayResult) -> None:
             try:
                 await self._publish_to_single_relay(event, result)
             except Exception as e:
                 result.error = str(e)
-                print(f"❌ Failed to publish to {relay}: {e}")
-        
+                print(f"❌ Failed to publish to {result.relay}: {e}")
+
+        await asyncio.gather(*[_publish_one(r) for r in results])
+
         return self.results
     
     async def _publish_to_single_relay(self, event: Dict[str, Any], result: RelayResult):

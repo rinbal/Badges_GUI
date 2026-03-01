@@ -2,14 +2,13 @@
   "relay_urls": [
     "wss://relay.damus.io",
     "wss://nos.lol",
-    "wss://nostr.wine",
     "wss://offchain.pub",
     "wss://relay.snort.social",
     "wss://relay.primal.net",
-    "wss://relay.nostr.band",
     "wss://relay.0xchat.com",
     "wss://relay.azzamo.net",
-    "wss://shu05.shugur.net"
+    "wss://shu05.shugur.net",
+    "wss://cache1.primal.net"
   ],
   "data_path": "badge_tool/data/",
   "definitions_path": "badge_tool/badges/definitions/",
