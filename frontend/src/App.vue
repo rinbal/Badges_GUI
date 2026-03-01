@@ -53,5 +53,11 @@ onMounted(() => {
 .fade-leave-to {
   opacity: 0;
 }
+
+@media (max-width: 480px) {
+  .main-content {
+    padding: 1rem;
+  }
+}
 </style>
 

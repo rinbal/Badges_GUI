@@ -130,6 +130,14 @@ watch(() => authStore.isAuthenticated, (isAuth) => {
   gap: 0.5rem;
 }
 
+.logo {
+  flex-shrink: 0;
+}
+
+.header-actions {
+  flex-shrink: 0;
+}
+
 .nav-link {
   display: flex;
   align-items: center;
@@ -243,13 +251,37 @@ watch(() => authStore.isAuthenticated, (isAuth) => {
   }
 
   .nav-text {
-    /* Keep text visible on mobile for better UX */
     display: inline;
     font-size: 0.8125rem;
   }
 
   .nav {
     gap: 0.25rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .header-content {
+    gap: 0.5rem;
+  }
+
+  .nav {
+    flex: 1;
+    min-width: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    flex-wrap: nowrap;
+  }
+
+  .nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .nav-link {
+    flex-shrink: 0;
+    white-space: nowrap;
   }
 }
 

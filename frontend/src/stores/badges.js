@@ -39,6 +39,7 @@ export const useBadgesStore = defineStore('badges', () => {
   const isLoading = ref(false)
   const hasFetchedPending = ref(false)
   const hasFetchedAccepted = ref(false)
+  const hasFetchedUserTemplates = ref(false)
   const error = ref(null)
 
   // Getters
@@ -115,6 +116,7 @@ export const useBadgesStore = defineStore('badges', () => {
       error.value = err.response?.data?.detail || err.message
     } finally {
       isLoading.value = false
+      hasFetchedUserTemplates.value = true
     }
   }
 
@@ -467,6 +469,7 @@ export const useBadgesStore = defineStore('badges', () => {
     acceptedBadges.value = []
     hasFetchedPending.value = false
     hasFetchedAccepted.value = false
+    hasFetchedUserTemplates.value = false
   }
 
   function clearAppTemplates() {
@@ -481,6 +484,7 @@ export const useBadgesStore = defineStore('badges', () => {
     isLoading,
     hasFetchedPending,
     hasFetchedAccepted,
+    hasFetchedUserTemplates,
     error,
 
     // Getters
