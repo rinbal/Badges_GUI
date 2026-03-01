@@ -11,28 +11,27 @@ import {
   createBadgeDefinitionEvent,
   createBadgeAwardEvent,
   createProfileBadgesEvent,
-  signEvent,
   npubToHex
 } from '@/utils/nip07'
 
 export function useEventSigning() {
   const authStore = useAuthStore()
 
-  const isNip07 = computed(() => authStore.isNip07)
+  const isClientSigning = computed(() => authStore.isClientSigning)
   const userHex = computed(() => authStore.hex)
 
   /**
    * Sign a badge definition event
    * @param {Object} badge - Badge data { identifier, name, description, image }
-   * @returns {Promise<Object|null>} - Signed event for NIP-07, null for nsec
+   * @returns {Promise<Object|null>} - Signed event for client-signing (NIP-07/Amber), null for nsec
    */
   async function signBadgeDefinition(badge) {
-    if (!isNip07.value) {
+    if (!isClientSigning.value) {
       return null // Backend will sign
     }
 
     const unsignedEvent = createBadgeDefinitionEvent(badge)
-    return await signEvent(unsignedEvent)
+    return await authStore.signEvent(unsignedEvent)
   }
 
   /**
@@ -42,7 +41,7 @@ export function useEventSigning() {
    * @returns {Promise<Object|null>} - Signed event for NIP-07, null for nsec
    */
   async function signBadgeAward(aTag, recipients) {
-    if (!isNip07.value) {
+    if (!isClientSigning.value) {
       return null // Backend will sign
     }
 
@@ -55,7 +54,7 @@ export function useEventSigning() {
     })
 
     const unsignedEvent = createBadgeAwardEvent(aTag, hexRecipients)
-    return await signEvent(unsignedEvent)
+    return await authStore.signEvent(unsignedEvent)
   }
 
   /**
@@ -65,7 +64,7 @@ export function useEventSigning() {
    * @returns {Promise<{definitionEvent: Object|null, awardEvent: Object|null}>}
    */
   async function signBadgeDefinitionAndAward(badge, recipients) {
-    if (!isNip07.value) {
+    if (!isClientSigning.value) {
       return { definitionEvent: null, awardEvent: null }
     }
 
@@ -93,16 +92,16 @@ export function useEventSigning() {
    * @returns {Promise<Object|null>} - Signed event for NIP-07, null for nsec
    */
   async function signProfileBadges(badgeTags) {
-    if (!isNip07.value) {
+    if (!isClientSigning.value) {
       return null // Backend will sign
     }
 
     const unsignedEvent = createProfileBadgesEvent(badgeTags)
-    return await signEvent(unsignedEvent)
+    return await authStore.signEvent(unsignedEvent)
   }
 
   return {
-    isNip07,
+    isClientSigning,
     userHex,
     signBadgeDefinition,
     signBadgeAward,

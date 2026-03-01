@@ -223,6 +223,13 @@ class AwardFromRequestResponse(BaseModel):
     error: Optional[str] = None
 
 
+class PaginatedBadgeRequestsResponse(BaseModel):
+    """Paginated response for badge request listings"""
+    requests: List[BadgeRequestResponse]
+    has_more: bool = False
+    next_until: Optional[int] = None  # created_at cursor for the next page
+
+
 class IncomingRequestsCountResponse(BaseModel):
     """Response for incoming requests count"""
     count: int

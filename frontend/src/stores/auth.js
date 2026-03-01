@@ -1,6 +1,10 @@
 /**
  * Auth Store - Manages authentication state and user profile
- * Supports both NIP-07 browser extension and raw nsec authentication
+ *
+ * Supports three auth methods:
+ * - nip07:  Browser extension (nos2x, Alby) — signs in browser
+ * - nsec:   Private key entered manually — backend signs
+ * - amber:  Amber Android app via NIP-46 remote signing — signs on phone
  */
 
 import { defineStore } from 'pinia'
@@ -12,10 +16,29 @@ import {
   getPublicKey as getNip07PublicKey,
   signEvent as nip07SignEvent
 } from '@/utils/nip07'
+import { generateSecretKey, getPublicKey, nip19, SimplePool } from 'nostr-tools'
+import { BunkerSigner, parseBunkerInput } from 'nostr-tools/nip46'
+
+// ── NIP-46 config ─────────────────────────────────────────────────────────────
+// Relays used for the NIP-46 handshake between BadgeBox and Amber.
+// All relays are included in the nostrconnect:// URI so Amber subscribes to all
+// of them. Signing requests go through whichever relay responds first, giving
+// redundancy if one relay is down or slow.
+const NIP46_RELAYS = [
+  'wss://relay.damus.io',
+  'wss://relay.nostr.band',
+  'wss://nos.lol'
+]
+
+// Module-level signer instance — not reactive (Pinia can't wrap WebSocket objects)
+let _bunkerSigner = null
+let _bunkerPool = null
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 export const useAuthStore = defineStore('auth', () => {
   // State - Authentication
-  const authMethod = ref(sessionStorage.getItem('authMethod') || null) // 'nip07' | 'nsec' | null
+  const authMethod = ref(sessionStorage.getItem('authMethod') || null) // 'nip07' | 'nsec' | 'amber' | null
   const nsec = ref(sessionStorage.getItem('nsec') || null)
   const npub = ref(sessionStorage.getItem('npub') || null)
   const hex = ref(sessionStorage.getItem('hex') || null)
@@ -26,11 +49,20 @@ export const useAuthStore = defineStore('auth', () => {
   const isLoading = ref(false)
   const error = ref(null)
 
-  // Getters
+  // ── Getters ────────────────────────────────────────────────────────────────
+
   const isAuthenticated = computed(() => !!npub.value && !!authMethod.value)
   const isNip07 = computed(() => authMethod.value === 'nip07')
   const isNsec = computed(() => authMethod.value === 'nsec')
-  
+  const isAmber = computed(() => authMethod.value === 'amber')
+
+  /**
+   * True for any auth method where signing happens on the client side
+   * (NIP-07 extension or Amber app). The backend receives a signed event,
+   * never an nsec key.
+   */
+  const isClientSigning = computed(() => isNip07.value || isAmber.value)
+
   const shortNpub = computed(() => {
     if (!npub.value) return null
     return `${npub.value.slice(0, 12)}...${npub.value.slice(-4)}`
@@ -48,45 +80,34 @@ export const useAuthStore = defineStore('auth', () => {
   const profileLud16 = computed(() => profile.value?.lud16 || null)
   const profileWebsite = computed(() => profile.value?.website || null)
 
-  // Actions
+  // ── NIP-07 login ──────────────────────────────────────────────────────────
 
-  /**
-   * Check if NIP-07 extension is available
-   */
   async function checkNip07Available() {
     return await waitForNip07(1000)
   }
 
-  /**
-   * Login with NIP-07 browser extension (recommended)
-   */
   async function loginWithExtension() {
     isLoading.value = true
     error.value = null
 
     try {
-      // Check if extension is available
       const available = await waitForNip07(1500)
       if (!available) {
         throw new Error('No Nostr extension detected. Please install nos2x, Alby, or similar.')
       }
 
-      // Get public key from extension
       const { hex: hexPubkey, npub: npubKey } = await getNip07PublicKey()
 
-      // Set auth state
       authMethod.value = 'nip07'
       npub.value = npubKey
       hex.value = hexPubkey
-      nsec.value = null // No nsec with NIP-07
+      nsec.value = null
 
-      // Store in session
       sessionStorage.setItem('authMethod', 'nip07')
       sessionStorage.setItem('npub', npubKey)
       sessionStorage.setItem('hex', hexPubkey)
       sessionStorage.removeItem('nsec')
 
-      // Fetch profile data
       await fetchProfile(npubKey)
 
       return { success: true }
@@ -98,9 +119,8 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  /**
-   * Login with raw nsec (fallback method)
-   */
+  // ── nsec login ────────────────────────────────────────────────────────────
+
   async function login(privateKey) {
     isLoading.value = true
     error.value = null
@@ -115,13 +135,11 @@ export const useAuthStore = defineStore('auth', () => {
         npub.value = data.npub
         hex.value = data.hex
 
-        // Store in session (cleared when browser closes)
         sessionStorage.setItem('authMethod', 'nsec')
         sessionStorage.setItem('nsec', privateKey)
         sessionStorage.setItem('npub', data.npub)
         sessionStorage.setItem('hex', data.hex)
 
-        // Fetch profile data
         await fetchProfile(data.npub)
 
         return { success: true }
@@ -137,24 +155,144 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  // ── Amber / NIP-46 login ──────────────────────────────────────────────────
+
   /**
-   * Sign an event using the current auth method
-   * @param {Object} unsignedEvent - Event without id, pubkey, sig
-   * @returns {Promise<Object|null>} - Signed event or null if nsec method (backend signs)
+   * Generate a NIP-46 connection URI and an ephemeral local keypair.
+   * Call this to start the Amber connect flow. Display the returned
+   * connectUri as a QR code; pass localSk to finalizeAmberLogin() on success.
+   *
+   * @returns {{ localSk: Uint8Array, connectUri: string }}
+   */
+  function prepareAmberConnect() {
+    const localSk = generateSecretKey()          // Uint8Array — stays in memory only
+    const localPk = getPublicKey(localSk)         // hex pubkey embedded in URI
+
+    const secretBytes = new Uint8Array(16)
+    crypto.getRandomValues(secretBytes)
+    const secret = Array.from(secretBytes).map(b => b.toString(16).padStart(2, '0')).join('')
+
+    const params = new URLSearchParams({
+      secret,
+      metadata: JSON.stringify({
+        name: 'BadgeBox',
+        url: window.location.origin,
+        description: 'Nostr Badge Platform'
+      })
+    })
+    // URLSearchParams doesn't deduplicate keys, so append each relay separately
+    // producing: ?secret=...&metadata=...&relay=wss://relay1&relay=wss://relay2&...
+    NIP46_RELAYS.forEach(r => params.append('relay', r))
+
+    const connectUri = `nostrconnect://${localPk}?${params.toString()}`
+    return { localSk, connectUri }
+  }
+
+  /**
+   * Called by LoginView after BunkerSigner.fromURI() resolves.
+   * Sets auth state, persists reconnect data, and fetches the user profile.
+   *
+   * @param {BunkerSigner} signer
+   * @param {Uint8Array} localSk  — the ephemeral key used for this connection
+   */
+  async function finalizeAmberLogin(signer, localSk) {
+    _bunkerSigner = signer
+
+    const pubkeyHex = await signer.getPublicKey()
+    const npubKey = nip19.npubEncode(pubkeyHex)
+
+    authMethod.value = 'amber'
+    hex.value = pubkeyHex
+    npub.value = npubKey
+    nsec.value = null
+
+    sessionStorage.setItem('authMethod', 'amber')
+    sessionStorage.setItem('hex', pubkeyHex)
+    sessionStorage.setItem('npub', npubKey)
+    sessionStorage.removeItem('nsec')
+
+    // Store what's needed to restore the signer on next page load.
+    // bunkerPubkey is the Amber app's relay-facing identity key — used to reconstruct
+    // the bunker:// URI. It is always set after a successful fromURI() connection.
+    const localSkHex = Array.from(localSk).map(b => b.toString(16).padStart(2, '0')).join('')
+    const bunkerPubkey = signer.bp.pubkey
+    localStorage.setItem('amberSession', JSON.stringify({
+      localSkHex,
+      bunkerPubkey,
+      relayUrls: NIP46_RELAYS
+    }))
+
+    // Fetch profile in background — don't block the login navigation on it
+    fetchProfile(npubKey)
+  }
+
+  /**
+   * Silently restore an Amber signer from localStorage on page reload.
+   * No QR re-scan needed — uses the stored connection params.
+   * Returns true on success, false if data is missing or reconnect fails.
+   */
+  async function reconnectAmber() {
+    const stored = JSON.parse(localStorage.getItem('amberSession') || 'null')
+    if (!stored?.localSkHex || !stored?.bunkerPubkey) return false
+
+    try {
+      const localSk = new Uint8Array(
+        stored.localSkHex.match(/.{2}/g).map(b => parseInt(b, 16))
+      )
+      // Support both old single-relay sessions (relayUrl) and new multi-relay sessions (relayUrls)
+      const relays = stored.relayUrls ?? (stored.relayUrl ? [stored.relayUrl] : NIP46_RELAYS)
+      const relayParams = relays.map(r => `relay=${encodeURIComponent(r)}`).join('&')
+      const bunkerUri = `bunker://${stored.bunkerPubkey}?${relayParams}`
+      const bp = await parseBunkerInput(bunkerUri)
+
+      _bunkerPool = new SimplePool()
+      _bunkerSigner = BunkerSigner.fromBunker(localSk, bp, { pool: _bunkerPool })
+
+      return true
+    } catch (err) {
+      console.warn('Amber reconnect failed:', err)
+      localStorage.removeItem('amberSession')
+      _bunkerSigner = null
+      _bunkerPool = null
+      return false
+    }
+  }
+
+  /**
+   * Call once on app startup (App.vue onMounted).
+   * Restores an Amber signer if the last session used Amber.
+   */
+  async function initAuth() {
+    if (authMethod.value === 'amber') {
+      const ok = await reconnectAmber()
+      if (!ok) logout()
+    }
+  }
+
+  // ── Event signing ─────────────────────────────────────────────────────────
+
+  /**
+   * Sign an event using the current auth method.
+   * Returns the signed event for nip07/amber, or null for nsec (backend signs).
    */
   async function signEvent(unsignedEvent) {
     if (authMethod.value === 'nip07') {
       return await nip07SignEvent(unsignedEvent)
     }
-    // For nsec, return null - backend will sign
-    return null
+    if (authMethod.value === 'amber') {
+      if (!_bunkerSigner) throw new Error('Amber is not connected')
+      return await _bunkerSigner.signEvent(unsignedEvent)
+    }
+    return null // nsec — backend signs using X-Nsec header
   }
+
+  // ── Profile ───────────────────────────────────────────────────────────────
 
   async function fetchProfile(pubkey) {
     try {
       const response = await api.getProfile(pubkey || npub.value)
       const data = response.data
-      
+
       profile.value = {
         name: data.name || null,
         display_name: data.display_name || null,
@@ -166,20 +304,29 @@ export const useAuthStore = defineStore('auth', () => {
         website: data.website || null,
         created_at: data.created_at || null
       }
-      
+
       sessionStorage.setItem('profile', JSON.stringify(profile.value))
     } catch (err) {
-      // Profile fetch is optional, don't fail login
       console.warn('Failed to fetch profile:', err)
     }
   }
 
+  // ── Logout ────────────────────────────────────────────────────────────────
+
   function logout() {
+    if (_bunkerSigner) {
+      _bunkerSigner.close()
+      _bunkerSigner = null
+    }
+    _bunkerPool = null
+    localStorage.removeItem('amberSession')
+
     authMethod.value = null
     nsec.value = null
     npub.value = null
     hex.value = null
     profile.value = null
+
     sessionStorage.removeItem('authMethod')
     sessionStorage.removeItem('nsec')
     sessionStorage.removeItem('npub')
@@ -196,10 +343,13 @@ export const useAuthStore = defineStore('auth', () => {
     profile,
     isLoading,
     error,
+
     // Getters
     isAuthenticated,
     isNip07,
     isNsec,
+    isAmber,
+    isClientSigning,
     shortNpub,
     displayName,
     profilePicture,
@@ -208,10 +358,15 @@ export const useAuthStore = defineStore('auth', () => {
     profileNip05,
     profileLud16,
     profileWebsite,
+
     // Actions
     checkNip07Available,
     loginWithExtension,
     login,
+    prepareAmberConnect,
+    finalizeAmberLogin,
+    reconnectAmber,
+    initAuth,
     logout,
     fetchProfile,
     signEvent

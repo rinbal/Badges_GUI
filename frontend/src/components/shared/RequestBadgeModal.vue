@@ -131,6 +131,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useUIStore } from '@/stores/ui'
 import { useRequestsStore } from '@/stores/requests'
+import { nip19 } from 'nostr-tools'
 import {
   IconX,
   IconAward,
@@ -185,11 +186,26 @@ function addProof() {
   const id = newProofId.value.trim()
   if (!id) return
 
-  // Extract event ID from nevent or note format
+  // Normalize note1 / nevent1 bech32 to hex so relays can find it
   let eventId = id
-  if (id.startsWith('nevent1') || id.startsWith('note1')) {
-    // For now, just use the raw string - backend will handle decoding
-    eventId = id
+  if (id.startsWith('note1') || id.startsWith('nevent1')) {
+    try {
+      const decoded = nip19.decode(id)
+      if (decoded.type === 'note') {
+        eventId = decoded.data
+      } else if (decoded.type === 'nevent') {
+        eventId = decoded.data.id
+      }
+    } catch {
+      ui.showError('Invalid event ID format')
+      return
+    }
+  }
+
+  // Basic hex validation
+  if (!/^[0-9a-f]{64}$/i.test(eventId)) {
+    ui.showError('Event ID must be a 64-char hex or note1/nevent1 bech32')
+    return
   }
 
   // Check for duplicates

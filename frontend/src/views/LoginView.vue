@@ -9,135 +9,219 @@
         <p>Sign in securely with your Nostr identity</p>
       </div>
 
-      <!-- Extension Login (Primary) -->
-      <div class="extension-section">
-        <button
-          v-if="extensionAvailable"
-          @click="handleExtensionLogin"
-          class="btn btn-extension btn-block"
-          :disabled="isLoading"
-        >
-          <span v-if="isLoading && loginMethod === 'extension'" class="btn-spinner"></span>
-          <Icon v-else name="extension" size="md" class="extension-icon" />
-          <span v-if="isLoading && loginMethod === 'extension'">Connecting...</span>
-          <span v-else>Connect with Extension</span>
-        </button>
+      <!-- ── Main login options ────────────────────────────────────────── -->
+      <template v-if="!amberConnecting">
 
-        <button
-          v-else-if="extensionChecked"
-          class="btn btn-extension-unavailable btn-block"
-          disabled
-        >
-          <Icon name="extension" size="md" class="extension-icon" />
-          <span>No Extension Detected</span>
-        </button>
+        <!-- NIP-07 Extension (primary) -->
+        <div class="extension-section">
+          <button
+            v-if="extensionAvailable"
+            @click="handleExtensionLogin"
+            class="btn btn-extension btn-block"
+            :disabled="isLoading"
+          >
+            <span v-if="isLoading && loginMethod === 'extension'" class="btn-spinner"></span>
+            <Icon v-else name="extension" size="md" class="extension-icon" />
+            <span v-if="isLoading && loginMethod === 'extension'">Connecting...</span>
+            <span v-else>Connect with Extension</span>
+          </button>
 
-        <div v-else class="extension-checking">
-          <span class="checking-spinner"></span>
-          <span>Checking for extension...</span>
-        </div>
+          <button
+            v-else-if="extensionChecked"
+            class="btn btn-extension-unavailable btn-block"
+            disabled
+          >
+            <Icon name="extension" size="md" class="extension-icon" />
+            <span>No Extension Detected</span>
+          </button>
 
-        <p v-if="extensionAvailable" class="extension-hint">
-          Recommended - Your key never leaves your extension
-        </p>
+          <div v-else class="extension-checking">
+            <span class="checking-spinner"></span>
+            <span>Checking for extension...</span>
+          </div>
 
-        <div v-if="!extensionAvailable && extensionChecked" class="extension-missing">
-          <p class="missing-text">Get a Nostr extension to sign in securely:</p>
-          <div class="extension-links">
-            <a href="https://github.com/nickg68/nos2x-fox" target="_blank" class="ext-link">
-              nos2x-fox
-            </a>
-            <a href="https://getalby.com" target="_blank" class="ext-link">
-              Alby
-            </a>
-            <a href="https://github.com/nickg68/nos2x" target="_blank" class="ext-link">
-              nos2x
-            </a>
+          <p v-if="extensionAvailable" class="method-hint">
+            Recommended — your key never leaves your extension
+          </p>
+
+          <div v-if="!extensionAvailable && extensionChecked" class="extension-missing">
+            <p class="missing-text">Get a Nostr extension to sign in securely:</p>
+            <div class="extension-links">
+              <a href="https://github.com/nickg68/nos2x-fox" target="_blank" class="ext-link">nos2x-fox</a>
+              <a href="https://getalby.com" target="_blank" class="ext-link">Alby</a>
+              <a href="https://github.com/nickg68/nos2x" target="_blank" class="ext-link">nos2x</a>
+            </div>
           </div>
         </div>
-      </div>
 
-      <!-- Divider -->
-      <div class="divider">
-        <span>or</span>
-      </div>
+        <!-- Amber (Android) -->
+        <div class="amber-section">
+          <button
+            @click="startAmberConnect"
+            class="btn btn-amber btn-block"
+            :disabled="isLoading"
+          >
+            <span class="amber-dot"></span>
+            Sign in with Amber
+          </button>
+          <p class="method-hint">For Android users — signs on your phone via the Amber app</p>
+        </div>
 
-      <!-- nsec Login (Fallback) -->
-      <div class="nsec-section">
-        <button
-          v-if="!showNsecForm"
-          @click="showNsecForm = true"
-          class="btn btn-text btn-block"
-        >
-          Use private key (nsec)
-        </button>
+        <!-- Divider -->
+        <div class="divider"><span>or</span></div>
 
-        <form v-else @submit.prevent="handleNsecLogin" class="nsec-form">
-          <div class="form-group">
-            <label for="nsec">Private Key</label>
-            <div class="input-wrapper">
-              <input
-                id="nsec"
-                v-model="nsec"
-                :type="showKey ? 'text' : 'password'"
-                placeholder="nsec1..."
-                class="input"
-                :class="{ 'input-error': error }"
-                autocomplete="off"
-                spellcheck="false"
-              />
+        <!-- nsec (fallback) -->
+        <div class="nsec-section">
+          <button
+            v-if="!showNsecForm"
+            @click="showNsecForm = true"
+            class="btn btn-text btn-block"
+          >
+            Use private key (nsec)
+          </button>
+
+          <form v-else @submit.prevent="handleNsecLogin" class="nsec-form">
+            <div class="form-group">
+              <label for="nsec">Private Key</label>
+              <div class="input-wrapper">
+                <input
+                  id="nsec"
+                  v-model="nsec"
+                  :type="showKey ? 'text' : 'password'"
+                  placeholder="nsec1..."
+                  class="input"
+                  :class="{ 'input-error': error }"
+                  autocomplete="off"
+                  spellcheck="false"
+                />
+                <button
+                  type="button"
+                  @click="showKey = !showKey"
+                  class="toggle-visibility"
+                  :title="showKey ? 'Hide key' : 'Show key'"
+                >
+                  <Icon :name="showKey ? 'eye-off' : 'eye'" size="sm" />
+                </button>
+              </div>
+              <p v-if="error" class="error-message">{{ error }}</p>
+            </div>
+
+            <div class="nsec-actions">
               <button
                 type="button"
-                @click="showKey = !showKey"
-                class="toggle-visibility"
-                :title="showKey ? 'Hide key' : 'Show key'"
+                @click="showNsecForm = false; nsec = ''; error = ''"
+                class="btn btn-secondary"
               >
-                <Icon :name="showKey ? 'eye-off' : 'eye'" size="sm" />
+                Cancel
+              </button>
+              <button
+                type="submit"
+                class="btn btn-primary"
+                :disabled="!nsec || isLoading"
+              >
+                <span v-if="isLoading && loginMethod === 'nsec'" class="btn-spinner"></span>
+                <span v-if="isLoading && loginMethod === 'nsec'">Signing in...</span>
+                <span v-else>Continue</span>
               </button>
             </div>
-            <p v-if="error" class="error-message">{{ error }}</p>
-          </div>
+          </form>
+        </div>
 
-          <div class="nsec-actions">
-            <button
-              type="button"
-              @click="showNsecForm = false; nsec = ''; error = ''"
-              class="btn btn-secondary"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              class="btn btn-primary"
-              :disabled="!nsec || isLoading"
-            >
-              <span v-if="isLoading && loginMethod === 'nsec'" class="btn-spinner"></span>
-              <span v-if="isLoading && loginMethod === 'nsec'">Signing in...</span>
-              <span v-else>Continue</span>
-            </button>
+        <!-- Extension error -->
+        <p v-if="error && loginMethod === 'extension'" class="error-message extension-error">
+          {{ error }}
+        </p>
+
+      </template>
+
+      <!-- ── Amber QR connect panel ─────────────────────────────────────── -->
+      <div v-else class="amber-connect">
+        <div class="amber-connect-header">
+          <div class="amber-logo-circle">
+            <span class="amber-dot-lg"></span>
           </div>
-        </form>
+          <h2>Scan with Amber</h2>
+          <p>Open Amber on your Android phone and scan this code</p>
+        </div>
+
+        <!-- QR Code -->
+        <div class="qr-wrapper">
+          <img
+            v-if="qrDataUrl"
+            :src="qrDataUrl"
+            alt="Amber connection QR code"
+            class="qr-image"
+          />
+          <div v-else class="qr-placeholder">
+            <span class="checking-spinner"></span>
+          </div>
+        </div>
+
+        <!-- Steps -->
+        <ol class="amber-steps">
+          <li>Open the <strong>Amber</strong> app on your Android phone</li>
+          <li>Tap the <strong>scan icon</strong> in the top right</li>
+          <li>Scan this code — then tap <strong>Connect</strong></li>
+        </ol>
+
+        <!-- Deep link for mobile users -->
+        <a
+          v-if="connectUri && isMobile"
+          :href="connectUri"
+          class="btn btn-amber btn-block"
+        >
+          <span class="amber-dot"></span>
+          Open Amber
+        </a>
+
+        <!-- Status -->
+        <div class="amber-status">
+          <span v-if="amberError" class="status-error">
+            <Icon name="alert-circle" size="sm" />
+            {{ amberError }}
+          </span>
+          <span v-else-if="amberStatus === 'finalizing'" class="status-finalizing">
+            <span class="checking-spinner"></span>
+            Amber connected — setting up your account…
+          </span>
+          <span v-else class="status-waiting">
+            <span class="checking-spinner"></span>
+            Waiting for Amber to connect…
+          </span>
+        </div>
+
+        <!-- Timeout countdown -->
+        <p v-if="amberSecondsLeft <= 30 && amberSecondsLeft > 0" class="timeout-warning">
+          Code expires in {{ amberSecondsLeft }}s
+        </p>
+
+        <div class="amber-actions">
+          <button
+            v-if="amberError || amberSecondsLeft === 0"
+            @click="startAmberConnect"
+            class="btn btn-amber"
+          >
+            Try Again
+          </button>
+          <button @click="cancelAmberConnect" class="btn btn-secondary">
+            Cancel
+          </button>
+        </div>
       </div>
 
-      <!-- Error display for extension -->
-      <p v-if="error && loginMethod === 'extension'" class="error-message extension-error">
-        {{ error }}
-      </p>
-
-      <!-- Security notes -->
+      <!-- ── Footer (always visible) ───────────────────────────────────── -->
       <div class="login-footer">
         <div class="security-note">
           <Icon name="shield" size="md" class="note-icon" />
           <div class="note-content">
             <strong>Your keys stay private</strong>
             <p>
-              Extension login is most secure - your private key never leaves the extension.
+              Extension and Amber login never expose your private key to this website.
               Manual entry uses session storage only.
             </p>
           </div>
         </div>
 
-        <!-- What is Nostr? expandable section -->
         <details class="nostr-explainer">
           <summary>
             <span class="explainer-icon">?</span>
@@ -152,19 +236,19 @@
             <div class="key-types">
               <div class="key-type">
                 <code>npub</code>
-                <span>Your public key - share this with others (like a username)</span>
+                <span>Your public key — share this with others (like a username)</span>
               </div>
               <div class="key-type">
                 <code>nsec</code>
-                <span>Your private key - keep this secret! (like a password)</span>
+                <span>Your private key — keep this secret! (like a password)</span>
               </div>
             </div>
             <div class="extension-benefit">
               <Icon name="extension" size="sm" class="benefit-icon" />
               <div>
-                <strong>Why use an extension?</strong>
+                <strong>Why use an extension or Amber?</strong>
                 <p>
-                  A browser extension stores your private key securely and signs events without
+                  They store your private key securely and sign events without
                   exposing your key to websites. It's the safest way to use Nostr.
                 </p>
               </div>
@@ -181,38 +265,63 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useUIStore } from '@/stores/ui'
 import Icon from '@/components/common/Icon.vue'
+import QRCode from 'qrcode'
+import { BunkerSigner } from 'nostr-tools/nip46'
+import { SimplePool as NostrPool } from 'nostr-tools'
 
 const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
 const uiStore = useUIStore()
 
-// Extension state
+// ── Extension state ───────────────────────────────────────────────────────────
 const extensionAvailable = ref(false)
 const extensionChecked = ref(false)
 
-// nsec form state
+// ── nsec form state ───────────────────────────────────────────────────────────
 const showNsecForm = ref(false)
 const nsec = ref('')
 const showKey = ref(false)
 
-// Shared state
+// ── Shared state ──────────────────────────────────────────────────────────────
 const isLoading = ref(false)
 const error = ref('')
-const loginMethod = ref(null) // 'extension' | 'nsec'
+const loginMethod = ref(null) // 'extension' | 'nsec' | 'amber'
 
-// Check for extension on mount
+// ── Amber connect state ───────────────────────────────────────────────────────
+const amberConnecting = ref(false)
+const connectUri = ref('')
+const qrDataUrl = ref('')
+const amberError = ref('')
+const amberSecondsLeft = ref(90)
+const amberStatus = ref('waiting') // 'waiting' | 'finalizing'
+
+let _amberAbortController = null
+let _amberTimerInterval = null
+
+// Detect mobile for the "Open Amber" deep link
+const isMobile = computed(() =>
+  /android/i.test(navigator.userAgent)
+)
+
+// ── Lifecycle ─────────────────────────────────────────────────────────────────
+
 onMounted(async () => {
   extensionAvailable.value = await authStore.checkNip07Available()
   extensionChecked.value = true
 })
 
-// Handle extension login
+onBeforeUnmount(() => {
+  cleanupAmber()
+})
+
+// ── NIP-07 extension login ────────────────────────────────────────────────────
+
 async function handleExtensionLogin() {
   error.value = ''
   isLoading.value = true
@@ -223,16 +332,7 @@ async function handleExtensionLogin() {
   isLoading.value = false
 
   if (result.success) {
-    uiStore.showSuccess(`Connected via extension! Welcome, ${authStore.displayName} 👋`)
-    const { badgeATag, badge } = uiStore.pendingBadgeRequest
-    if (badgeATag) {
-      uiStore.clearPendingBadgeRequest()
-      router.push(route.query.redirect || '/')
-      uiStore.openRequestBadge(badgeATag, badge)
-    } else {
-      router.push(route.query.redirect || '/')
-    }
-    uiStore.openRelayInfo()
+    await afterLogin()
   } else {
     if (result.error.includes('denied') || result.error.includes('rejected')) {
       error.value = 'Permission denied. Please approve the request in your extension.'
@@ -245,7 +345,8 @@ async function handleExtensionLogin() {
   }
 }
 
-// Handle nsec login
+// ── nsec login ────────────────────────────────────────────────────────────────
+
 async function handleNsecLogin() {
   if (!nsec.value) return
 
@@ -258,16 +359,7 @@ async function handleNsecLogin() {
   isLoading.value = false
 
   if (result.success) {
-    uiStore.showSuccess(`Welcome back, ${authStore.displayName}! 👋`)
-    const { badgeATag, badge } = uiStore.pendingBadgeRequest
-    if (badgeATag) {
-      uiStore.clearPendingBadgeRequest()
-      router.push(route.query.redirect || '/')
-      uiStore.openRequestBadge(badgeATag, badge)
-    } else {
-      router.push(route.query.redirect || '/')
-    }
-    uiStore.openRelayInfo()
+    await afterLogin()
   } else {
     if (result.error.includes('invalid') || result.error.includes('Invalid')) {
       error.value = "That doesn't look like a valid key. Make sure it starts with 'nsec1'."
@@ -277,6 +369,99 @@ async function handleNsecLogin() {
       error.value = result.error || 'Something went wrong. Please try again.'
     }
   }
+}
+
+// ── Amber / NIP-46 login ──────────────────────────────────────────────────────
+
+async function startAmberConnect() {
+  cleanupAmber()
+  amberError.value = ''
+  amberSecondsLeft.value = 90
+  amberStatus.value = 'waiting'
+  loginMethod.value = 'amber'
+
+  // Generate connection URI
+  const { localSk, connectUri: uri } = authStore.prepareAmberConnect()
+  connectUri.value = uri
+  amberConnecting.value = true
+
+  // Generate QR code
+  try {
+    qrDataUrl.value = await QRCode.toDataURL(uri, {
+      width: 200,
+      margin: 1,
+      color: { dark: '#000000', light: '#ffffff' }
+    })
+  } catch {
+    // QR generation is cosmetic only — deep link still works
+  }
+
+  // Start countdown timer
+  _amberTimerInterval = setInterval(() => {
+    amberSecondsLeft.value--
+    if (amberSecondsLeft.value <= 0) {
+      clearInterval(_amberTimerInterval)
+    }
+  }, 1000)
+
+  // Wait for Amber to connect (90 second timeout, cancellable)
+  _amberAbortController = new AbortController()
+  const pool = new NostrPool()
+
+  try {
+    const signer = await BunkerSigner.fromURI(
+      localSk,
+      uri,
+      { pool },
+      _amberAbortController.signal
+    )
+
+    // Amber approved — show immediate feedback while we finalize
+    amberStatus.value = 'finalizing'
+    await authStore.finalizeAmberLogin(signer, localSk)
+    cleanupAmber()
+    await afterLogin()
+  } catch (err) {
+    if (err?.name === 'AbortError') {
+      // User cancelled — no error shown
+      return
+    }
+    amberError.value = 'Could not connect to Amber. Make sure the app is open and try again.'
+  }
+}
+
+function cancelAmberConnect() {
+  cleanupAmber()
+  amberConnecting.value = false
+  connectUri.value = ''
+  qrDataUrl.value = ''
+  amberError.value = ''
+}
+
+function cleanupAmber() {
+  if (_amberAbortController) {
+    _amberAbortController.abort()
+    _amberAbortController = null
+  }
+  if (_amberTimerInterval) {
+    clearInterval(_amberTimerInterval)
+    _amberTimerInterval = null
+  }
+}
+
+// ── Post-login navigation ─────────────────────────────────────────────────────
+
+async function afterLogin() {
+  uiStore.showSuccess(`Welcome, ${authStore.displayName} 👋`)
+  const { badgeATag, badge } = uiStore.pendingBadgeRequest
+  if (badgeATag) {
+    uiStore.clearPendingBadgeRequest()
+    router.push(route.query.redirect || '/')
+    uiStore.openRequestBadge(badgeATag, badge)
+  } else {
+    router.push(route.query.redirect || '/')
+  }
+  uiStore.openRelayInfo()
 }
 </script>
 
@@ -299,6 +484,9 @@ async function handleNsecLogin() {
   box-shadow: var(--shadow-lg);
 }
 
+/* ===========================================
+   Header
+   =========================================== */
 .login-header {
   text-align: center;
   margin-bottom: 2rem;
@@ -323,11 +511,14 @@ async function handleNsecLogin() {
   margin: 0;
 }
 
-/* Extension Section */
+/* ===========================================
+   Extension Section
+   =========================================== */
 .extension-section {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+  margin-bottom: 0.75rem;
 }
 
 .btn-extension {
@@ -353,7 +544,7 @@ async function handleNsecLogin() {
   flex-shrink: 0;
 }
 
-.extension-hint {
+.method-hint {
   font-size: 0.75rem;
   color: var(--color-text-subtle);
   text-align: center;
@@ -368,15 +559,6 @@ async function handleNsecLogin() {
   padding: 1rem;
   color: var(--color-text-muted);
   font-size: 0.875rem;
-}
-
-.checking-spinner {
-  width: 16px;
-  height: 16px;
-  border: 2px solid var(--color-border);
-  border-top-color: var(--color-primary);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
 }
 
 .extension-missing {
@@ -414,12 +596,46 @@ async function handleNsecLogin() {
   color: white;
 }
 
-/* Divider */
+/* ===========================================
+   Amber Section
+   =========================================== */
+.amber-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 0.25rem;
+}
+
+.btn-amber {
+  background: #f97316;
+  color: white;
+  font-size: 1rem;
+  padding: 0.875rem 1.5rem;
+  border: none;
+}
+
+.btn-amber:hover:not(:disabled) {
+  background: #ea6c0a;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(249, 115, 22, 0.3);
+}
+
+.amber-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.85);
+  flex-shrink: 0;
+}
+
+/* ===========================================
+   Divider
+   =========================================== */
 .divider {
   display: flex;
   align-items: center;
   gap: 1rem;
-  margin: 1.5rem 0;
+  margin: 1.25rem 0;
   color: var(--color-text-subtle);
   font-size: 0.8125rem;
 }
@@ -432,7 +648,9 @@ async function handleNsecLogin() {
   background: var(--color-border);
 }
 
-/* nsec Section */
+/* ===========================================
+   nsec Section
+   =========================================== */
 .nsec-section {
   display: flex;
   flex-direction: column;
@@ -539,7 +757,132 @@ async function handleNsecLogin() {
   margin-top: 1rem;
 }
 
-/* Buttons */
+/* ===========================================
+   Amber Connect Panel
+   =========================================== */
+.amber-connect {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.25rem;
+}
+
+.amber-connect-header {
+  text-align: center;
+}
+
+.amber-logo-circle {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: #f97316;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 0.75rem;
+}
+
+.amber-dot-lg {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: white;
+}
+
+.amber-connect-header h2 {
+  font-size: 1.375rem;
+  margin: 0 0 0.375rem;
+}
+
+.amber-connect-header p {
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+  margin: 0;
+}
+
+.qr-wrapper {
+  padding: 0.75rem;
+  background: white;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.qr-image {
+  display: block;
+  width: 200px;
+  height: 200px;
+}
+
+.qr-placeholder {
+  width: 200px;
+  height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.amber-steps {
+  list-style: decimal;
+  padding-left: 1.25rem;
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+  line-height: 1.75;
+  align-self: stretch;
+}
+
+.amber-steps li {
+  padding-left: 0.25rem;
+}
+
+.amber-status {
+  font-size: 0.8125rem;
+}
+
+.status-waiting {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--color-text-muted);
+}
+
+.status-finalizing {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--color-success);
+  font-weight: 500;
+}
+
+.status-error {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  color: var(--color-danger);
+}
+
+.timeout-warning {
+  font-size: 0.8125rem;
+  color: var(--color-warning);
+  margin: 0;
+}
+
+.amber-actions {
+  display: flex;
+  gap: 0.75rem;
+  width: 100%;
+}
+
+.amber-actions .btn {
+  flex: 1;
+}
+
+/* ===========================================
+   Buttons (shared)
+   =========================================== */
 .btn {
   display: flex;
   align-items: center;
@@ -574,7 +917,7 @@ async function handleNsecLogin() {
 }
 
 .btn-secondary:hover:not(:disabled) {
-  background: var(--color-surface);
+  background: var(--color-surface-hover);
   border-color: var(--color-text-muted);
 }
 
@@ -592,11 +935,23 @@ async function handleNsecLogin() {
   animation: spin 0.8s linear infinite;
 }
 
+.checking-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--color-border);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  display: inline-block;
+}
+
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
 
-/* Footer */
+/* ===========================================
+   Footer
+   =========================================== */
 .login-footer {
   margin-top: 1.5rem;
 }
@@ -633,7 +988,9 @@ async function handleNsecLogin() {
   line-height: 1.5;
 }
 
-/* Nostr Explainer */
+/* ===========================================
+   Nostr Explainer
+   =========================================== */
 .nostr-explainer {
   margin-top: 1rem;
   background: var(--color-surface-elevated);

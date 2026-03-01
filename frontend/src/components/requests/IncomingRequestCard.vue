@@ -44,11 +44,17 @@
 
     <!-- Proofs -->
     <div v-if="request.proofs && request.proofs.length > 0" class="proofs-section">
-      <span class="proofs-label">
+      <button class="proofs-label" @click="showProofs = true">
         <IconLink :size="14" />
         {{ request.proofs.length }} proof{{ request.proofs.length !== 1 ? 's' : '' }} attached
-      </span>
+      </button>
     </div>
+
+    <ProofsPopup
+      v-if="showProofs"
+      :proofs="request.proofs"
+      @close="showProofs = false"
+    />
 
     <!-- State Badge -->
     <div class="state-section">
@@ -79,7 +85,7 @@
         @click="$emit('award', request)"
       >
         <div v-if="loading" class="spinner-sm"></div>
-        <IconAward v-else :size="16" />
+        <IconSend v-else :size="16" />
         Award Badge
       </button>
     </div>
@@ -87,16 +93,20 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { ref, computed } from 'vue'
 import UserAvatar from '@/components/shared/UserAvatar.vue'
+import ProofsPopup from './ProofsPopup.vue'
 import {
   IconAward,
+  IconSend,
   IconQuote,
   IconLink,
   IconClock,
   IconCheck,
   IconX
 } from '@tabler/icons-vue'
+
+const showProofs = ref(false)
 
 const props = defineProps({
   request: {
@@ -313,6 +323,12 @@ function formatTime(timestamp) {
   border-radius: var(--radius-full);
   font-size: 0.75rem;
   font-weight: 500;
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.proofs-label:hover {
+  opacity: 0.8;
 }
 
 /* State Section */

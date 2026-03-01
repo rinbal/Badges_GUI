@@ -17,7 +17,6 @@ import {
   createBadgeAwardEvent,
   createProfileBadgesEvent,
   createAppDataEvent,
-  signEvent,
   npubToHex
 } from '@/utils/nip07'
 
@@ -130,8 +129,9 @@ export const useBadgesStore = defineStore('badges', () => {
    * Build and sign a kind 30078 event containing the full template list (NIP-07 flow)
    */
   async function _buildSignedTemplatesEvent(templatesList) {
+    const authStore = useAuthStore()
     const event = createAppDataEvent(TEMPLATES_D_TAG, JSON.stringify(templatesList))
-    return await signEvent(event)
+    return await authStore.signEvent(event)
   }
 
   /**
@@ -152,7 +152,7 @@ export const useBadgesStore = defineStore('badges', () => {
     }
 
     try {
-      if (authStore.isNip07) {
+      if (authStore.isClientSigning) {
         const newList = [...userTemplates.value, newEntry]
         const signedEvent = await _buildSignedTemplatesEvent(newList)
         const response = await api.syncTemplates({ signed_event: signedEvent })
@@ -182,7 +182,7 @@ export const useBadgesStore = defineStore('badges', () => {
     const authStore = useAuthStore()
 
     try {
-      if (authStore.isNip07) {
+      if (authStore.isClientSigning) {
         const newList = userTemplates.value.filter(t => t.identifier !== identifier)
         const signedEvent = await _buildSignedTemplatesEvent(newList)
         const response = await api.syncTemplates({ signed_event: signedEvent })
@@ -213,7 +213,7 @@ export const useBadgesStore = defineStore('badges', () => {
     const authStore = useAuthStore()
 
     try {
-      if (authStore.isNip07) {
+      if (authStore.isClientSigning) {
         const newList = userTemplates.value.map(t =>
           t.identifier === identifier ? { ...t, ...template } : t
         )
@@ -251,13 +251,13 @@ export const useBadgesStore = defineStore('badges', () => {
       let signedDefinitionEvent = null
       let signedAwardEvent = null
 
-      // NIP-07 flow: sign events in browser
-      if (authStore.isNip07) {
+      // Client-signing flow (NIP-07 or Amber): sign events in browser/phone
+      if (authStore.isClientSigning) {
         console.log('🔐 NIP-07 flow: Signing events with extension')
 
         // Sign badge definition
         const definitionEvent = createBadgeDefinitionEvent(badge)
-        signedDefinitionEvent = await signEvent(definitionEvent)
+        signedDefinitionEvent = await authStore.signEvent(definitionEvent)
 
         if (!signedDefinitionEvent) {
           throw new Error('Failed to sign badge definition')
@@ -273,7 +273,7 @@ export const useBadgesStore = defineStore('badges', () => {
 
         // Sign badge award
         const awardEvent = createBadgeAwardEvent(aTag, hexRecipients)
-        signedAwardEvent = await signEvent(awardEvent)
+        signedAwardEvent = await authStore.signEvent(awardEvent)
 
         if (!signedAwardEvent) {
           throw new Error('Failed to sign badge award')
@@ -346,9 +346,9 @@ export const useBadgesStore = defineStore('badges', () => {
       const authStore = useAuthStore()
       let signedEvent = null
 
-      // NIP-07 flow: build and sign profile badges event
-      if (authStore.isNip07) {
-        console.log('🔐 NIP-07 flow: Signing profile badges event for accept')
+      // Client-signing flow (NIP-07 or Amber): build and sign profile badges event
+      if (authStore.isClientSigning) {
+        console.log('🔐 Client-signing flow: Signing profile badges event for accept')
 
         // Ensure we have fresh accepted badges data
         if (!acceptedBadges.value || acceptedBadges.value.length === 0) {
@@ -377,7 +377,7 @@ export const useBadgesStore = defineStore('badges', () => {
         const unsignedEvent = createProfileBadgesEvent(badgeTags)
         console.log('   Unsigned event:', JSON.stringify(unsignedEvent, null, 2))
 
-        signedEvent = await signEvent(unsignedEvent)
+        signedEvent = await authStore.signEvent(unsignedEvent)
         console.log('   Signed event:', signedEvent ? 'success' : 'failed')
 
         if (!signedEvent) {
@@ -415,9 +415,9 @@ export const useBadgesStore = defineStore('badges', () => {
       const authStore = useAuthStore()
       let signedEvent = null
 
-      // NIP-07 flow: build and sign profile badges event without the removed badge
-      if (authStore.isNip07) {
-        console.log('🔐 NIP-07 flow: Signing profile badges event for remove')
+      // Client-signing flow (NIP-07 or Amber): build and sign profile badges event without the removed badge
+      if (authStore.isClientSigning) {
+        console.log('🔐 Client-signing flow: Signing profile badges event for remove')
 
         // Get current accepted badges and filter out the one to remove
         const currentAccepted = acceptedBadges.value || []
@@ -434,7 +434,7 @@ export const useBadgesStore = defineStore('badges', () => {
 
         // Create and sign the profile badges event
         const unsignedEvent = createProfileBadgesEvent(badgeTags)
-        signedEvent = await signEvent(unsignedEvent)
+        signedEvent = await authStore.signEvent(unsignedEvent)
 
         if (!signedEvent) {
           throw new Error('Failed to sign profile badges event')

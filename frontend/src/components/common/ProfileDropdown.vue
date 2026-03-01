@@ -73,6 +73,10 @@
               <Icon name="extension" size="sm" class="auth-icon" />
               <span>Extension</span>
             </span>
+            <span v-else-if="authStore.isAmber" class="auth-badge auth-amber">
+              <Icon name="key" size="sm" class="auth-icon" />
+              <span>Amber</span>
+            </span>
             <span v-else-if="authStore.isNsec" class="auth-badge auth-nsec">
               <Icon name="key" size="sm" class="auth-icon" />
               <span>Private Key</span>
@@ -408,6 +412,12 @@ onUnmounted(() => {
   background: linear-gradient(135deg, rgba(139, 92, 246, 0.15) 0%, rgba(124, 58, 237, 0.15) 100%);
   color: #a78bfa;
   border: 1px solid rgba(139, 92, 246, 0.3);
+}
+
+.auth-amber {
+  background: linear-gradient(135deg, rgba(249, 115, 22, 0.15) 0%, rgba(234, 88, 12, 0.15) 100%);
+  color: #fb923c;
+  border: 1px solid rgba(249, 115, 22, 0.3);
 }
 
 .auth-nsec {
