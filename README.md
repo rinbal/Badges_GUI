@@ -2,6 +2,8 @@
 
 **Create, award, and manage decentralized badges on the Nostr network.**
 
+**Documentation:** https://docs-badgebox.netlify.app/
+
 Badge Box is a web application for badge management using the NIP-58 specification. All badge data lives on Nostr relays - no centralized database required.
 
 ---
