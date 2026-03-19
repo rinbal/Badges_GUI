@@ -122,6 +122,7 @@
           </div>
 
           <RecipientInput
+            ref="awardRecipientInput"
             v-model="recipientsText"
             :disabled="!selectedTemplate"
             :count="recipients.length"
@@ -129,13 +130,13 @@
           />
         </div>
 
-        <!-- Step 3: Confirm & Award -->
+        <!-- Step 3: Review & Award -->
         <div class="step step-final" :class="{ 'step-disabled': !canSubmit }">
           <div class="step-header">
             <div class="step-indicator" :class="stepClass(3)">3</div>
             <div class="step-info">
-              <h3>Confirm & Award</h3>
-              <p>Review and publish the badge</p>
+              <h3>Review & Award</h3>
+              <p>Check everything looks right, then publish</p>
             </div>
           </div>
 
@@ -165,10 +166,10 @@
             <button
               class="btn-submit"
               :disabled="!canSubmit || isSubmitting"
-              @click="handleSubmit"
+              @click="showSummary = true"
             >
-              <span v-if="isSubmitting" class="btn-spinner"></span>
-              <span>{{ isSubmitting ? 'Awarding...' : 'Award Badge' }}</span>
+              <Icon name="eye" size="sm" />
+              <span>Review & Award</span>
             </button>
           </div>
         </div>
@@ -188,7 +189,7 @@
       </header>
 
       <div class="create-layout">
-        <form @submit.prevent="handleSubmit" class="create-form">
+        <form @submit.prevent class="create-form">
           <!-- Badge ID -->
           <div class="form-group">
             <label for="identifier">Badge ID <span class="required">*</span></label>
@@ -263,6 +264,7 @@
             <div class="form-group">
               <label>Recipients <span class="required">*</span></label>
               <RecipientInput
+                ref="createRecipientInput"
                 v-model="recipientsText"
                 :count="recipients.length"
                 @update:modelValue="onRecipientsChange"
@@ -301,12 +303,13 @@
                 {{ isSaving ? 'Saving...' : 'Save as Template' }}
               </button>
               <button
-                type="submit"
+                type="button"
                 class="btn-primary"
                 :disabled="!canSubmit || isSubmitting"
+                @click="showSummary = true"
               >
-                <span v-if="isSubmitting" class="btn-spinner"></span>
-                {{ isSubmitting ? 'Creating...' : 'Create & Award' }}
+                <Icon name="eye" size="sm" />
+                {{ 'Review & Create' }}
               </button>
             </template>
           </div>
@@ -405,6 +408,18 @@
       </div>
     </section>
 
+    <!-- Award Summary Modal -->
+    <AwardSummaryModal
+      :visible="showSummary"
+      :badge="summaryBadge"
+      :recipients="recipients"
+      :profiles="recipientProfiles"
+      :issuer-name="authStore.displayName"
+      :issuer-picture="authStore.profilePicture"
+      @confirm="onSummaryConfirm"
+      @cancel="showSummary = false"
+    />
+
     <!-- Progress Overlay -->
     <Transition name="fade">
       <div v-if="isSubmitting" class="progress-overlay">
@@ -455,6 +470,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useBadgesStore } from '@/stores/badges'
 import { useUIStore } from '@/stores/ui'
 import RecipientInput from '@/components/common/RecipientInput.vue'
+import AwardSummaryModal from '@/components/common/AwardSummaryModal.vue'
 import Icon from '@/components/common/Icon.vue'
 import MediaPicker from '@/components/media/MediaPicker.vue'
 
@@ -485,6 +501,11 @@ const isSaving = ref(false)
 const progressStatus = ref('')
 const progressDetail = ref('')
 const progressPercent = ref(0)
+
+// Summary modal
+const showSummary = ref(false)
+const awardRecipientInput = ref(null)
+const createRecipientInput = ref(null)
 
 // Save-as-template prompt (shown after a successful custom badge award)
 const showMediaPicker = ref(false)
@@ -528,6 +549,23 @@ const canSubmit = computed(() => {
   return false
 })
 
+// Summary modal data
+const summaryBadge = computed(() => {
+  if (activeMode.value === 'award') return selectedTemplate.value
+  if (activeMode.value === 'create') return form.value
+  return null
+})
+
+const recipientProfiles = computed(() => {
+  const inputRef = activeMode.value === 'award' ? awardRecipientInput.value : createRecipientInput.value
+  return inputRef?.profileCache || {}
+})
+
+function onSummaryConfirm() {
+  showSummary.value = false
+  handleSubmit()
+}
+
 // Step indicator class
 function stepClass(step) {
   if (activeMode.value === 'award') {
@@ -562,6 +600,7 @@ function resetState() {
   recipientsText.value = ''
   identifierError.value = ''
   templateSavedInSession.value = false
+  showSummary.value = false
 }
 
 // Template selection

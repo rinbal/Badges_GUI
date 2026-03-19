@@ -1,0 +1,89 @@
+# BadgeBox
+
+> Create, award, and manage decentralized badges on the Nostr network using the NIP-58 specification.
+
+BadgeBox is a web application for decentralized badge/credential management. All badge data lives on Nostr relays — no centralized database required. Badges are cryptographically signed, verifiable, and censorship-resistant.
+
+## Quick Facts
+
+- Web App: https://badgebox.rinbal.de
+- Documentation: https://docs-badgebox.netlify.app
+- Protocol: Nostr (NIP-58 Badges)
+- License: MIT
+- Stack: FastAPI (Python) backend + Vue.js 3 frontend
+
+## What It Does
+
+- Create custom badges with name, description, and image
+- Award badges to any Nostr user by public key (npub or hex)
+- Receive badges and choose which to display on your profile
+- Request badges from issuers with supporting proof
+- Browse and discover badges across the Nostr network
+- View badge profiles for any Nostr user
+
+## Nostr Event Kinds Used
+
+- Kind 30009: Badge Definition (name, image, description)
+- Kind 8: Badge Award (issuer awards badge to recipients)
+- Kind 30008: Profile Badges (user's accepted/displayed badges)
+- Kind 30058: Badge Request (user requests a badge from issuer)
+- Kind 30059: Badge Denial (issuer denies a request)
+- Kind 5: Deletion (NIP-09, for withdrawing requests or revoking denials)
+
+## API Base URL
+
+Local: http://localhost:8000
+Production: https://badgebox.rinbal.de (backend proxied)
+
+## Key API Endpoints
+
+POST /api/v1/auth/validate — Validate nsec key
+POST /api/v1/badges/create-definition — Create badge (kind 30009)
+POST /api/v1/badges/award — Award badge to recipients (kind 8)
+POST /api/v1/badges/create-and-award — Atomic create + award
+GET  /api/v1/inbox/pending — Get unaccepted badges
+GET  /api/v1/inbox/accepted — Get accepted badges
+POST /api/v1/inbox/accept — Accept a badge (kind 30008)
+GET  /api/v1/profile/{pubkey} — Get user profile metadata
+GET  /api/v1/profile/{pubkey}/badges — Get user's displayed badges
+GET  /api/v1/surf/recent — Browse recently created badges
+GET  /api/v1/surf/search — Search badges by name/description
+POST /api/v1/requests/create — Request a badge (kind 30058)
+GET  /api/v1/requests/incoming — Get requests for your badges
+GET  /api/v1/requests/outgoing — Get requests you sent
+
+## Authentication
+
+Two header-based methods:
+- X-Nsec: Pass nsec key directly (backend signs events)
+- X-Pubkey: Pass hex pubkey for read ops; include signed_event in body for writes (NIP-07 browser extension flow)
+
+## Detailed Documentation
+
+- AGENT_README.md — Full agent-ready reference (API schemas, models, architecture)
+- GUIDE.md — Step-by-step user guide
+- USE_CASES.md — Real-world use case examples
+- docs/NIP-58-EXTENSION.md — Badge Request/Denial protocol extension
+- /docs endpoint — OpenAPI/Swagger when backend is running
+
+## Use Cases
+
+- Community recognition and reputation
+- Event attendance proof (POAPs)
+- Course completion certificates
+- Professional certifications
+- Membership and access control
+- Achievement/gamification systems
+- Open source contributor recognition
+- Privacy-preserving identity verification
+
+## Integration Pattern
+
+To check if a user holds a badge:
+1. Query kind 30008 events for the user's pubkey with d=profile_badges
+2. Check if the badge's a-tag (30009:<issuer>:<identifier>) is in the tags
+3. Verify the issuer pubkey is the expected authority
+
+## Configured Relays
+
+wss://relay.damus.io, wss://nos.lol, wss://offchain.pub, wss://relay.snort.social, wss://relay.primal.net, wss://relay.0xchat.com, wss://relay.azzamo.net, wss://shu05.shugur.net, wss://cache1.primal.net
