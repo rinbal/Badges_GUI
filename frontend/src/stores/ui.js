@@ -255,6 +255,52 @@ export const useUIStore = defineStore('ui', () => {
   }
 
   // =========================================================================
+  // Chat Panels (Support, DMs, Community)
+  // Only one panel open at a time.
+  // =========================================================================
+
+  const isChatOpen = ref(false)       // Support chat (right slide)
+  const isDmsOpen = ref(false)        // Private DMs (left slide)
+  const isCommunityOpen = ref(false)  // Public chatroom (bottom slide)
+
+  function closeAllPanels() {
+    isChatOpen.value = false
+    isDmsOpen.value = false
+    isCommunityOpen.value = false
+  }
+
+  function openChat() {
+    closeAllPanels()
+    isChatOpen.value = true
+  }
+
+  function closeChat() {
+    isChatOpen.value = false
+  }
+
+  function toggleChat() {
+    if (isChatOpen.value) { closeChat() } else { openChat() }
+  }
+
+  function openDms() {
+    closeAllPanels()
+    isDmsOpen.value = true
+  }
+
+  function closeDms() {
+    isDmsOpen.value = false
+  }
+
+  function openCommunity() {
+    closeAllPanels()
+    isCommunityOpen.value = true
+  }
+
+  function closeCommunity() {
+    isCommunityOpen.value = false
+  }
+
+  // =========================================================================
   // Global Loading State
   // =========================================================================
 
@@ -318,6 +364,19 @@ export const useUIStore = defineStore('ui', () => {
     // Utility
     hasOpenModal,
     closeAllModals,
+
+    // Chat Panels
+    isChatOpen,
+    isDmsOpen,
+    isCommunityOpen,
+    closeAllPanels,
+    openChat,
+    closeChat,
+    toggleChat,
+    openDms,
+    closeDms,
+    openCommunity,
+    closeCommunity,
 
     // Global Loading
     isGlobalLoading,

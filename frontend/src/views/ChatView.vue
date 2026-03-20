@@ -3,7 +3,7 @@
     <!-- Page Header -->
     <header class="page-header">
       <h1>Feedback & Support</h1>
-      <p class="subtitle">Report bugs, share ideas, or ask questions — directly to the BadgeBox team.</p>
+      <p class="subtitle">Report bugs, share ideas, or ask questions directly to the BadgeBox team.</p>
     </header>
 
     <!-- Amber not supported notice -->
@@ -22,7 +22,7 @@
         <Icon name="info-circle" size="md" />
       </div>
       <div class="info-banner-content">
-        <p>Your messages are <strong>end-to-end encrypted</strong> using the Nostr NIP-17 protocol. Only you and the BadgeBox developer can read them. No message is stored on any server — everything lives on Nostr relays.</p>
+        <p>Your messages are <strong>end-to-end encrypted</strong> using the Nostr NIP-17 protocol. Only you and the BadgeBox developer can read them. No message is stored on any server; everything lives on Nostr relays.</p>
       </div>
     </div>
 
@@ -94,7 +94,7 @@
     <!-- Footer Notice -->
     <div class="encryption-footer">
       <Icon name="lock" size="sm" />
-      <span>End-to-end encrypted — only you and the recipient can read these messages</span>
+      <span>End-to-end encrypted. Only you and the recipient can read these messages.</span>
     </div>
   </div>
 </template>

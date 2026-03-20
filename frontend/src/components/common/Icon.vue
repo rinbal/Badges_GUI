@@ -67,7 +67,9 @@ import {
   IconSortDescending,
   IconPlayerPlay,
   IconServer,
-  IconMaximize
+  IconMaximize,
+  IconMessageCircle,
+  IconHash
 } from '@tabler/icons-vue'
 
 const props = defineProps({
@@ -187,7 +189,9 @@ const icons = {
   'sort-descending': IconSortDescending,
   'player-play': IconPlayerPlay,
   'server': IconServer,
-  'maximize': IconMaximize
+  'maximize': IconMaximize,
+  'message-circle': IconMessageCircle,
+  'hash': IconHash
 }
 
 const iconComponent = computed(() => {

@@ -115,10 +115,20 @@
             <Icon name="user" size="sm" class="action-icon" />
             <span>View Profile</span>
           </router-link>
+          <div class="action-divider-label">Chat</div>
+          <button @click="openCommunityPanel" class="action-btn">
+            <Icon name="hash" size="sm" class="action-icon" />
+            <span>Community</span>
+          </button>
+          <button @click="openDmsPanel" class="action-btn">
+            <Icon name="mail" size="sm" class="action-icon" />
+            <span>Messages</span>
+          </button>
           <button @click="openChat" class="action-btn">
             <Icon name="message-circle" size="sm" class="action-icon" />
             <span>Feedback & Support</span>
           </button>
+          <div class="action-divider-label">Settings</div>
           <button @click="openRelays" class="action-btn">
             <Icon name="server" size="sm" class="action-icon" />
             <span>Relays</span>
@@ -168,10 +178,18 @@ const relayStatusClass = computed(() => {
   return 'offline'
 })
 
-const emit = defineEmits(['open-chat'])
-
 function openChat() {
-  emit('open-chat')
+  uiStore.openChat()
+  closeDropdown()
+}
+
+function openDmsPanel() {
+  uiStore.openDms()
+  closeDropdown()
+}
+
+function openCommunityPanel() {
+  uiStore.openCommunity()
   closeDropdown()
 }
 
@@ -505,6 +523,15 @@ onUnmounted(() => {
 .dropdown-actions {
   border-top: 1px solid var(--color-border);
   padding: 0.5rem;
+}
+
+.action-divider-label {
+  padding: 0.375rem 1rem 0.125rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-subtle);
 }
 
 .action-btn {

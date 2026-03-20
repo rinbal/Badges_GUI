@@ -1,6 +1,6 @@
 <template>
   <div class="app">
-    <AppHeader @open-chat="chatOpen = true" />
+    <AppHeader />
     <main class="main-content">
       <router-view v-slot="{ Component, route }">
         <transition name="fade" mode="out-in">
@@ -12,43 +12,52 @@
     <ToastContainer />
     <GlobalModals />
 
-    <!-- Chat FAB — only when authenticated -->
+    <!-- Support Chat FAB - only when authenticated -->
     <button
       v-if="authStore.isAuthenticated"
       class="chat-fab"
-      :class="{ 'chat-fab--open': chatOpen }"
-      @click="chatOpen = !chatOpen"
+      :class="{ 'chat-fab--open': uiStore.isChatOpen }"
+      @click="uiStore.toggleChat()"
       title="Feedback & Support"
     >
-      <Icon v-if="chatOpen" name="x" size="md" />
+      <Icon v-if="uiStore.isChatOpen" name="x" size="md" />
       <Icon v-else name="message-circle" size="md" />
     </button>
 
-    <!-- Chat Slide-in Panel -->
-    <ChatPanel :visible="chatOpen" @close="chatOpen = false" />
+    <!-- Support Chat Panel (slides from RIGHT) -->
+    <ChatPanel :visible="uiStore.isChatOpen" @close="uiStore.closeChat()" />
+
+    <!-- DMs Panel (slides from LEFT) -->
+    <DmsPanel :visible="uiStore.isDmsOpen" @close="uiStore.closeDms()" />
+
+    <!-- Community Panel (slides from BOTTOM) -->
+    <CommunityPanel :visible="uiStore.isCommunityOpen" @close="uiStore.closeCommunity()" />
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, watch } from 'vue'
+import { onMounted, watch } from 'vue'
 import AppHeader from '@/components/common/AppHeader.vue'
 import PwaInstallBanner from '@/components/common/PwaInstallBanner.vue'
 import ToastContainer from '@/components/common/ToastContainer.vue'
 import GlobalModals from '@/components/shared/GlobalModals.vue'
 import ChatPanel from '@/components/chat/ChatPanel.vue'
+import DmsPanel from '@/components/chat/DmsPanel.vue'
+import CommunityPanel from '@/components/chat/CommunityPanel.vue'
 import Icon from '@/components/common/Icon.vue'
 import { useAuthStore } from '@/stores/auth'
+import { useUIStore } from '@/stores/ui'
 
 const authStore = useAuthStore()
-const chatOpen = ref(false)
+const uiStore = useUIStore()
 
 onMounted(() => {
   authStore.initAuth()
 })
 
-// Close chat on logout
+// Close all panels on logout
 watch(() => authStore.isAuthenticated, (isAuth) => {
-  if (!isAuth) chatOpen.value = false
+  if (!isAuth) uiStore.closeAllPanels()
 })
 </script>
 

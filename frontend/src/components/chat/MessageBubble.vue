@@ -1,7 +1,7 @@
 <template>
   <div class="message" :class="{ 'message--mine': message.isMine }">
     <div class="message-bubble">
-      <p class="message-text">{{ message.content }}</p>
+      <p class="message-text">{{ displayContent }}</p>
       <span class="message-time">{{ formattedTime }}</span>
     </div>
   </div>
@@ -9,10 +9,13 @@
 
 <script setup>
 import { computed } from 'vue'
+import { cleanMessageContent } from '@/utils/chatFormat'
 
 const props = defineProps({
   message: { type: Object, required: true }
 })
+
+const displayContent = computed(() => cleanMessageContent(props.message.content))
 
 const formattedTime = computed(() => {
   const date = new Date(props.message.created_at * 1000)

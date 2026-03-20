@@ -48,9 +48,9 @@
                 {{ proof.content }}
               </p>
 
-              <!-- Preview unavailable — always has the link above as fallback -->
+              <!-- Preview unavailable - always has the link above as fallback -->
               <p v-else class="proof-unavailable">
-                Preview not available — open on Nostr to review
+                Preview not available. Open on Nostr to review.
               </p>
 
               <span v-if="proof.created_at" class="proof-time">{{ formatTime(proof.created_at) }}</span>

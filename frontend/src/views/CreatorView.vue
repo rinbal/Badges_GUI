@@ -606,7 +606,7 @@ function resetState() {
 // Template selection
 function selectTemplate(template) {
   selectedTemplate.value = template
-  uiStore.showInfo(`${template.name} selected — now add recipients`)
+  uiStore.showInfo(`${template.name} selected. Now add recipients.`)
 }
 
 function useTemplate(template) {
@@ -619,7 +619,7 @@ function useTemplate(template) {
   selectedTemplate.value = template
   editingTemplate.value = null
   activeMode.value = 'award'
-  uiStore.showInfo(`Using "${template.name}" — add recipients to award`)
+  uiStore.showInfo(`Using "${template.name}". Add recipients to award.`)
 }
 
 function editTemplate(template) {
@@ -631,7 +631,7 @@ function editTemplate(template) {
   }
   editingTemplate.value = template
   activeMode.value = 'create'
-  uiStore.showInfo(`Editing "${template.name}" — update details and save`)
+  uiStore.showInfo(`Editing "${template.name}". Update details and save.`)
 }
 
 function cancelEdit() {

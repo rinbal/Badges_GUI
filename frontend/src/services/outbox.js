@@ -23,8 +23,9 @@ export const FALLBACK_RELAYS = [
   'wss://relay.damus.io',
   'wss://nos.lol',
   'wss://relay.primal.net',
-  'wss://relay.snort.social',
-  'wss://offchain.pub'
+  'wss://nostr.mom',
+  'wss://offchain.pub',
+  'wss://purplepag.es'
 ]
 
 // DM-optimized relays (good NIP-17 support)
@@ -32,8 +33,9 @@ export const DM_RELAYS = [
   'wss://relay.damus.io',
   'wss://nos.lol',
   'wss://relay.primal.net',
+  'wss://relay.0xchat.com',
   'wss://offchain.pub',
-  'wss://relay.snort.social'
+  'wss://relay.nos.social'
 ]
 
 // Public chat relays (high availability, good for kind 42)
@@ -41,9 +43,10 @@ export const PUBLIC_CHAT_RELAYS = [
   'wss://relay.damus.io',
   'wss://nos.lol',
   'wss://relay.primal.net',
-  'wss://relay.snort.social',
+  'wss://relay.0xchat.com',
   'wss://offchain.pub',
-  'wss://relay.0xchat.com'
+  'wss://nostr.mom',
+  'wss://relay.snort.social'
 ]
 
 // ── Relay List Cache ─────────────────────────────────────────────────────────
@@ -95,7 +98,7 @@ export async function getUserRelays(pubkey) {
     }, { maxWait: 5000 })
 
     if (events.length === 0) {
-      // No relay list published — cache briefly so we retry sooner
+      // No relay list published - cache briefly so we retry sooner
       relayListCache.set(pubkey, { read: [], write: [], fetchedAt: Date.now(), empty: true })
       return { read: [], write: [] }
     }
@@ -104,8 +107,8 @@ export async function getUserRelays(pubkey) {
     const latest = events.sort((a, b) => b.created_at - a.created_at)[0]
     const parsed = nip65.parseRelayList(latest)
 
-    const read = nip65.getReadRelays(parsed).map(r => r.url)
-    const write = nip65.getWriteRelays(parsed).map(r => r.url)
+    const read = nip65.getReadRelays(parsed)
+    const write = nip65.getWriteRelays(parsed)
 
     relayListCache.set(pubkey, { read, write, fetchedAt: Date.now(), empty: false })
     return { read, write }

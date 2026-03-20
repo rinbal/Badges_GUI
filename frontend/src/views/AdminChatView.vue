@@ -2,7 +2,7 @@
   <div class="admin-chat-page animate-fadeIn">
     <header class="page-header">
       <h1>Support Inbox</h1>
-      <p class="subtitle">All user conversations — badge-gated admin view</p>
+      <p class="subtitle">All user conversations, badge-gated admin view</p>
     </header>
 
     <!-- Access Denied -->

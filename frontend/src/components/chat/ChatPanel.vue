@@ -31,7 +31,7 @@
         <!-- Unsupported Auth Warning -->
         <div v-if="!chatStore.chatSupported" class="panel-notice panel-notice--warning">
           <Icon name="alert-triangle" size="sm" />
-          <span>Encrypted chat requires <strong>nsec</strong> or a <strong>NIP-07 extension</strong>. Amber support coming soon.</span>
+          <span>Encrypted chat requires a Nostr signer (NIP-07 extension, nsec key, or Amber). Please check your login.</span>
         </div>
 
         <!-- Error State -->

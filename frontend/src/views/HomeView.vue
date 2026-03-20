@@ -15,7 +15,7 @@
         </h1>
         <p class="hero-subtitle">
           Create, award, and collect verifiable badges on the decentralized Nostr network.
-          No databases, no middlemen — just cryptographic proof.
+          No databases, no middlemen. Just cryptographic proof.
         </p>
 
         <!-- CTAs: Different for logged in vs logged out -->
@@ -192,6 +192,26 @@
             <p>Badges you've created</p>
           </div>
         </router-link>
+
+        <button class="action-card action-card-support" @click="uiStore.openChat()">
+          <div class="action-icon">
+            <Icon name="message-circle" size="lg" />
+          </div>
+          <div class="action-content">
+            <h3>Feedback & Support</h3>
+            <p>Chat with the developer</p>
+          </div>
+        </button>
+
+        <button class="action-card action-card-community" @click="uiStore.openCommunity()">
+          <div class="action-icon">
+            <Icon name="hash" size="lg" />
+          </div>
+          <div class="action-content">
+            <h3>Community Chat</h3>
+            <p>Public chatroom for everyone</p>
+          </div>
+        </button>
       </div>
     </section>
 
@@ -316,7 +336,7 @@
             </button>
           </div>
           <div v-if="activeProtocolInfo === 'request'" class="info-accordion">
-            <p>A brand new Nostr-native protocol — not yet part of any NIP. Users can request badges from creators, submit proof of eligibility, track their requests, and get notified when approved.</p>
+            <p>A brand new Nostr-native protocol, not yet part of any NIP. Users can request badges from creators, submit proof of eligibility, track their requests, and get notified when approved.</p>
             <a
               class="info-link"
               href="https://github.com/nostr-protocol/nips/pull/2204"
@@ -362,7 +382,24 @@
     </Transition>
 
     <!-- =========================================
-         7. Footer
+         7. Live Community Chat
+         ========================================= -->
+    <section class="community-section">
+      <div class="community-header">
+        <div class="community-header-left">
+          <h2>The BadgeBox Lounge</h2>
+        </div>
+        <button class="expand-link" @click="uiStore.openCommunity()">
+          Full screen
+          <Icon name="maximize-2" size="sm" />
+        </button>
+      </div>
+      <p class="community-subtitle">Real conversations happening right now on the Nostr network. Jump in.</p>
+      <LiveChatEmbed />
+    </section>
+
+    <!-- =========================================
+         8. Footer
          ========================================= -->
     <footer class="home-footer">
       <p class="footer-line">
@@ -388,6 +425,7 @@ import Icon from '@/components/common/Icon.vue'
 import GradientText from '@/components/common/GradientText.vue'
 import SurfBadgeCard from '@/components/surf/SurfBadgeCard.vue'
 import BadgeCardSkeleton from '@/components/surf/BadgeCardSkeleton.vue'
+import LiveChatEmbed from '@/components/chat/LiveChatEmbed.vue'
 
 // Stores
 const authStore = useAuthStore()
@@ -716,7 +754,7 @@ onUnmounted(() => {
   background: linear-gradient(to left, var(--color-background), transparent);
 }
 
-/* Carousel Track — infinite marquee via CSS transform */
+/* Carousel Track - infinite marquee via CSS transform */
 .carousel-track {
   display: flex;
   gap: 1rem;
@@ -857,7 +895,7 @@ onUnmounted(() => {
 
 .actions-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 1rem;
 }
 
@@ -871,6 +909,9 @@ onUnmounted(() => {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   text-decoration: none;
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
   transition: all 0.2s ease;
 }
 
@@ -908,6 +949,16 @@ onUnmounted(() => {
 .action-card-issued .action-icon {
   background: var(--color-info-soft);
   color: var(--color-info);
+}
+
+.action-card-support .action-icon {
+  background: rgba(157, 78, 221, 0.12);
+  color: #9d4edd;
+}
+
+.action-card-community .action-icon {
+  background: rgba(34, 197, 94, 0.12);
+  color: var(--color-success);
 }
 
 .action-content h3 {
@@ -1321,6 +1372,10 @@ onUnmounted(() => {
     font-size: 3.25rem;
   }
 
+  .actions-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
   .protocol-cards {
     grid-template-columns: 1fr;
   }
@@ -1393,7 +1448,7 @@ onUnmounted(() => {
 
   /* Quick actions - single column */
   .actions-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr !important;
   }
 
   /* New to Nostr */
@@ -1415,5 +1470,66 @@ onUnmounted(() => {
   .protocol-header h2 {
     font-size: 1.25rem;
   }
+
+  .community-section {
+    padding: 1.5rem;
+  }
+}
+
+/* =========================================
+   Community Live Chat Section
+   ========================================= */
+.community-section {
+  margin-top: 3rem;
+  padding: 2rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+}
+
+.community-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.375rem;
+}
+
+.community-header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+}
+
+.community-header h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, var(--color-primary), #06b6d4);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.community-subtitle {
+  color: var(--color-text-muted);
+  font-size: 0.9375rem;
+  margin: 0 0 1.25rem;
+}
+
+.expand-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  font-size: 0.8125rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: color var(--transition-fast);
+}
+
+.expand-link:hover {
+  color: var(--color-primary);
 }
 </style>

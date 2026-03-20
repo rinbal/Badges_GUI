@@ -64,7 +64,7 @@
 
       <div class="header-actions">
         <template v-if="authStore.isAuthenticated">
-          <ProfileDropdown @open-chat="$emit('open-chat')" />
+          <ProfileDropdown />
         </template>
         <template v-else>
           <router-link to="/login" class="btn-login">
@@ -86,7 +86,6 @@ import { useChatStore } from '@/stores/chat'
 import ProfileDropdown from '@/components/common/ProfileDropdown.vue'
 import Icon from '@/components/common/Icon.vue'
 
-defineEmits(['open-chat'])
 
 const authStore = useAuthStore()
 const badgesStore = useBadgesStore()
@@ -152,6 +151,7 @@ watch(() => authStore.isAuthenticated, (isAuth) => {
   flex-shrink: 0;
 }
 
+
 .nav-link {
   display: flex;
   align-items: center;
@@ -203,6 +203,16 @@ watch(() => authStore.isAuthenticated, (isAuth) => {
 .nav-link[href="/issued"].router-link-active {
   background: rgba(168, 85, 247, 0.1);
   color: #a855f7;
+}
+
+.nav-link[href="/community"].router-link-active {
+  background: rgba(6, 182, 212, 0.1);
+  color: #06b6d4;
+}
+
+.nav-link[href="/messages"].router-link-active {
+  background: rgba(34, 197, 94, 0.1);
+  color: #22c55e;
 }
 
 .nav-link[href="/chat/admin"].router-link-active {

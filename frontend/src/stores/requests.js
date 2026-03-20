@@ -5,7 +5,7 @@
  * - cursors[0] = null  → page 1 (most recent)
  * - cursors[1] = T1   → page 2 (fetch with until=T1)
  * - cursors[N]        → page N+1
- * Going back is free — reuse the cached cursor for that page.
+ * Going back is free - reuse the cached cursor for that page.
  *
  * Supports NIP-07 (extension/Amber) and nsec (backend signing) flows.
  */

@@ -41,7 +41,7 @@
           </div>
 
           <p v-if="extensionAvailable" class="method-hint">
-            Recommended — your key never leaves your extension
+            Recommended. Your key never leaves your extension.
           </p>
 
           <div v-if="!extensionAvailable && extensionChecked" class="extension-missing">
@@ -64,7 +64,7 @@
             <span class="amber-dot"></span>
             Sign in with Amber
           </button>
-          <p class="method-hint">For Android users — signs on your phone via the Amber app</p>
+          <p class="method-hint">For Android users. Signs on your phone via the Amber app.</p>
         </div>
 
         <!-- Divider -->
@@ -161,7 +161,7 @@
         <ol class="amber-steps">
           <li>Open the <strong>Amber</strong> app on your Android phone</li>
           <li>Tap the <strong>scan icon</strong> in the top right</li>
-          <li>Scan this code — then tap <strong>Connect</strong></li>
+          <li>Scan this code, then tap <strong>Connect</strong></li>
         </ol>
 
         <!-- Deep link for mobile users -->
@@ -182,7 +182,7 @@
           </span>
           <span v-else-if="amberStatus === 'finalizing'" class="status-finalizing">
             <span class="checking-spinner"></span>
-            Amber connected — setting up your account…
+            Amber connected. Setting up your account…
           </span>
           <span v-else class="status-waiting">
             <span class="checking-spinner"></span>
@@ -236,11 +236,11 @@
             <div class="key-types">
               <div class="key-type">
                 <code>npub</code>
-                <span>Your public key — share this with others (like a username)</span>
+                <span>Your public key. Share this with others (like a username).</span>
               </div>
               <div class="key-type">
                 <code>nsec</code>
-                <span>Your private key — keep this secret! (like a password)</span>
+                <span>Your private key. Keep this secret! (like a password)</span>
               </div>
             </div>
             <div class="extension-benefit">
@@ -393,7 +393,7 @@ async function startAmberConnect() {
       color: { dark: '#000000', light: '#ffffff' }
     })
   } catch {
-    // QR generation is cosmetic only — deep link still works
+    // QR generation is cosmetic only - deep link still works
   }
 
   // Start countdown timer
@@ -416,14 +416,14 @@ async function startAmberConnect() {
       _amberAbortController.signal
     )
 
-    // Amber approved — show immediate feedback while we finalize
+    // Amber approved - show immediate feedback while we finalize
     amberStatus.value = 'finalizing'
     await authStore.finalizeAmberLogin(signer, localSk)
     cleanupAmber()
     await afterLogin()
   } catch (err) {
     if (err?.name === 'AbortError') {
-      // User cancelled — no error shown
+      // User cancelled - no error shown
       return
     }
     amberError.value = 'Could not connect to Amber. Make sure the app is open and try again.'

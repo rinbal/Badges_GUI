@@ -1,11 +1,10 @@
 /**
- * Chat Store — Manages NIP-17 encrypted DM state
+ * Chat Store - Manages NIP-17/04 encrypted DM state
  *
  * User view:  single conversation with Rinball (admin)
  * Admin view: all conversations grouped by sender (badge-gated)
  *
- * Supported auth methods: nsec, NIP-07
- * Amber (NIP-46) is not yet supported for encrypted DMs.
+ * All auth methods supported via unified nostr-core Signer.
  */
 
 import { defineStore } from 'pinia'
@@ -14,29 +13,29 @@ import { useAuthStore } from '@/stores/auth'
 import { useUIStore } from '@/stores/ui'
 import { ADMIN_PUBKEY_HEX, ADMIN_BADGE_ATAG } from '@/config/chat'
 import {
-  sendWithSecretKey,
-  sendWithNip07,
-  fetchMessagesWithSecretKey,
-  fetchMessagesWithNip07,
-  fetchAllConversationsWithSecretKey,
-  fetchAllConversationsWithNip07,
+  sendDirectMessage,
+  fetchDirectMessages,
+  fetchAllConversations as fetchAllConvs,
   checkBadgeAccess,
-  fetchNostrProfile,
-  detectNip07Capabilities
+  fetchNostrProfile
 } from '@/services/nostrChat'
 import { closePool, clearRelayCache } from '@/services/outbox'
+import { getBestEncryption } from '@/services/signer'
 
-const UNSUPPORTED_AUTH_MSG = 'Encrypted chat requires nsec or a NIP-07 browser extension (nos2x, Alby). Amber (NIP-46) support is coming soon.'
+function isSignerError(err) {
+  const msg = (err?.message || '').toLowerCase()
+  return msg.includes('not connected') || msg.includes('signer') || msg.includes('getpublickey failed') || msg.includes('extension')
+}
 
 export const useChatStore = defineStore('chat', () => {
   const authStore = useAuthStore()
   const uiStore = useUIStore()
 
   // ── State ────────────────────────────────────────────────────────────────
-  const messages = ref([])              // Current conversation messages
-  const conversations = ref(new Map())  // Admin: pubkey -> messages[]
-  const conversationProfiles = ref({})  // Admin: pubkey -> profile info
-  const selectedPartner = ref(null)     // Admin: currently selected conversation
+  const messages = ref([])
+  const conversations = ref(new Map())
+  const conversationProfiles = ref({})
+  const selectedPartner = ref(null)
   const isLoading = ref(false)
   const isSending = ref(false)
   const error = ref(null)
@@ -47,9 +46,9 @@ export const useChatStore = defineStore('chat', () => {
 
   /** Whether the current auth method supports encrypted chat */
   const chatSupported = computed(() => {
-    if (authStore.isNsec) return true
-    if (authStore.isNip07) return !!detectNip07Capabilities()
-    return false
+    const signer = authStore.getSigner()
+    if (!signer) return false
+    return !!getBestEncryption(signer)
   })
 
   const conversationList = computed(() => {
@@ -72,20 +71,17 @@ export const useChatStore = defineStore('chat', () => {
     return conversations.value.get(selectedPartner.value) || []
   })
 
-  // ── Helpers ──────────────────────────────────────────────────────────────
-
-  /** Route a send/fetch call through the correct auth method */
-  function requireChatAuth() {
-    if (!chatSupported.value) {
-      throw new Error(UNSUPPORTED_AUTH_MSG)
-    }
-  }
-
   // ── Actions ──────────────────────────────────────────────────────────────
+
+  function requireSigner() {
+    const signer = authStore.getSigner()
+    if (!signer) throw new Error('No signer available. Please log in with nsec, NIP-07 extension, or Amber.')
+    if (!getBestEncryption(signer)) throw new Error('Your signer does not support encryption (NIP-04 or NIP-44).')
+    return signer
+  }
 
   /**
    * Check if the current user holds the admin badge.
-   * Skips re-check if already verified this session.
    */
   async function checkAdminAccess() {
     if (adminChecked.value) return isAdmin.value
@@ -116,14 +112,8 @@ export const useChatStore = defineStore('chat', () => {
     error.value = null
 
     try {
-      requireChatAuth()
-
-      let result
-      if (authStore.isNsec) {
-        result = await sendWithSecretKey(content, authStore.nsec, ADMIN_PUBKEY_HEX)
-      } else {
-        result = await sendWithNip07(content, authStore.hex, ADMIN_PUBKEY_HEX)
-      }
+      const signer = requireSigner()
+      const result = await sendDirectMessage(content, signer, ADMIN_PUBKEY_HEX)
 
       messages.value.push({
         id: result.id,
@@ -137,7 +127,12 @@ export const useChatStore = defineStore('chat', () => {
       return { success: true }
     } catch (err) {
       error.value = err.message
-      uiStore.showError(`Send failed: ${err.message}`)
+      if (isSignerError(err)) {
+        authStore.resetSigner()
+        uiStore.showError('Your signing extension disconnected. Please unlock it and try again.')
+      } else {
+        uiStore.showError(`Send failed: ${err.message}`)
+      }
       return { success: false, error: err.message }
     } finally {
       isSending.value = false
@@ -154,14 +149,8 @@ export const useChatStore = defineStore('chat', () => {
     error.value = null
 
     try {
-      requireChatAuth()
-
-      let result
-      if (authStore.isNsec) {
-        result = await sendWithSecretKey(content, authStore.nsec, recipientPubkey)
-      } else {
-        result = await sendWithNip07(content, authStore.hex, recipientPubkey)
-      }
+      const signer = requireSigner()
+      const result = await sendDirectMessage(content, signer, recipientPubkey)
 
       const replyMsg = {
         id: result.id,
@@ -172,7 +161,6 @@ export const useChatStore = defineStore('chat', () => {
         isMine: true
       }
 
-      // Ensure conversation exists in local state
       if (!conversations.value.has(recipientPubkey)) {
         conversations.value.set(recipientPubkey, [])
       }
@@ -181,7 +169,12 @@ export const useChatStore = defineStore('chat', () => {
       return { success: true }
     } catch (err) {
       error.value = err.message
-      uiStore.showError(`Reply failed: ${err.message}`)
+      if (isSignerError(err)) {
+        authStore.resetSigner()
+        uiStore.showError('Your signing extension disconnected. Please unlock it and try again.')
+      } else {
+        uiStore.showError(`Reply failed: ${err.message}`)
+      }
       return { success: false, error: err.message }
     } finally {
       isSending.value = false
@@ -196,13 +189,8 @@ export const useChatStore = defineStore('chat', () => {
     error.value = null
 
     try {
-      requireChatAuth()
-
-      if (authStore.isNsec) {
-        messages.value = await fetchMessagesWithSecretKey(authStore.nsec, ADMIN_PUBKEY_HEX)
-      } else {
-        messages.value = await fetchMessagesWithNip07(authStore.hex, ADMIN_PUBKEY_HEX)
-      }
+      const signer = requireSigner()
+      messages.value = await fetchDirectMessages(signer, authStore.hex, ADMIN_PUBKEY_HEX)
     } catch (err) {
       error.value = err.message
       uiStore.showError(err.message)
@@ -220,18 +208,12 @@ export const useChatStore = defineStore('chat', () => {
     error.value = null
 
     try {
-      requireChatAuth()
-
-      let convMap
-      if (authStore.isNsec) {
-        convMap = await fetchAllConversationsWithSecretKey(authStore.nsec)
-      } else {
-        convMap = await fetchAllConversationsWithNip07(authStore.hex)
-      }
+      const signer = requireSigner()
+      const convMap = await fetchAllConvs(signer, authStore.hex)
 
       conversations.value = convMap
 
-      // Fetch profiles for all conversation partners in parallel
+      // Fetch profiles in parallel
       const pubkeys = [...convMap.keys()].filter(pk => !conversationProfiles.value[pk])
       const profileResults = await Promise.allSettled(
         pubkeys.map(pk => fetchNostrProfile(pk))
@@ -249,16 +231,10 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
-  /**
-   * Select a conversation in admin view
-   */
   function selectConversation(pubkey) {
     selectedPartner.value = pubkey
   }
 
-  /**
-   * Cleanup on logout
-   */
   function reset() {
     messages.value = []
     conversations.value = new Map()
@@ -272,29 +248,10 @@ export const useChatStore = defineStore('chat', () => {
   }
 
   return {
-    // State
-    messages,
-    conversations,
-    conversationProfiles,
-    selectedPartner,
-    isLoading,
-    isSending,
-    error,
-    isAdmin,
-    adminChecked,
-
-    // Getters
-    chatSupported,
-    conversationList,
-    selectedMessages,
-
-    // Actions
-    checkAdminAccess,
-    sendMessage,
-    replyToUser,
-    fetchMessages,
-    fetchAllConversations,
-    selectConversation,
-    reset
+    messages, conversations, conversationProfiles, selectedPartner,
+    isLoading, isSending, error, isAdmin, adminChecked,
+    chatSupported, conversationList, selectedMessages,
+    checkAdminAccess, sendMessage, replyToUser,
+    fetchMessages, fetchAllConversations, selectConversation, reset
   }
 })

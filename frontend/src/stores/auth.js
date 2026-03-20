@@ -2,9 +2,9 @@
  * Auth Store - Manages authentication state and user profile
  *
  * Supports three auth methods:
- * - nip07:  Browser extension (nos2x, Alby) — signs in browser
- * - nsec:   Private key entered manually — backend signs
- * - amber:  Amber Android app via NIP-46 remote signing — signs on phone
+ * - nip07:  Browser extension (nos2x, Alby) - signs in browser
+ * - nsec:   Private key entered manually - backend signs
+ * - amber:  Amber Android app via NIP-46 remote signing - signs on phone
  */
 
 import { defineStore } from 'pinia'
@@ -18,6 +18,7 @@ import {
 } from '@/utils/nip07'
 import { generateSecretKey, getPublicKey, nip19, SimplePool } from 'nostr-tools'
 import { BunkerSigner, parseBunkerInput } from 'nostr-tools/nip46'
+import { createSigner as createNostrCoreSigner } from '@/services/signer'
 
 // ── NIP-46 config ─────────────────────────────────────────────────────────────
 // Relays used for the NIP-46 handshake between BadgeBox and Amber.
@@ -30,9 +31,10 @@ const NIP46_RELAYS = [
   'wss://nos.lol'
 ]
 
-// Module-level signer instance — not reactive (Pinia can't wrap WebSocket objects)
+// Module-level instances - not reactive (Pinia can't wrap WebSocket objects)
 let _bunkerSigner = null
 let _bunkerPool = null
+let _nostrCoreSigner = null  // Cached nostr-core Signer
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -98,6 +100,7 @@ export const useAuthStore = defineStore('auth', () => {
 
       const { hex: hexPubkey, npub: npubKey } = await getNip07PublicKey()
 
+      _nostrCoreSigner = null // Clear cached signer for new session
       authMethod.value = 'nip07'
       npub.value = npubKey
       hex.value = hexPubkey
@@ -130,6 +133,7 @@ export const useAuthStore = defineStore('auth', () => {
       const data = response.data
 
       if (data.valid) {
+        _nostrCoreSigner = null // Clear cached signer for new session
         authMethod.value = 'nsec'
         nsec.value = privateKey
         npub.value = data.npub
@@ -165,7 +169,7 @@ export const useAuthStore = defineStore('auth', () => {
    * @returns {{ localSk: Uint8Array, connectUri: string }}
    */
   function prepareAmberConnect() {
-    const localSk = generateSecretKey()          // Uint8Array — stays in memory only
+    const localSk = generateSecretKey()          // Uint8Array - stays in memory only
     const localPk = getPublicKey(localSk)         // hex pubkey embedded in URI
 
     const secretBytes = new Uint8Array(16)
@@ -193,7 +197,7 @@ export const useAuthStore = defineStore('auth', () => {
    * Sets auth state, persists reconnect data, and fetches the user profile.
    *
    * @param {BunkerSigner} signer
-   * @param {Uint8Array} localSk  — the ephemeral key used for this connection
+   * @param {Uint8Array} localSk  - the ephemeral key used for this connection
    */
   async function finalizeAmberLogin(signer, localSk) {
     _bunkerSigner = signer
@@ -212,7 +216,7 @@ export const useAuthStore = defineStore('auth', () => {
     sessionStorage.removeItem('nsec')
 
     // Store what's needed to restore the signer on next page load.
-    // bunkerPubkey is the Amber app's relay-facing identity key — used to reconstruct
+    // bunkerPubkey is the Amber app's relay-facing identity key - used to reconstruct
     // the bunker:// URI. It is always set after a successful fromURI() connection.
     const localSkHex = Array.from(localSk).map(b => b.toString(16).padStart(2, '0')).join('')
     const bunkerPubkey = signer.bp.pubkey
@@ -222,13 +226,13 @@ export const useAuthStore = defineStore('auth', () => {
       relayUrls: NIP46_RELAYS
     }))
 
-    // Fetch profile in background — don't block the login navigation on it
+    // Fetch profile in background - don't block the login navigation on it
     fetchProfile(npubKey)
   }
 
   /**
    * Silently restore an Amber signer from localStorage on page reload.
-   * No QR re-scan needed — uses the stored connection params.
+   * No QR re-scan needed - uses the stored connection params.
    * Returns true on success, false if data is missing or reconnect fails.
    */
   async function reconnectAmber() {
@@ -274,6 +278,7 @@ export const useAuthStore = defineStore('auth', () => {
   /**
    * Sign an event using the current auth method.
    * Returns the signed event for nip07/amber, or null for nsec (backend signs).
+   * Used by existing badge/request/blossom code - DO NOT CHANGE this API.
    */
   async function signEvent(unsignedEvent) {
     if (authMethod.value === 'nip07') {
@@ -283,7 +288,36 @@ export const useAuthStore = defineStore('auth', () => {
       if (!_bunkerSigner) throw new Error('Amber is not connected')
       return await _bunkerSigner.signEvent(unsignedEvent)
     }
-    return null // nsec — backend signs using X-Nsec header
+    return null // nsec - backend signs using X-Nsec header
+  }
+
+  // ── Unified Signer (nostr-core) ────────────────────────────────────────
+
+  /**
+   * Get a nostr-core compatible Signer for the current auth method.
+   * Used by chat and future features that need encrypt/decrypt support.
+   * Returns null if no auth or signer creation fails.
+   */
+  function getSigner() {
+    if (_nostrCoreSigner) return _nostrCoreSigner
+
+    try {
+      _nostrCoreSigner = createNostrCoreSigner(authMethod.value, {
+        nsec: nsec.value,
+        bunkerSigner: _bunkerSigner
+      })
+      return _nostrCoreSigner
+    } catch {
+      return null
+    }
+  }
+
+  /**
+   * Clear cached signer so next getSigner() creates a fresh one.
+   * Call this when a signer operation fails (e.g. extension disconnected).
+   */
+  function resetSigner() {
+    _nostrCoreSigner = null
   }
 
   // ── Profile ───────────────────────────────────────────────────────────────
@@ -321,7 +355,10 @@ export const useAuthStore = defineStore('auth', () => {
     _bunkerPool = null
     localStorage.removeItem('amberSession')
 
-    // Clean up Nostr relay pool and cache (no circular import)
+    // Clear cached signer
+    _nostrCoreSigner = null
+
+    // Clean up Nostr relay pool and cache
     import('@/services/outbox').then(({ closePool, clearRelayCache }) => {
       clearRelayCache()
       closePool()
@@ -375,6 +412,8 @@ export const useAuthStore = defineStore('auth', () => {
     initAuth,
     logout,
     fetchProfile,
-    signEvent
+    signEvent,
+    getSigner,
+    resetSigner
   }
 })
