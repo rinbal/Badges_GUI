@@ -52,6 +52,12 @@ const routes = [
     component: () => import('@/views/IssuedView.vue'),
     meta: { requiresAuth: true }
   },
+  {
+    path: '/chat/admin',
+    name: 'chat-admin',
+    component: () => import('@/views/AdminChatView.vue'),
+    meta: { requiresAuth: true }
+  },
   // Redirects for old URLs
   {
     path: '/postbox',

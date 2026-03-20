@@ -321,6 +321,12 @@ export const useAuthStore = defineStore('auth', () => {
     _bunkerPool = null
     localStorage.removeItem('amberSession')
 
+    // Clean up Nostr relay pool and cache (no circular import)
+    import('@/services/outbox').then(({ closePool, clearRelayCache }) => {
+      clearRelayCache()
+      closePool()
+    }).catch(() => {})
+
     authMethod.value = null
     nsec.value = null
     npub.value = null

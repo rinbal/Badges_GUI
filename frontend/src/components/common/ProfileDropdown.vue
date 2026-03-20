@@ -115,6 +115,17 @@
             <Icon name="user" size="sm" class="action-icon" />
             <span>View Profile</span>
           </router-link>
+          <button @click="openChat" class="action-btn">
+            <Icon name="message-circle" size="sm" class="action-icon" />
+            <span>Feedback & Support</span>
+          </button>
+          <button @click="openRelays" class="action-btn">
+            <Icon name="server" size="sm" class="action-icon" />
+            <span>Relays</span>
+            <span class="relay-status-badge" :class="relayStatusClass">
+              {{ relayStore.connectedCount }}/{{ relayStore.relayCount }}
+            </span>
+          </button>
           <button @click="handleLogout" class="action-btn action-logout">
             <Icon name="logout" size="sm" class="action-icon" />
             <span>Logout</span>
@@ -122,6 +133,9 @@
         </div>
       </div>
     </Transition>
+
+    <!-- Relay Manager Modal (outside dropdown so it persists when dropdown closes) -->
+    <RelayManager :visible="showRelayManager" @close="showRelayManager = false" />
   </div>
 </template>
 
@@ -131,17 +145,40 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useBadgesStore } from '@/stores/badges'
 import { useUIStore } from '@/stores/ui'
+import { useRelayStore } from '@/stores/relays'
 import Icon from '@/components/common/Icon.vue'
+import RelayManager from '@/components/common/RelayManager.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
 const badgesStore = useBadgesStore()
 const uiStore = useUIStore()
+const relayStore = useRelayStore()
 
 const dropdownRef = ref(null)
 const isOpen = ref(false)
 const copied = ref(false)
 const avatarError = ref(false)
+const showRelayManager = ref(false)
+
+const relayStatusClass = computed(() => {
+  if (relayStore.relayCount === 0) return 'offline'
+  if (relayStore.connectedCount === relayStore.relayCount) return 'online'
+  if (relayStore.connectedCount > 0) return 'partial'
+  return 'offline'
+})
+
+const emit = defineEmits(['open-chat'])
+
+function openChat() {
+  emit('open-chat')
+  closeDropdown()
+}
+
+function openRelays() {
+  showRelayManager.value = true
+  closeDropdown()
+}
 
 const bannerStyle = computed(() => {
   if (authStore.profileBanner) {
@@ -205,6 +242,7 @@ function handleClickOutside(e) {
 }
 
 onMounted(() => {
+  relayStore.init()
   document.addEventListener('click', handleClickOutside)
 })
 
@@ -494,6 +532,31 @@ onUnmounted(() => {
 }
 
 .action-logout:hover {
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+
+/* Relay Status Badge */
+.relay-status-badge {
+  margin-left: auto;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  font-family: var(--font-mono);
+  padding: 0.125rem 0.5rem;
+  border-radius: var(--radius-full);
+}
+
+.relay-status-badge.online {
+  background: rgba(34, 197, 94, 0.12);
+  color: var(--color-success);
+}
+
+.relay-status-badge.partial {
+  background: rgba(251, 191, 36, 0.12);
+  color: rgb(217, 163, 15);
+}
+
+.relay-status-badge.offline {
   background: var(--color-danger-soft);
   color: var(--color-danger);
 }

@@ -51,11 +51,20 @@
           <Icon name="certificate" size="md" class="nav-icon" />
           <span class="nav-text">Issued</span>
         </router-link>
+        <router-link
+          v-if="chatStore.isAdmin"
+          to="/chat/admin"
+          class="nav-link"
+          title="Admin support inbox"
+        >
+          <Icon name="messages" size="md" class="nav-icon" />
+          <span class="nav-text">Support</span>
+        </router-link>
       </nav>
 
       <div class="header-actions">
         <template v-if="authStore.isAuthenticated">
-          <ProfileDropdown />
+          <ProfileDropdown @open-chat="$emit('open-chat')" />
         </template>
         <template v-else>
           <router-link to="/login" class="btn-login">
@@ -73,17 +82,22 @@ import { onMounted, watch } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { useBadgesStore } from '@/stores/badges'
 import { useRequestsStore } from '@/stores/requests'
+import { useChatStore } from '@/stores/chat'
 import ProfileDropdown from '@/components/common/ProfileDropdown.vue'
 import Icon from '@/components/common/Icon.vue'
+
+defineEmits(['open-chat'])
 
 const authStore = useAuthStore()
 const badgesStore = useBadgesStore()
 const requestsStore = useRequestsStore()
+const chatStore = useChatStore()
 
-// Fetch request counts when authenticated
+// Fetch request counts and check admin badge when authenticated
 watch(() => authStore.isAuthenticated, (isAuth) => {
   if (isAuth) {
     requestsStore.fetchIncomingCount()
+    chatStore.checkAdminAccess()
   }
 }, { immediate: true })
 </script>
@@ -189,6 +203,11 @@ watch(() => authStore.isAuthenticated, (isAuth) => {
 .nav-link[href="/issued"].router-link-active {
   background: rgba(168, 85, 247, 0.1);
   color: #a855f7;
+}
+
+.nav-link[href="/chat/admin"].router-link-active {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
 }
 
 .nav-icon {
