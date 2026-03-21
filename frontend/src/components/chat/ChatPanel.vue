@@ -286,9 +286,10 @@ async function handleSend(content) {
 .panel-messages {
   flex: 1;
   overflow-y: auto;
-  padding: 0.75rem;
+  padding: 0.75rem 1rem;
   display: flex;
   flex-direction: column;
+  background: var(--color-bg);
 }
 
 .panel-status {

@@ -32,11 +32,7 @@ const formattedTime = computed(() => {
 <style scoped>
 .message {
   display: flex;
-  margin-bottom: 0.375rem;
-}
-
-.message + .message {
-  margin-top: 0.125rem;
+  margin-bottom: 0.5rem;
 }
 
 .message--mine {
@@ -45,37 +41,43 @@ const formattedTime = computed(() => {
 
 .message-bubble {
   max-width: 75%;
-  padding: 0.5rem 0.875rem;
-  border-radius: var(--radius-lg);
-  background: var(--color-surface-elevated);
-  border: 1px solid var(--color-border);
+  padding: 0.625rem 0.875rem;
+  border-radius: 1rem;
+  background: var(--color-surface-hover);
   color: var(--color-text);
   word-break: break-word;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+}
+
+/* Tail-style rounding: flatten the corner closest to the sender */
+.message:not(.message--mine) .message-bubble {
+  border-bottom-left-radius: 0.25rem;
 }
 
 .message--mine .message-bubble {
   background: var(--color-primary);
-  border-color: var(--color-primary);
   color: #fff;
+  border-bottom-right-radius: 0.25rem;
 }
 
 .message-text {
   margin: 0;
   font-size: 0.9375rem;
-  line-height: 1.45;
+  line-height: 1.5;
   white-space: pre-wrap;
+  letter-spacing: 0.01em;
 }
 
 .message-time {
   display: block;
   font-size: 0.6875rem;
-  opacity: 0.5;
   margin-top: 0.25rem;
   text-align: right;
+  color: var(--color-text-muted);
 }
 
 .message--mine .message-time {
-  opacity: 0.7;
+  color: rgba(255, 255, 255, 0.7);
 }
 
 @media (max-width: 480px) {

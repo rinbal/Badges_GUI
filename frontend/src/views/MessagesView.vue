@@ -554,9 +554,10 @@ function relativeTime(ts) {
 .thread-messages {
   flex: 1;
   overflow-y: auto;
-  padding: var(--space-md);
+  padding: var(--space-md) var(--space-lg);
   display: flex;
   flex-direction: column;
+  background: var(--color-bg);
 }
 
 .thread-status {
