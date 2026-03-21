@@ -68,6 +68,7 @@ const formattedTime = computed(() => {
   line-height: 1.5;
   white-space: pre-wrap;
   letter-spacing: 0.01em;
+  color: inherit;
 }
 
 .message-time {
