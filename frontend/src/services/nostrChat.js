@@ -226,8 +226,9 @@ export async function fetchDirectMessages(signer, myPubkey, partnerPubkey) {
  * Fetch all DMs addressed to the current user.
  * Groups messages by conversation partner. Used for admin inbox.
  *
- * Step 1: Fetch all incoming DMs (parallel NIP-04 + NIP-17)
- * Step 2: Fetch sent replies for ALL partners in parallel (not sequentially)
+ * Step 1: Fetch all incoming DMs (NIP-04 + NIP-17) from own relays
+ * Step 2: Fetch ALL sent replies in 1-2 batched queries from own relays
+ *         (no per-partner relay lookups - your sent messages are on your relays)
  */
 export async function fetchAllConversations(signer, myPubkey) {
   const myReadRelays = await getDmReadRelays(myPubkey)
@@ -235,100 +236,92 @@ export async function fetchAllConversations(signer, myPubkey) {
   const hasNip44 = signerHasNip44(signer)
   const hasNip04 = signerHasNip04(signer)
 
-  // Step 1: Fetch all incoming DMs
+  // Step 1: Fetch incoming + sent in one parallel batch from OUR relays only
   const queries = []
-  if (hasNip04) queries.push(trackedQuerySync(myReadRelays, { kinds: [4], '#p': [myPubkey] }, { maxWait: 8000 }))
-  if (hasNip44) queries.push(trackedQuerySync(myReadRelays, { kinds: [1059], '#p': [myPubkey] }, { maxWait: 8000 }))
+  if (hasNip04) {
+    queries.push(trackedQuerySync(myReadRelays, { kinds: [4], '#p': [myPubkey] }, { maxWait: 8000 }))
+    queries.push(trackedQuerySync(myReadRelays, { kinds: [4], authors: [myPubkey] }, { maxWait: 8000 }))
+  }
+  if (hasNip44) {
+    queries.push(trackedQuerySync(myReadRelays, { kinds: [1059], '#p': [myPubkey] }, { maxWait: 8000 }))
+  }
 
   const results = await Promise.all(queries)
   const conversations = new Map()
+  const seenIds = new Set()
   let idx = 0
+
+  function ensureConvo(pubkey) {
+    if (!conversations.has(pubkey)) conversations.set(pubkey, [])
+    return conversations.get(pubkey)
+  }
 
   // NIP-04 incoming
   if (hasNip04) {
     for (const evt of results[idx++]) {
-      if (evt.pubkey === myPubkey) continue
+      if (evt.pubkey === myPubkey || seenIds.has(evt.id)) continue
       try {
         const plaintext = await signer.nip04.decrypt(evt.pubkey, evt.content)
-        if (!conversations.has(evt.pubkey)) conversations.set(evt.pubkey, [])
-        conversations.get(evt.pubkey).push({
+        seenIds.add(evt.id)
+        ensureConvo(evt.pubkey).push({
           id: evt.id, content: plaintext, created_at: evt.created_at,
           sender: evt.pubkey, recipient: myPubkey, isMine: false
         })
       } catch { /* skip */ }
     }
-  }
 
-  // NIP-17 incoming
-  if (hasNip44) {
-    for (const wrap of results[idx++]) {
+    // NIP-04 sent (all sent DMs in one query, grouped by recipient)
+    for (const evt of results[idx++]) {
+      if (seenIds.has(evt.id)) continue
+      const recipientTag = evt.tags.find(t => t[0] === 'p')
+      if (!recipientTag) continue
+      const recipient = recipientTag[1]
       try {
-        const rumor = await unwrapGiftWrap(wrap, signer)
-        if (!rumor) continue
-        const sender = rumor.pubkey
-        if (!conversations.has(sender)) conversations.set(sender, [])
-        conversations.get(sender).push({
-          id: rumor.id, content: rumor.content, created_at: rumor.created_at,
-          sender, recipient: myPubkey, isMine: false
+        const plaintext = await signer.nip04.decrypt(recipient, evt.content)
+        seenIds.add(evt.id)
+        ensureConvo(recipient).push({
+          id: evt.id, content: plaintext, created_at: evt.created_at,
+          sender: myPubkey, recipient, isMine: true
         })
       } catch { /* skip */ }
     }
   }
 
-  // Step 2: Fetch sent replies for ALL partners in parallel
-  const partners = [...conversations.keys()]
-  if (partners.length > 0) {
-    const replyJobs = partners.map(partnerPubkey => fetchRepliesForPartner(signer, myPubkey, partnerPubkey, hasNip04, hasNip44))
-    const replyResults = await Promise.allSettled(replyJobs)
-
-    for (let i = 0; i < partners.length; i++) {
-      if (replyResults[i].status !== 'fulfilled') continue
-      const replies = replyResults[i].value
-      const msgs = conversations.get(partners[i])
-      msgs.push(...replies)
-      msgs.sort((a, b) => a.created_at - b.created_at)
-    }
-  }
-
-  return conversations
-}
-
-/**
- * Fetch sent replies for a single conversation partner.
- * Extracted to enable parallel execution across all partners.
- */
-async function fetchRepliesForPartner(signer, myPubkey, partnerPubkey, hasNip04, hasNip44) {
-  const dmRelays = await getDmRelays(myPubkey, partnerPubkey)
-  const replies = []
-
-  const replyQueries = []
-  if (hasNip04) replyQueries.push(trackedQuerySync(dmRelays, { kinds: [4], authors: [myPubkey], '#p': [partnerPubkey] }, { maxWait: 5000 }))
-  if (hasNip44) replyQueries.push(trackedQuerySync(dmRelays, { kinds: [1059], '#p': [partnerPubkey] }, { maxWait: 5000 }))
-
-  const replyResults = await Promise.all(replyQueries)
-  let rIdx = 0
-
-  if (hasNip04) {
-    for (const evt of replyResults[rIdx++]) {
-      try {
-        const plaintext = await signer.nip04.decrypt(partnerPubkey, evt.content)
-        replies.push({ id: evt.id, content: plaintext, created_at: evt.created_at, sender: myPubkey, recipient: partnerPubkey, isMine: true })
-      } catch { /* skip */ }
-    }
-  }
-
+  // NIP-17 incoming + sent (both come as kind 1059 addressed to us or others)
+  // We only fetched wraps addressed to us; decrypt to find sender
   if (hasNip44) {
-    for (const wrap of replyResults[rIdx++]) {
+    for (const wrap of results[idx++]) {
+      if (seenIds.has(wrap.id)) continue
       try {
         const rumor = await unwrapGiftWrap(wrap, signer)
-        if (rumor && rumor.pubkey === myPubkey) {
-          replies.push({ id: rumor.id, content: rumor.content, created_at: rumor.created_at, sender: myPubkey, recipient: partnerPubkey, isMine: true })
+        if (!rumor) continue
+        seenIds.add(wrap.id)
+
+        if (rumor.pubkey === myPubkey) {
+          // Sent by us - find recipient from rumor tags
+          const recipientTag = rumor.tags.find(t => t[0] === 'p')
+          if (!recipientTag) continue
+          ensureConvo(recipientTag[1]).push({
+            id: rumor.id, content: rumor.content, created_at: rumor.created_at,
+            sender: myPubkey, recipient: recipientTag[1], isMine: true
+          })
+        } else {
+          // Received from someone
+          ensureConvo(rumor.pubkey).push({
+            id: rumor.id, content: rumor.content, created_at: rumor.created_at,
+            sender: rumor.pubkey, recipient: myPubkey, isMine: false
+          })
         }
       } catch { /* skip */ }
     }
   }
 
-  return replies
+  // Sort each conversation by time
+  for (const msgs of conversations.values()) {
+    msgs.sort((a, b) => a.created_at - b.created_at)
+  }
+
+  return conversations
 }
 
 // ── Gift Wrap Unwrapping ─────────────────────────────────────────────────────
