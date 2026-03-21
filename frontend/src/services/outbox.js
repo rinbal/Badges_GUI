@@ -13,6 +13,7 @@
  *   3. Route writes to user's write relays + fallback relays
  *   4. Route reads from target's write relays (that's where their events are)
  *   5. Always include fallback relays for redundancy
+ *   6. Track relay failures and skip recently-dead relays
  */
 
 import { nip65, RelayPool } from 'nostr-core'
@@ -55,13 +56,40 @@ const CACHE_TTL = 30 * 60 * 1000        // 30 minutes for valid relay lists
 const CACHE_TTL_EMPTY = 3 * 60 * 1000   // 3 minutes for empty results (retry sooner)
 const relayListCache = new Map()         // pubkey -> { read: [], write: [], fetchedAt, empty }
 
+// ── Relay Health Tracking ────────────────────────────────────────────────────
+
+const FAIL_WINDOW = 5 * 60 * 1000   // remember failures for 5 minutes
+const MAX_FAILURES = 2               // skip relay after this many recent failures
+const _relayFailures = new Map()     // url -> timestamp[]
+
+function recordRelayFailure(url) {
+  const key = url.replace(/\/$/, '')
+  const now = Date.now()
+  const timestamps = (_relayFailures.get(key) || []).filter(t => now - t < FAIL_WINDOW)
+  timestamps.push(now)
+  _relayFailures.set(key, timestamps)
+}
+
+function isRelayHealthy(url) {
+  const key = url.replace(/\/$/, '')
+  const now = Date.now()
+  const timestamps = (_relayFailures.get(key) || []).filter(t => now - t < FAIL_WINDOW)
+  return timestamps.length < MAX_FAILURES
+}
+
+/** Filter out recently-failed relays, keeping at least `min` to avoid empty lists */
+function filterHealthy(urls, min = 3) {
+  const healthy = urls.filter(u => isRelayHealthy(u))
+  return healthy.length >= min ? healthy : urls
+}
+
 // ── Pool Management ──────────────────────────────────────────────────────────
 
 let _pool = null
 
 export function getPool() {
   if (!_pool) {
-    _pool = new RelayPool()
+    _pool = new RelayPool({ maxWaitForConnection: 3000 })
   }
   return _pool
 }
@@ -122,6 +150,7 @@ export async function getUserRelays(pubkey) {
  */
 export function clearRelayCache() {
   relayListCache.clear()
+  _relayFailures.clear()
 }
 
 // ── Smart Relay Selection ────────────────────────────────────────────────────
@@ -129,6 +158,7 @@ export function clearRelayCache() {
 /**
  * Get relays to PUBLISH an event from a given author.
  * Combines user's write relays with fallback relays.
+ * No health filtering for writes - try all relays to maximize delivery.
  */
 export async function getWriteRelays(authorPubkey) {
   const userRelays = await getUserRelays(authorPubkey)
@@ -141,13 +171,12 @@ export async function getWriteRelays(authorPubkey) {
  */
 export async function getReadRelaysFor(authorPubkey) {
   const userRelays = await getUserRelays(authorPubkey)
-  return dedup([...userRelays.write, ...FALLBACK_RELAYS])
+  return filterHealthy(dedup([...userRelays.write, ...FALLBACK_RELAYS]))
 }
 
 /**
  * Get relays for DM exchange between two parties.
- * For publishing: sender's write relays + recipient's write relays + fallback
- * For reading: both parties' write relays + fallback
+ * Combines both parties' write relays with DM fallback relays.
  */
 export async function getDmRelays(senderPubkey, recipientPubkey) {
   const [senderRelays, recipientRelays] = await Promise.all([
@@ -155,36 +184,55 @@ export async function getDmRelays(senderPubkey, recipientPubkey) {
     getUserRelays(recipientPubkey)
   ])
 
-  return dedup([
+  return filterHealthy(dedup([
     ...senderRelays.write,
     ...recipientRelays.write,
     ...DM_RELAYS
-  ])
+  ]))
 }
 
 /**
  * Get relays for fetching DMs addressed to a pubkey.
- * Combines the user's own write relays (where senders should publish)
- * with DM fallback relays.
+ * Combines the user's own write relays with DM fallback relays.
  */
 export async function getDmReadRelays(myPubkey) {
   const myRelays = await getUserRelays(myPubkey)
-  return dedup([...myRelays.write, ...DM_RELAYS])
+  return filterHealthy(dedup([...myRelays.write, ...DM_RELAYS]))
 }
 
 /**
  * Get relays for public chatrooms.
- * Uses a broad set for maximum reach.
  */
 export function getPublicChatRelays() {
-  return [...PUBLIC_CHAT_RELAYS]
+  return filterHealthy([...PUBLIC_CHAT_RELAYS])
 }
 
 // ── Publish & Query Helpers ──────────────────────────────────────────────────
 
 /**
+ * querySync wrapper that records relay failures after each query.
+ * Failed relays get tracked so filterHealthy skips them next time.
+ */
+export async function trackedQuerySync(relays, filter, opts = {}) {
+  const pool = getPool()
+  const maxWait = opts.maxWait || 6000
+
+  const events = await pool.querySync(relays, filter, { maxWait })
+
+  // After query completes, check which relays failed to connect
+  const status = pool.listConnectionStatus()
+  for (const url of relays) {
+    const key = url.replace(/\/$/, '')
+    if (status.has(key) && !status.get(key)) {
+      recordRelayFailure(url)
+    }
+  }
+
+  return events
+}
+
+/**
  * Publish an event using the outbox model.
- * Automatically selects relays based on the author's relay list.
  */
 export async function publishEvent(event, authorPubkey) {
   const relays = await getWriteRelays(authorPubkey)
@@ -204,14 +252,12 @@ export async function publishDm(event, senderPubkey, recipientPubkey) {
 
 /**
  * Query events using the outbox model.
- * Fetches from the target author's write relays.
  */
 export async function queryEvents(filter, targetPubkey, opts = {}) {
   const relays = targetPubkey
     ? await getReadRelaysFor(targetPubkey)
     : FALLBACK_RELAYS
-  const pool = getPool()
-  return pool.querySync(relays, filter, { maxWait: opts.maxWait || 8000 })
+  return trackedQuerySync(relays, filter, { maxWait: opts.maxWait || 6000 })
 }
 
 /**
@@ -219,11 +265,10 @@ export async function queryEvents(filter, targetPubkey, opts = {}) {
  */
 export async function queryDms(myPubkey, opts = {}) {
   const relays = await getDmReadRelays(myPubkey)
-  const pool = getPool()
-  return pool.querySync(relays, {
+  return trackedQuerySync(relays, {
     kinds: [1059],
     '#p': [myPubkey]
-  }, { maxWait: opts.maxWait || 8000 })
+  }, { maxWait: opts.maxWait || 6000 })
 }
 
 /**

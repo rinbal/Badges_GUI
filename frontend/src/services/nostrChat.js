@@ -30,6 +30,7 @@ import {
   queryDms,
   getDmRelays,
   getDmReadRelays,
+  trackedQuerySync,
   FALLBACK_RELAYS
 } from '@/services/outbox'
 
@@ -38,8 +39,8 @@ import {
 /**
  * Send an encrypted DM to a recipient.
  * Auto-selects the best encryption method:
- *   - NIP-44 available → NIP-17 gift wrap (sender anonymity)
- *   - NIP-04 only → Legacy kind 4 DM (still encrypted)
+ *   - NIP-44 available -> NIP-17 gift wrap (sender anonymity)
+ *   - NIP-04 only -> Legacy kind 4 DM (still encrypted)
  */
 export async function sendDirectMessage(content, signer, recipientPubkey) {
   const senderPubkey = await signer.getPublicKey()
@@ -63,7 +64,7 @@ export async function sendDirectMessage(content, signer, recipientPubkey) {
 }
 
 /**
- * NIP-17 gift-wrapped DM (3-layer: rumor → seal → wrap).
+ * NIP-17 gift-wrapped DM (3-layer: rumor -> seal -> wrap).
  * Best privacy - hides sender identity and metadata.
  */
 async function sendNip17(content, signer, senderPubkey, recipientPubkey) {
@@ -73,7 +74,7 @@ async function sendNip17(content, signer, senderPubkey, recipientPubkey) {
     senderPubkey
   )
 
-  // 2. Create seal (kind 13) - encrypt rumor with sender→recipient NIP-44
+  // 2. Create seal (kind 13) - encrypt rumor with sender->recipient NIP-44
   const encryptedRumor = await signer.nip44.encrypt(recipientPubkey, JSON.stringify(rumor))
   const signedSeal = await signer.signEvent({
     kind: 13,
@@ -137,7 +138,6 @@ async function sendNip04(content, signer, senderPubkey, recipientPubkey) {
  * Queries BOTH kind 1059 (NIP-17) and kind 4 (NIP-04).
  */
 export async function fetchDirectMessages(signer, myPubkey, partnerPubkey) {
-  const pool = getPool()
   const dmRelays = await getDmRelays(myPubkey, partnerPubkey)
   const myReadRelays = await getDmReadRelays(myPubkey)
 
@@ -149,15 +149,15 @@ export async function fetchDirectMessages(signer, myPubkey, partnerPubkey) {
 
   if (hasNip04) {
     queries.push(
-      pool.querySync(myReadRelays, { kinds: [4], authors: [partnerPubkey], '#p': [myPubkey] }, { maxWait: 8000 }),
-      pool.querySync(dmRelays, { kinds: [4], authors: [myPubkey], '#p': [partnerPubkey] }, { maxWait: 8000 })
+      trackedQuerySync(myReadRelays, { kinds: [4], authors: [partnerPubkey], '#p': [myPubkey] }, { maxWait: 6000 }),
+      trackedQuerySync(dmRelays, { kinds: [4], authors: [myPubkey], '#p': [partnerPubkey] }, { maxWait: 6000 })
     )
   }
 
   if (hasNip44) {
     queries.push(
-      pool.querySync(myReadRelays, { kinds: [1059], '#p': [myPubkey] }, { maxWait: 8000 }),
-      pool.querySync(dmRelays, { kinds: [1059], '#p': [partnerPubkey] }, { maxWait: 8000 })
+      trackedQuerySync(myReadRelays, { kinds: [1059], '#p': [myPubkey] }, { maxWait: 6000 }),
+      trackedQuerySync(dmRelays, { kinds: [1059], '#p': [partnerPubkey] }, { maxWait: 6000 })
     )
   }
 
@@ -225,17 +225,20 @@ export async function fetchDirectMessages(signer, myPubkey, partnerPubkey) {
 /**
  * Fetch all DMs addressed to the current user.
  * Groups messages by conversation partner. Used for admin inbox.
+ *
+ * Step 1: Fetch all incoming DMs (parallel NIP-04 + NIP-17)
+ * Step 2: Fetch sent replies for ALL partners in parallel (not sequentially)
  */
 export async function fetchAllConversations(signer, myPubkey) {
-  const pool = getPool()
   const myReadRelays = await getDmReadRelays(myPubkey)
 
   const hasNip44 = signerHasNip44(signer)
   const hasNip04 = signerHasNip04(signer)
 
+  // Step 1: Fetch all incoming DMs
   const queries = []
-  if (hasNip04) queries.push(pool.querySync(myReadRelays, { kinds: [4], '#p': [myPubkey] }, { maxWait: 10000 }))
-  if (hasNip44) queries.push(pool.querySync(myReadRelays, { kinds: [1059], '#p': [myPubkey] }, { maxWait: 10000 }))
+  if (hasNip04) queries.push(trackedQuerySync(myReadRelays, { kinds: [4], '#p': [myPubkey] }, { maxWait: 8000 }))
+  if (hasNip44) queries.push(trackedQuerySync(myReadRelays, { kinds: [1059], '#p': [myPubkey] }, { maxWait: 8000 }))
 
   const results = await Promise.all(queries)
   const conversations = new Map()
@@ -272,41 +275,60 @@ export async function fetchAllConversations(signer, myPubkey) {
     }
   }
 
-  // Fetch sent replies for each partner
-  for (const [partnerPubkey, msgs] of conversations) {
-    const dmRelays = await getDmRelays(myPubkey, partnerPubkey)
+  // Step 2: Fetch sent replies for ALL partners in parallel
+  const partners = [...conversations.keys()]
+  if (partners.length > 0) {
+    const replyJobs = partners.map(partnerPubkey => fetchRepliesForPartner(signer, myPubkey, partnerPubkey, hasNip04, hasNip44))
+    const replyResults = await Promise.allSettled(replyJobs)
 
-    const replyQueries = []
-    if (hasNip04) replyQueries.push(pool.querySync(dmRelays, { kinds: [4], authors: [myPubkey], '#p': [partnerPubkey] }, { maxWait: 5000 }))
-    if (hasNip44) replyQueries.push(pool.querySync(dmRelays, { kinds: [1059], '#p': [partnerPubkey] }, { maxWait: 5000 }))
-
-    const replyResults = await Promise.all(replyQueries)
-    let rIdx = 0
-
-    if (hasNip04) {
-      for (const evt of replyResults[rIdx++]) {
-        try {
-          const plaintext = await signer.nip04.decrypt(partnerPubkey, evt.content)
-          msgs.push({ id: evt.id, content: plaintext, created_at: evt.created_at, sender: myPubkey, recipient: partnerPubkey, isMine: true })
-        } catch { /* skip */ }
-      }
+    for (let i = 0; i < partners.length; i++) {
+      if (replyResults[i].status !== 'fulfilled') continue
+      const replies = replyResults[i].value
+      const msgs = conversations.get(partners[i])
+      msgs.push(...replies)
+      msgs.sort((a, b) => a.created_at - b.created_at)
     }
-
-    if (hasNip44) {
-      for (const wrap of replyResults[rIdx++]) {
-        try {
-          const rumor = await unwrapGiftWrap(wrap, signer)
-          if (rumor && rumor.pubkey === myPubkey) {
-            msgs.push({ id: rumor.id, content: rumor.content, created_at: rumor.created_at, sender: myPubkey, recipient: partnerPubkey, isMine: true })
-          }
-        } catch { /* skip */ }
-      }
-    }
-
-    msgs.sort((a, b) => a.created_at - b.created_at)
   }
 
   return conversations
+}
+
+/**
+ * Fetch sent replies for a single conversation partner.
+ * Extracted to enable parallel execution across all partners.
+ */
+async function fetchRepliesForPartner(signer, myPubkey, partnerPubkey, hasNip04, hasNip44) {
+  const dmRelays = await getDmRelays(myPubkey, partnerPubkey)
+  const replies = []
+
+  const replyQueries = []
+  if (hasNip04) replyQueries.push(trackedQuerySync(dmRelays, { kinds: [4], authors: [myPubkey], '#p': [partnerPubkey] }, { maxWait: 5000 }))
+  if (hasNip44) replyQueries.push(trackedQuerySync(dmRelays, { kinds: [1059], '#p': [partnerPubkey] }, { maxWait: 5000 }))
+
+  const replyResults = await Promise.all(replyQueries)
+  let rIdx = 0
+
+  if (hasNip04) {
+    for (const evt of replyResults[rIdx++]) {
+      try {
+        const plaintext = await signer.nip04.decrypt(partnerPubkey, evt.content)
+        replies.push({ id: evt.id, content: plaintext, created_at: evt.created_at, sender: myPubkey, recipient: partnerPubkey, isMine: true })
+      } catch { /* skip */ }
+    }
+  }
+
+  if (hasNip44) {
+    for (const wrap of replyResults[rIdx++]) {
+      try {
+        const rumor = await unwrapGiftWrap(wrap, signer)
+        if (rumor && rumor.pubkey === myPubkey) {
+          replies.push({ id: rumor.id, content: rumor.content, created_at: rumor.created_at, sender: myPubkey, recipient: partnerPubkey, isMine: true })
+        }
+      } catch { /* skip */ }
+    }
+  }
+
+  return replies
 }
 
 // ── Gift Wrap Unwrapping ─────────────────────────────────────────────────────
@@ -332,8 +354,7 @@ async function unwrapGiftWrap(wrap, signer) {
 // ── Badge Access Check ───────────────────────────────────────────────────────
 
 export async function checkBadgeAccess(userPubkey, badgeATag) {
-  const pool = getPool()
-  const events = await pool.querySync(FALLBACK_RELAYS, {
+  const events = await trackedQuerySync(FALLBACK_RELAYS, {
     kinds: [30008],
     authors: [userPubkey],
     '#d': ['profile_badges']
@@ -347,8 +368,7 @@ export async function checkBadgeAccess(userPubkey, badgeATag) {
 // ── Fetch Profile ────────────────────────────────────────────────────────────
 
 export async function fetchNostrProfile(pubkey) {
-  const pool = getPool()
-  const events = await pool.querySync(FALLBACK_RELAYS, {
+  const events = await trackedQuerySync(FALLBACK_RELAYS, {
     kinds: [0],
     authors: [pubkey]
   }, { maxWait: 5000 })
