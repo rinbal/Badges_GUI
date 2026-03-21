@@ -492,7 +492,8 @@ async function handleReply(content) {
 .messages-area {
   flex: 1;
   overflow-y: auto;
-  padding: var(--space-md);
+  padding: var(--space-md) var(--space-lg);
+  background: var(--color-bg);
 }
 
 .no-selection {

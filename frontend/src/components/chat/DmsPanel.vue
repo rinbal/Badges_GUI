@@ -346,7 +346,7 @@ function relativeTime(ts) {
 .thread-avatar--placeholder { display: flex; align-items: center; justify-content: center; background: var(--color-surface-hover); color: var(--color-text-subtle); }
 .thread-name { font-size: 0.875rem; font-weight: 600; color: var(--color-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-.thread-messages { flex: 1; overflow-y: auto; padding: 0.75rem; display: flex; flex-direction: column; }
+.thread-messages { flex: 1; overflow-y: auto; padding: 0.75rem 1rem; display: flex; flex-direction: column; background: var(--color-bg); }
 
 .thread-footer {
   display: flex;
