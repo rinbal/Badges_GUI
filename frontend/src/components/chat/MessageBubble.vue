@@ -57,6 +57,8 @@ const formattedTime = computed(() => {
 .message--mine .message-bubble {
   background: var(--color-primary);
   color: #fff;
+  font-weight: 500;
+  text-shadow: 0 0.5px 0 rgba(0, 0, 0, 0.15);
   border-bottom-right-radius: 0.25rem;
 }
 
