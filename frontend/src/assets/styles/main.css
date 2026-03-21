@@ -129,7 +129,7 @@ h3 { font-size: 1.25rem; }
 h4 { font-size: 1rem; }
 
 p {
-  color: var(--color-text-muted);
+  color: inherit;
 }
 
 a {
