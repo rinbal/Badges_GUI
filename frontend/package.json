@@ -5,8 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview"
+    "build": "node scripts/build-feed.mjs && vite build",
+    "preview": "vite preview",
+    "feed:build": "node scripts/build-feed.mjs",
+    "test": "node --test scripts/feed/*.test.mjs"
   },
   "dependencies": {
     "@tabler/icons-vue": "^3.36.1",
@@ -19,6 +21,7 @@
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^6.0.5",
+    "marked": "^14.1.4",
     "vite": "^8.0.1",
     "vite-plugin-pwa": "^1.2.0"
   },

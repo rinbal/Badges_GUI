@@ -99,7 +99,11 @@
     <!-- Footer line -->
     <footer class="about-footer">
       <span>Built on Nostr. Your keys, your badges.</span>
-      <AppVersion class="about-version" />
+      <span class="about-meta">
+        <AppVersion class="about-version" />
+        <span class="about-meta-dot">·</span>
+        <FeedLinks />
+      </span>
     </footer>
   </div>
 </template>
@@ -108,6 +112,7 @@
 import Icon from '@/components/common/Icon.vue'
 import ProtocolStandards from '@/components/badges/ProtocolStandards.vue'
 import AppVersion from '@/components/common/AppVersion.vue'
+import FeedLinks from '@/components/common/FeedLinks.vue'
 import { ADMIN_NPUB } from '@/config/chat'
 
 const SUPPORT_URL = `https://primal.net/p/${ADMIN_NPUB}`
@@ -450,6 +455,19 @@ const team = [
   font-size: 0.8125rem;
   color: var(--color-text-subtle);
   border-top: 1px solid var(--color-border);
+}
+
+.about-meta {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.about-meta-dot {
+  color: var(--color-text-subtle);
+  opacity: 0.6;
 }
 
 @media (max-width: 640px) {
