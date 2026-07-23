@@ -275,6 +275,8 @@
       </p> -->
       <p class="footer-line footer-version">
         <AppVersion />
+        <span class="footer-dot">·</span>
+        <FeedLinks />
       </p>
     </footer>
   </div>
@@ -293,6 +295,7 @@ import SurfBadgeCard from '@/components/surf/SurfBadgeCard.vue'
 import BadgeCardSkeleton from '@/components/surf/BadgeCardSkeleton.vue'
 import GroupChat from '@/components/chat/GroupChat.vue'
 import AppVersion from '@/components/common/AppVersion.vue'
+import FeedLinks from '@/components/common/FeedLinks.vue'
 
 // Stores
 const authStore = useAuthStore()
@@ -889,6 +892,10 @@ onMounted(async () => {
 }
 .footer-version {
   margin-top: 0.75rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
 }
 
 .footer-secondary {
