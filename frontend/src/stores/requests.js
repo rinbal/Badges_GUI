@@ -19,6 +19,7 @@ import {
   createBadgeDenialEvent,
   createBadgeAwardEvent
 } from '@/utils/nip07'
+import { notifyBadgeAwarded, notifyBadgeRequested } from '@/services/notify'
 
 const PAGE_SIZE = 10
 
@@ -215,6 +216,11 @@ export const useRequestsStore = defineStore('requests', () => {
       )
 
       if (response.data.success) {
+        // Best-effort: DM the badge issuer that a new request came in.
+        const issuerPubkey = badgeATag.split(':')[1]
+        const signer = authStore.getSigner()
+        if (signer && issuerPubkey) notifyBadgeRequested(signer, issuerPubkey, null)
+
         await fetchOutgoingRequests()
         return { success: true, data: response.data }
       }
@@ -359,6 +365,11 @@ export const useRequestsStore = defineStore('requests', () => {
         const req = incomingRequests.value.find(r => r.event_id === requestEventId)
         if (req) req.state = 'fulfilled'
         pendingCount.value = incomingRequests.value.filter(r => r.state === 'pending').length
+
+        // Best-effort: DM the requester that their badge was awarded.
+        const signer = authStore.getSigner()
+        if (signer) notifyBadgeAwarded(signer, requesterPubkey, req?.badge_name)
+
         return { success: true, data: response.data }
       }
 

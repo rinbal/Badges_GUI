@@ -2,7 +2,7 @@
 
 > Create, award, and manage decentralized badges on the Nostr network using the NIP-58 specification.
 
-BadgeBox is a web application for decentralized badge/credential management. All badge data lives on Nostr relays — no centralized database required. Badges are cryptographically signed, verifiable, and censorship-resistant.
+BadgeBox is a web application for decentralized badge/credential management. All badge data lives on Nostr relays - no centralized database required. Badges are cryptographically signed, verifiable, and censorship-resistant.
 
 ## Quick Facts
 
@@ -20,6 +20,10 @@ BadgeBox is a web application for decentralized badge/credential management. All
 - Request badges from issuers with supporting proof
 - Browse and discover badges across the Nostr network
 - View badge profiles for any Nostr user
+- Private encrypted DMs between users (NIP-17/59, NIP-44); client-side only
+- Feedback & Support chat with admin (NIP-17); client-side only
+- Community group chat on home page (NIP-29, host relay wss://groups.0xchat.com) with "Open in Lotus" deep link
+- DM notifications on badge request/award; relay management UI (NIP-11/65); remote signer login (NIP-46); About page (/about); version footer from GitHub Releases API
 
 ## Nostr Event Kinds Used
 
@@ -30,6 +34,10 @@ BadgeBox is a web application for decentralized badge/credential management. All
 - Kind 30059: Badge Denial (issuer denies a request)
 - Kind 5: Deletion (NIP-09, for withdrawing requests or revoking denials)
 
+## Nostr Protocols Used
+
+NIP-58 (badges), request/denial extension (kinds 30058/30059), 09, 17, 59, 44, 29, 42, 07, 46, 65, 11, 50, 78
+
 ## API Base URL
 
 Local: http://localhost:8000
@@ -37,20 +45,20 @@ Production: https://badgebox.rinbal.de (backend proxied)
 
 ## Key API Endpoints
 
-POST /api/v1/auth/validate — Validate nsec key
-POST /api/v1/badges/create-definition — Create badge (kind 30009)
-POST /api/v1/badges/award — Award badge to recipients (kind 8)
-POST /api/v1/badges/create-and-award — Atomic create + award
-GET  /api/v1/inbox/pending — Get unaccepted badges
-GET  /api/v1/inbox/accepted — Get accepted badges
-POST /api/v1/inbox/accept — Accept a badge (kind 30008)
-GET  /api/v1/profile/{pubkey} — Get user profile metadata
-GET  /api/v1/profile/{pubkey}/badges — Get user's displayed badges
-GET  /api/v1/surf/recent — Browse recently created badges
-GET  /api/v1/surf/search — Search badges by name/description
-POST /api/v1/requests/create — Request a badge (kind 30058)
-GET  /api/v1/requests/incoming — Get requests for your badges
-GET  /api/v1/requests/outgoing — Get requests you sent
+POST /api/v1/auth/validate - Validate nsec key
+POST /api/v1/badges/create-definition - Create badge (kind 30009)
+POST /api/v1/badges/award - Award badge to recipients (kind 8)
+POST /api/v1/badges/create-and-award - Atomic create + award
+GET  /api/v1/inbox/pending - Get unaccepted badges
+GET  /api/v1/inbox/accepted - Get accepted badges
+POST /api/v1/inbox/accept - Accept a badge (kind 30008)
+GET  /api/v1/profile/{pubkey} - Get user profile metadata
+GET  /api/v1/profile/{pubkey}/badges - Get user's displayed badges
+GET  /api/v1/surf/recent - Browse recently created badges
+GET  /api/v1/surf/search - Search badges by name/description
+POST /api/v1/requests/create - Request a badge (kind 30058)
+GET  /api/v1/requests/incoming - Get requests for your badges
+GET  /api/v1/requests/outgoing - Get requests you sent
 
 ## Authentication
 
@@ -60,11 +68,11 @@ Two header-based methods:
 
 ## Detailed Documentation
 
-- AGENT_README.md — Full agent-ready reference (API schemas, models, architecture)
-- GUIDE.md — Step-by-step user guide
-- USE_CASES.md — Real-world use case examples
-- docs/NIP-58-EXTENSION.md — Badge Request/Denial protocol extension
-- /docs endpoint — OpenAPI/Swagger when backend is running
+- AGENT_README.md - Full agent-ready reference (API schemas, models, architecture)
+- GUIDE.md - Step-by-step user guide
+- USE_CASES.md - Real-world use case examples
+- NIP-Badge-Request-and-Denial.md - Badge Request/Denial protocol extension
+- /docs endpoint - OpenAPI/Swagger when backend is running
 
 ## Use Cases
 
@@ -83,6 +91,7 @@ To check if a user holds a badge:
 1. Query kind 30008 events for the user's pubkey with d=profile_badges
 2. Check if the badge's a-tag (30009:<issuer>:<identifier>) is in the tags
 3. Verify the issuer pubkey is the expected authority
+- Note: robust integrators should also query kind 10008 (current NIP-58 Profile Badges) for forward-compatibility
 
 ## Configured Relays
 

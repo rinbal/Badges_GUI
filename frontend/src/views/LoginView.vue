@@ -67,6 +67,52 @@
           <p class="method-hint">For Android users. Signs on your phone via the Amber app.</p>
         </div>
 
+        <!-- Remote login (bunker / nostr-connect link) -->
+        <div class="bunker-section">
+          <button
+            v-if="!showBunkerForm"
+            @click="showBunkerForm = true"
+            class="btn btn-text btn-block"
+          >
+            Remote login
+          </button>
+
+          <form v-else @submit.prevent="handleBunkerConnect" class="bunker-form">
+            <div class="form-group">
+              <label for="bunker">Connection link</label>
+              <input
+                id="bunker"
+                v-model="bunkerUri"
+                type="text"
+                placeholder="bunker://..."
+                class="input"
+                :class="{ 'input-error': bunkerError }"
+                autocomplete="off"
+                spellcheck="false"
+              />
+              <p v-if="bunkerError" class="error-message">{{ bunkerError }}</p>
+              <p class="method-hint">
+                Paste a connection link from your signer app (nsec.app, Nostr Connect, and others).
+              </p>
+            </div>
+
+            <div class="nsec-actions">
+              <button type="button" @click="cancelBunker" class="btn btn-secondary">
+                Cancel
+              </button>
+              <button
+                type="submit"
+                class="btn btn-primary"
+                :disabled="!bunkerUri || bunkerConnecting"
+              >
+                <span v-if="bunkerConnecting" class="btn-spinner"></span>
+                <span v-if="bunkerConnecting">Connecting...</span>
+                <span v-else>Connect</span>
+              </button>
+            </div>
+          </form>
+        </div>
+
         <!-- Divider -->
         <div class="divider"><span>or</span></div>
 
@@ -180,13 +226,9 @@
             <Icon name="alert-circle" size="sm" />
             {{ amberError }}
           </span>
-          <span v-else-if="amberStatus === 'finalizing'" class="status-finalizing">
-            <span class="checking-spinner"></span>
-            Amber connected. Setting up your account…
-          </span>
           <span v-else class="status-waiting">
             <span class="checking-spinner"></span>
-            Waiting for Amber to connect…
+            Waiting for Amber to connect...
           </span>
         </div>
 
@@ -271,8 +313,6 @@ import { useAuthStore } from '@/stores/auth'
 import { useUIStore } from '@/stores/ui'
 import Icon from '@/components/common/Icon.vue'
 import QRCode from 'qrcode'
-import { BunkerSigner } from 'nostr-tools/nip46'
-import { SimplePool as NostrPool } from 'nostr-tools'
 
 const router = useRouter()
 const route = useRoute()
@@ -288,6 +328,12 @@ const showNsecForm = ref(false)
 const nsec = ref('')
 const showKey = ref(false)
 
+// ── Bunker / nostr-connect paste state ──────────────────────────────────────────
+const showBunkerForm = ref(false)
+const bunkerUri = ref('')
+const bunkerError = ref('')
+const bunkerConnecting = ref(false)
+
 // ── Shared state ──────────────────────────────────────────────────────────────
 const isLoading = ref(false)
 const error = ref('')
@@ -299,7 +345,6 @@ const connectUri = ref('')
 const qrDataUrl = ref('')
 const amberError = ref('')
 const amberSecondsLeft = ref(90)
-const amberStatus = ref('waiting') // 'waiting' | 'finalizing'
 
 let _amberAbortController = null
 let _amberTimerInterval = null
@@ -377,11 +422,10 @@ async function startAmberConnect() {
   cleanupAmber()
   amberError.value = ''
   amberSecondsLeft.value = 90
-  amberStatus.value = 'waiting'
   loginMethod.value = 'amber'
 
-  // Generate connection URI
-  const { localSk, connectUri: uri } = authStore.prepareAmberConnect()
+  // Generate the nostrconnect:// pairing URI
+  const { uri } = authStore.beginNostrConnect()
   connectUri.value = uri
   amberConnecting.value = true
 
@@ -404,21 +448,11 @@ async function startAmberConnect() {
     }
   }, 1000)
 
-  // Wait for Amber to connect (90 second timeout, cancellable)
+  // Wait for the signer to approve (cancellable)
   _amberAbortController = new AbortController()
-  const pool = new NostrPool()
 
   try {
-    const signer = await BunkerSigner.fromURI(
-      localSk,
-      uri,
-      { pool },
-      _amberAbortController.signal
-    )
-
-    // Amber approved - show immediate feedback while we finalize
-    amberStatus.value = 'finalizing'
-    await authStore.finalizeAmberLogin(signer, localSk)
+    await authStore.completeNostrConnect(_amberAbortController.signal)
     cleanupAmber()
     await afterLogin()
   } catch (err) {
@@ -426,7 +460,7 @@ async function startAmberConnect() {
       // User cancelled - no error shown
       return
     }
-    amberError.value = 'Could not connect to Amber. Make sure the app is open and try again.'
+    amberError.value = 'Could not connect. Make sure your signer app is open and try again.'
   }
 }
 
@@ -447,6 +481,35 @@ function cleanupAmber() {
     clearInterval(_amberTimerInterval)
     _amberTimerInterval = null
   }
+}
+
+// ── Bunker / nostr-connect paste login ──────────────────────────────────────────
+
+async function handleBunkerConnect() {
+  const uri = bunkerUri.value.trim()
+  if (!uri) return
+  if (!/^(bunker|nostrconnect):\/\//.test(uri)) {
+    bunkerError.value = 'That does not look like a connection link. It should start with bunker://'
+    return
+  }
+
+  bunkerError.value = ''
+  bunkerConnecting.value = true
+
+  try {
+    await authStore.connectWithBunkerUri(uri)
+    await afterLogin()
+  } catch {
+    bunkerError.value = 'Could not connect. Check the link is current and your signer app is online.'
+  } finally {
+    bunkerConnecting.value = false
+  }
+}
+
+function cancelBunker() {
+  showBunkerForm.value = false
+  bunkerUri.value = ''
+  bunkerError.value = ''
 }
 
 // ── Post-login navigation ─────────────────────────────────────────────────────
@@ -675,6 +738,22 @@ async function afterLogin() {
   gap: 1rem;
 }
 
+/* ===========================================
+   Bunker / nostr-connect Section
+   =========================================== */
+.bunker-section {
+  display: flex;
+  flex-direction: column;
+  margin-top: 0.5rem;
+}
+
+.bunker-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-top: 0.5rem;
+}
+
 .form-group {
   display: flex;
   flex-direction: column;
@@ -847,14 +926,6 @@ async function afterLogin() {
   align-items: center;
   gap: 0.5rem;
   color: var(--color-text-muted);
-}
-
-.status-finalizing {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  color: var(--color-success);
-  font-weight: 500;
 }
 
 .status-error {

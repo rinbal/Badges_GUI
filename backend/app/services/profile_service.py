@@ -17,6 +17,17 @@ from nostr.key import PublicKey
 from ..config import settings
 from .key_service import KeyService
 
+# NIP-58 Profile Badges: read both the current kind 10008 and the legacy 30008.
+PROFILE_BADGES_KINDS = [10008, 30008]
+
+
+def _latest_profile_badges_event(events: List[Dict]) -> Optional[Dict]:
+    """Return the newest Profile Badges event (kind 10008 or legacy 30008)."""
+    candidates = [e for e in events if e.get("kind") in PROFILE_BADGES_KINDS]
+    if not candidates:
+        return None
+    return max(candidates, key=lambda e: e.get("created_at", 0))
+
 
 class ProfileService:
     """Service for profile operations"""
@@ -219,19 +230,21 @@ class ProfileService:
         except ValueError:
             return {"accepted": [], "pending": []}
 
-        # Get accepted badges (kind 30008)
+        # Get accepted badges (current kind 10008, legacy 30008; newest wins)
         filter_params = {
-            "kinds": [30008],
+            "kinds": PROFILE_BADGES_KINDS,
             "authors": [hex_key],
-            "limit": 1
+            # limit 2: at most one current 10008 and one legacy 30008 per author
+            "limit": 2
         }
 
         accepted = []
 
         for relay in self.relay_urls:
             events = await self._query_relay(relay, f"badges_{hex_key[:8]}", filter_params)
-            if events:
-                tags = events[0].get("tags", [])
+            profile_event = _latest_profile_badges_event(events)
+            if profile_event:
+                tags = profile_event.get("tags", [])
 
                 # Parse badge pairs
                 last_a_tag = None
@@ -356,8 +369,8 @@ class ProfileService:
         """
         Discover all users who have accepted a specific badge.
 
-        This queries Nostr relays for kind 30008 (Profile Badges) events
-        that contain the specified badge a_tag.
+        This queries Nostr relays for Profile Badges events (current kind 10008
+        and legacy kind 30008) that contain the specified badge a_tag.
 
         Args:
             a_tag: Badge identifier in format "30009:pubkey:identifier"
@@ -381,9 +394,9 @@ class ProfileService:
             return {"owners": [], "total": 0, "badge_info": None}
 
         # Query relays for profile badge events containing this a_tag
-        # Kind 30008 events with #a tag matching our badge
+        # Current kind 10008 and legacy 30008 events with #a tag matching our badge
         filter_params = {
-            "kinds": [30008],
+            "kinds": PROFILE_BADGES_KINDS,
             "#a": [a_tag],
             "limit": 100  # Get more, we'll dedupe
         }

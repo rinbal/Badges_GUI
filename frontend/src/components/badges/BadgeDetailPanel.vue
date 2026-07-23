@@ -153,11 +153,11 @@
               <div class="tech-content">
                 <div class="tech-row">
                   <span class="tech-label">Badge A-Tag</span>
-                  <code class="tech-value">{{ badge?.a_tag || '—' }}</code>
+                  <code class="tech-value">{{ badge?.a_tag || '-' }}</code>
                 </div>
                 <div class="tech-row">
                   <span class="tech-label">Award Event ID</span>
-                  <code class="tech-value">{{ badge?.award_event_id || '—' }}</code>
+                  <code class="tech-value">{{ badge?.award_event_id || '-' }}</code>
                 </div>
                 <div v-if="badge?.identifier" class="tech-row">
                   <span class="tech-label">Identifier</span>

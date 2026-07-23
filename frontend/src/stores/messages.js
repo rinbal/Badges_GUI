@@ -1,5 +1,5 @@
 /**
- * Messages Store - General Private DM Chat (NIP-17 / NIP-04)
+ * Messages Store - General Private DM Chat (NIP-17 gift wrapped)
  *
  * Full DM inbox with conversations list and per-partner chat.
  * Reuses the unified signer + nostrChat service from the support chat.
@@ -13,6 +13,7 @@ import {
   sendDirectMessage,
   fetchDirectMessages,
   fetchAllConversations,
+  subscribeDirectMessages,
   fetchNostrProfile
 } from '@/services/nostrChat'
 
@@ -143,11 +144,11 @@ export const useMessagesStore = defineStore('messages', () => {
     try {
       const result = await sendDirectMessage(content, signer, recipientPubkey)
 
-      // Add to local state
-      if (!conversations.value.has(recipientPubkey)) {
-        conversations.value.set(recipientPubkey, [])
-      }
-      conversations.value.get(recipientPubkey).push({
+      // Echo the sent message through the same deduped path as live messages.
+      // The relay can echo our own gift wrap back to the live subscription
+      // before this resolves, so a blind push here would duplicate it; ingest
+      // dedups by id, so whichever arrives first wins.
+      ingestLiveMessage({
         id: result.id,
         content: result.content,
         created_at: result.created_at,
@@ -196,7 +197,50 @@ export const useMessagesStore = defineStore('messages', () => {
     selectedPubkey.value = pubkey
   }
 
+  // ── Live incoming messages ─────────────────────────────────────────────────
+
+  let _liveSub = null
+
+  /** Merge a live-arriving message into the right conversation, deduped by id. */
+  function ingestLiveMessage(msg) {
+    const peer = msg.isMine ? msg.recipient : msg.sender
+    if (!peer) return
+
+    if (!conversations.value.has(peer)) {
+      conversations.value.set(peer, [])
+      if (!profiles.value[peer]) {
+        fetchNostrProfile(peer).then(p => { if (p) profiles.value[peer] = p })
+      }
+    }
+    const list = conversations.value.get(peer)
+    if (!list.some(m => m.id === msg.id)) {
+      list.push(msg)
+      list.sort((a, b) => a.created_at - b.created_at)
+    }
+  }
+
+  /** Start listening for incoming messages in real time (idempotent). */
+  async function startLiveMessages() {
+    if (_liveSub) return
+    const signer = authStore.getSigner()
+    if (!signer || !authStore.hex) return
+    try {
+      _liveSub = await subscribeDirectMessages(signer, authStore.hex, ingestLiveMessage)
+    } catch (err) {
+      console.warn('Live DM subscription failed:', err)
+    }
+  }
+
+  /** Stop listening for incoming messages. */
+  function stopLiveMessages() {
+    if (_liveSub) {
+      try { _liveSub.close() } catch { /* ignore */ }
+      _liveSub = null
+    }
+  }
+
   function reset() {
+    stopLiveMessages()
     conversations.value = new Map()
     profiles.value = {}
     selectedPubkey.value = null
@@ -209,6 +253,6 @@ export const useMessagesStore = defineStore('messages', () => {
     isLoading, isLoadingConversation, isSending, error, hasFetched,
     conversationList, selectedMessages, selectedProfile,
     fetchInbox, fetchConversation, sendDM, startConversation,
-    selectConversation, reset
+    selectConversation, startLiveMessages, stopLiveMessages, reset
   }
 })

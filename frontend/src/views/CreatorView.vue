@@ -152,7 +152,7 @@
             <div class="confirm-meta">
               <div class="meta-item">
                 <span class="meta-label">Recipients</span>
-                <span class="meta-value">{{ recipients.length || '—' }}</span>
+                <span class="meta-value">{{ recipients.length || '-' }}</span>
               </div>
               <div class="meta-item">
                 <span class="meta-label">Issuer</span>

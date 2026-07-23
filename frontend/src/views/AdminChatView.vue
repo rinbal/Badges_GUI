@@ -17,7 +17,7 @@
 
     <!-- Loading Access Check -->
     <div v-else-if="checkingAccess" class="access-card">
-      <Icon name="loader-2" size="lg" :spin="true" />
+      <Icon name="loader" size="lg" :spin="true" />
       <p>Verifying badge access...</p>
     </div>
 
@@ -41,7 +41,7 @@
         </div>
 
         <div v-if="chatStore.isLoading && chatStore.conversationList.length === 0" class="sidebar-status">
-          <Icon name="loader-2" size="md" :spin="true" />
+          <Icon name="loader" size="md" :spin="true" />
           <span>Loading conversations...</span>
         </div>
 
@@ -128,7 +128,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, nextTick, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useChatStore } from '@/stores/chat'
 import MessageBubble from '@/components/chat/MessageBubble.vue'
 import MessageInput from '@/components/chat/MessageInput.vue'
@@ -154,7 +154,10 @@ onMounted(async () => {
   }
 
   chatStore.fetchAllConversations()
+  chatStore.startLiveMessages()
 })
+
+onUnmounted(() => chatStore.stopLiveMessages())
 
 watch(() => chatStore.selectedMessages.length, () => {
   nextTick(() => {

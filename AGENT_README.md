@@ -1,4 +1,4 @@
-# BadgeBox — Agent-Ready Reference
+# BadgeBox - Agent-Ready Reference
 
 This document provides everything an AI agent needs to understand, explain, and integrate with BadgeBox.
 
@@ -6,7 +6,7 @@ This document provides everything an AI agent needs to understand, explain, and 
 
 ## Overview
 
-**BadgeBox** is a decentralized badge management system built on the [Nostr](https://nostr.com) protocol. It implements the [NIP-58](https://github.com/nostr-protocol/nips/blob/master/58.md) badge specification (with extensions for badge requests and denials) to let anyone create, award, receive, and display verifiable digital credentials — without a centralized database or authority.
+**BadgeBox** is a decentralized badge management system built on the [Nostr](https://nostr.com) protocol. It implements the [NIP-58](https://github.com/nostr-protocol/nips/blob/master/58.md) badge specification (with extensions for badge requests and denials) to let anyone create, award, receive, and display verifiable digital credentials - without a centralized database or authority.
 
 **Live app:** https://badgebox.rinbal.de
 **Docs site:** https://docs-badgebox.netlify.app
@@ -19,10 +19,10 @@ This document provides everything an AI agent needs to understand, explain, and 
 
 Badges are cryptographically signed digital credentials stored on decentralized Nostr relays. They are:
 
-- **Verifiable** — Anyone can check who issued a badge and who holds it
-- **Censorship-resistant** — No single entity can revoke or suppress badges
-- **Self-sovereign** — Recipients choose which badges to display
-- **Portable** — Badges work across any Nostr client that supports NIP-58
+- **Verifiable** - Anyone can check who issued a badge and who holds it
+- **Censorship-resistant** - No single entity can revoke or suppress badges
+- **Self-sovereign** - Recipients choose which badges to display
+- **Portable** - Badges work across any Nostr client that supports NIP-58
 
 ### Badge Lifecycle
 
@@ -150,6 +150,8 @@ All authenticated endpoints require one of:
 |--------|------|-------------|
 | `X-Nsec` | Using private key | nsec1... key; backend signs events |
 | `X-Pubkey` | Using NIP-07 extension | Hex pubkey for reads; include `signed_event` object in request body for writes |
+
+**Login/signer methods (client-side):** In addition to nsec and NIP-07, the app supports **NIP-46 remote signers** (Amber, `bunker://` URIs, nsec.app, `nostrconnect://` QR pairing; RPC over kind 24133 with NIP-44 encryption). NIP-46 is a signer that produces the `signed_event` sent to write endpoints - it is not a new auth header.
 
 ### Endpoints
 
@@ -299,6 +301,24 @@ GET /docs                                  # OpenAPI/Swagger UI
 
 ---
 
+## Messaging & Social (client-side, no REST API)
+
+These features run entirely in the frontend and talk to Nostr relays directly. They are **not** exposed as BadgeBox REST endpoints - there is no server route for messages.
+
+| Feature | Transport / NIPs | Event kinds |
+|---------|------------------|-------------|
+| Private encrypted DMs | NIP-17 + NIP-59 gift wrap, NIP-44 encryption (NIP-04 not used) | rumor kind 14 -> seal kind 13 -> gift wrap kind 1059 |
+| Feedback & Support chat | NIP-17 (same DM transport) | 14 / 13 / 1059 |
+| Community group chat | NIP-29 relay-based groups | 9 (chat), 9005 (delete), 9021 (join), 39000 (metadata), 39001 (admins), 39002 (members) |
+| Relay authentication | NIP-42 (for NIP-29 host relay) | 22242 |
+| DM notifications | NIP-17 DM sent on badge request / award | 14 / 13 / 1059 |
+| Relay management | NIP-65 relay lists, NIP-11 relay info | 10002 (NIP-65) |
+
+- **NIP-29 host relay:** `wss://groups.0xchat.com` (requires NIP-42 auth).
+- **Open in Lotus:** community view exposes an "Open in Lotus" deep link so a group can be opened in the Lotus client.
+
+---
+
 ## Technology Stack
 
 | Layer | Technology |
@@ -309,7 +329,7 @@ GET /docs                                  # OpenAPI/Swagger UI
 | Frontend framework | Vue.js 3 (Composition API) |
 | State management | Pinia |
 | Build tool | Vite |
-| Nostr (frontend) | nostr-tools |
+| Nostr (frontend) | nostr-core (migration from nostr-tools in progress) |
 | HTTP client | Axios (frontend), httpx (backend) |
 | Media | Blossom protocol (optional) |
 | Deployment | Netlify (frontend), Render/Heroku (backend) |
@@ -335,18 +355,22 @@ GET /docs                                  # OpenAPI/Swagger UI
 
 ### Check if a User Holds a Badge
 
+> **Forward-compat note:** NIP-58 now defines **kind 10008** as the current Profile Badges event; the legacy **kind 30008** (with `d=profile_badges`) is deprecated but treated as equivalent. To be future-proof, query **both** kinds and match the `a` tag. BadgeBox currently writes kind 30008 (see examples above).
+
 ```javascript
-// Using nostr-tools or any Nostr library
+// Using nostr-core or any Nostr library
 async function hasBadge(userHexPubkey, badgeATag) {
+  // Query both the current (10008) and legacy (30008) Profile Badges kinds.
+  // No '#d' filter: kind 10008 is a plain replaceable event and carries no
+  // d tag, while legacy 30008 uses d=profile_badges.
   const filter = {
-    kinds: [30008],
-    authors: [userHexPubkey],
-    '#d': ['profile_badges']
+    kinds: [10008, 30008],
+    authors: [userHexPubkey]
   };
   const events = await pool.querySync(relays, filter);
   if (events.length === 0) return false;
-  return events[0].tags.some(
-    tag => tag[0] === 'a' && tag[1] === badgeATag
+  return events.some(ev =>
+    ev.tags.some(tag => tag[0] === 'a' && tag[1] === badgeATag)
   );
 }
 
@@ -381,11 +405,11 @@ curl "https://badgebox.rinbal.de/api/v1/surf/badge/owners?a_tag=30009:pubkey:bad
 
 ## Security Model
 
-- **No server-side key storage** — Private keys are never persisted on the backend
-- **Session-only storage** — Keys in browser session, cleared on close
-- **Cryptographic verification** — All events are signed per Nostr protocol
-- **NIP-07 isolation** — Browser extension signing keeps keys secure
-- **Decentralized storage** — Events stored across multiple independent relays
+- **No server-side key storage** - Private keys are never persisted on the backend
+- **Session-only storage** - Keys in browser session, cleared on close
+- **Cryptographic verification** - All events are signed per Nostr protocol
+- **NIP-07 isolation** - Browser extension signing keeps keys secure
+- **Decentralized storage** - Events stored across multiple independent relays
 
 ---
 
@@ -407,7 +431,15 @@ curl "https://badgebox.rinbal.de/api/v1/surf/badge/owners?a_tag=30009:pubkey:bad
 - **Relay**: WebSocket server that stores and forwards Nostr events
 - **NIP-07**: Browser extension standard for signing Nostr events
 - **NIP-09**: Event deletion standard (used for withdrawing requests)
+- **NIP-11**: Relay information document (relay capabilities/metadata)
+- **NIP-17**: Private direct messages (kind 14 rumors, gift-wrapped)
+- **NIP-29**: Relay-based groups (community group chat)
+- **NIP-42**: Client-to-relay authentication (kind 22242)
+- **NIP-44**: Versioned encryption used for DMs and NIP-46 RPC
+- **NIP-46**: Remote signing (bunker, nsec.app, nostrconnect)
 - **NIP-50**: Full-text search on relays
+- **NIP-59**: Gift wrap (kind 1059) that carries sealed NIP-17 messages
+- **NIP-65**: User relay list metadata (kind 10002)
 - **NIP-78**: Application-specific data (used for template sync)
 
 ---
@@ -443,7 +475,7 @@ A: Both npub (bech32) and hex (64-char) formats. The API converts automatically.
 A: The API itself doesn't enforce rate limits, but Nostr relays may reject rapid event submissions.
 
 **Q: Where is badge data stored?**
-A: On Nostr relays. BadgeBox has no database — it reads from and writes to relays in real time.
+A: On Nostr relays. BadgeBox has no database - it reads from and writes to relays in real time.
 
 **Q: Can I use BadgeBox without the web app?**
 A: Yes. The CLI tools (`badge_tool/` and `badge_inbox/`) can create and manage badges from the command line. You can also interact directly with Nostr relays using any NIP-58-compatible client.

@@ -128,10 +128,19 @@
 
           <!-- Footer -->
           <div class="relay-footer">
-            <button class="footer-btn" @click="relayStore.refreshConnectionStatus()">
-              <Icon name="refresh" size="xs" /> Reconnect All
-            </button>
-            <button class="footer-btn danger" @click="handleResetDefaults">Reset to Defaults</button>
+            <p class="footer-hint">
+              Publishing shares your relay list so others know where to reach you.
+            </p>
+            <div class="footer-actions">
+              <button class="footer-btn primary" :disabled="relayStore.isPublishing" @click="handlePublish">
+                <Icon name="upload" size="xs" :spin="relayStore.isPublishing" />
+                {{ relayStore.isPublishing ? 'Publishing...' : 'Publish to Nostr' }}
+              </button>
+              <button class="footer-btn" @click="relayStore.refreshConnectionStatus()">
+                <Icon name="refresh" size="xs" /> Reconnect All
+              </button>
+              <button class="footer-btn danger" @click="handleResetDefaults">Reset</button>
+            </div>
           </div>
         </div>
       </div>
@@ -142,6 +151,7 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
 import { useRelayStore } from '@/stores/relays'
+import { useUIStore } from '@/stores/ui'
 import Icon from '@/components/common/Icon.vue'
 
 const props = defineProps({
@@ -151,6 +161,7 @@ const props = defineProps({
 defineEmits(['close'])
 
 const relayStore = useRelayStore()
+const uiStore = useUIStore()
 const newRelayUrl = ref('')
 const addError = ref('')
 const expandedRelay = ref(null)
@@ -186,6 +197,15 @@ function handleRemove(url) {
 function handleResetDefaults() {
   relayStore.resetToDefaults()
   expandedRelay.value = null
+}
+
+async function handlePublish() {
+  const result = await relayStore.publishRelayList()
+  if (result?.success) {
+    uiStore.showSuccess('Relay list published')
+  } else {
+    uiStore.showError('Could not publish. Please make sure you are signed in.')
+  }
 }
 
 function toggleExpanded(url) {
@@ -349,16 +369,21 @@ function formatNumber(n) {
 .limit-tag.warn { background: rgba(251, 191, 36, 0.1); color: rgb(217, 163, 15); }
 
 .relay-footer {
-  display: flex; gap: 0.75rem; padding: 1rem 1.5rem;
+  padding: 0.875rem 1.5rem 1rem;
   border-top: 1px solid var(--color-border); background: var(--color-surface-elevated);
 }
+.footer-hint { margin: 0 0 0.625rem; font-size: 0.75rem; color: var(--color-text-muted); line-height: 1.4; }
+.footer-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
 .footer-btn {
   flex: 1; display: flex; align-items: center; justify-content: center; gap: 0.375rem;
   padding: 0.625rem; background: var(--color-surface); border: 1px solid var(--color-border);
   border-radius: var(--radius-md); font-size: 0.8125rem; font-weight: 500; color: var(--color-text);
-  cursor: pointer; transition: all 0.15s;
+  cursor: pointer; transition: all 0.15s; white-space: nowrap;
 }
 .footer-btn:hover { border-color: var(--color-primary); color: var(--color-primary); }
+.footer-btn.primary { background: var(--color-primary); border-color: var(--color-primary); color: #fff; }
+.footer-btn.primary:hover:not(:disabled) { background: var(--color-primary-hover); border-color: var(--color-primary-hover); color: #fff; }
+.footer-btn.primary:disabled { opacity: 0.6; cursor: not-allowed; }
 .footer-btn.danger:hover { border-color: var(--color-danger); color: var(--color-danger); background: var(--color-danger-soft); }
 
 .modal-enter-active, .modal-leave-active { transition: opacity 0.2s ease; }
@@ -375,6 +400,6 @@ function formatNumber(n) {
   .relay-header, .add-relay, .relay-footer { padding-left: 1rem; padding-right: 1rem; }
   .relay-item { padding-left: 1rem; padding-right: 1rem; }
   .relay-url { font-size: 0.75rem; }
-  .relay-footer { flex-direction: column; }
+  .footer-btn.primary { flex-basis: 100%; }
 }
 </style>

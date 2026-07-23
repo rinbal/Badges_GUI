@@ -11,9 +11,14 @@ This guide covers everything you need to use Badge Box effectively. Whether you'
 3. [Creating Badges](#creating-badges)
 4. [Awarding Badges](#awarding-badges)
 5. [Managing Your Inbox](#managing-your-inbox)
-6. [Viewing Profiles](#viewing-profiles)
-7. [Technical Reference](#technical-reference)
-8. [Troubleshooting](#troubleshooting)
+6. [Requesting Badges](#requesting-badges)
+7. [Viewing Profiles](#viewing-profiles)
+8. [Messaging](#messaging)
+9. [Community Chat](#community-chat)
+10. [Relay Management](#relay-management)
+11. [About Page](#about-page)
+12. [Technical Reference](#technical-reference)
+13. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -40,7 +45,7 @@ If you don't have Nostr keys yet, you can generate them using:
 
 ## Logging In
 
-Badge Box offers two authentication methods:
+Badge Box offers three authentication methods:
 
 ### Method 1: Browser Extension (Recommended)
 
@@ -71,6 +76,18 @@ Use this if you don't have a browser extension installed.
 Your key is stored only in browser session storage and is automatically cleared when you close the browser.
 
 **Security Note**: While convenient, entering your private key directly is less secure than using an extension. Only use this method on trusted devices.
+
+### Method 3: Remote Signer (NIP-46)
+
+Sign with a remote signer app so your private key never touches the browser. Works with Amber, nsec.app, or any bunker URI.
+
+**Step 1**: On the login page, choose the remote signer option
+
+**Step 2**: Pair by scanning the QR code, or paste a `bunker://` URI
+
+**Step 3**: Approve the connection in your signer app
+
+**Step 4**: Approve each signing request in the signer app when Badge Box needs to sign an event
 
 ---
 
@@ -211,6 +228,36 @@ Removing a badge doesn't delete the award - it just hides it from your public pr
 
 ---
 
+## Requesting Badges
+
+If a badge already exists, you can ask its issuer to award it to you.
+
+### Sending a Request
+
+**Step 1**: Open the badge you want from its issuer
+
+**Step 2**: Click "Request Badge"
+
+**Step 3**: Optionally add a message and proof (a URL, text, or an event reference) that shows why you qualify
+
+**Step 4**: Approve the signing request
+
+The issuer receives a direct message notifying them of your request.
+
+### Withdrawing a Request
+
+- Open your request and choose to withdraw it
+- Withdrawing removes the request event
+
+### What the Issuer Sees
+
+The issuer reviews your request and can:
+
+- **Award**: You receive the badge in your inbox and a direct message notification
+- **Deny**: The issuer sends a denial with a reason ; they can also revoke a denial later
+
+---
+
 ## Viewing Profiles
 
 View any Nostr user's badges by visiting their profile.
@@ -235,6 +282,82 @@ Profiles display:
 - User's Nostr metadata (name, picture, about)
 - List of badges they've accepted
 - Each badge's issuer and details
+
+---
+
+## Messaging
+
+Badge Box includes private messaging. All messages are handled client-side in your browser.
+
+### Private DMs
+
+End-to-end encrypted direct messages between you and another user, using NIP-17 with NIP-59 gift wrap and NIP-44 encryption.
+
+**Step 1**: Open the profile menu and select "Messages"
+
+**Step 2**: Choose a conversation, or start one by entering a recipient
+
+**Step 3**: Type your message and send
+
+**Step 4**: Approve the signing request
+
+Only you and the recipient can read the contents ; the metadata is wrapped to hide sender and recipient.
+
+### Feedback & Support
+
+A 1:1 encrypted chat with the Badge Box admin for questions or help.
+
+**Step 1**: Open the profile menu and select the feedback and support option
+
+**Step 2**: Type your message and send
+
+**Step 3**: Approve the signing request
+
+Replies appear in the same chat.
+
+---
+
+## Community Chat
+
+A public group chat on the home page, hosted as a NIP-29 group on `wss://groups.0xchat.com`.
+
+**Step 1**: Open the home page to read the community chat
+
+**Step 2**: Sign in to join and post
+
+**Step 3**: Type your message and send ; approve the signing request
+
+Anyone can read the chat. Only signed-in users can post.
+
+### Open in Lotus
+
+- Click "Open in Lotus" to open the same community in the Lotus app
+- Lotus adds voice, video, and file sharing for the group
+
+---
+
+## Relay Management
+
+Relays are the servers that store and distribute your Nostr events. Manage them from the profile menu.
+
+**Step 1**: Open the profile menu and select the relays option
+
+**Step 2**: Review the relay list, each showing connection status and NIP-11 info
+
+**Step 3**: Add a relay by entering its `wss://` URL, or remove one you no longer want
+
+**Step 4**: Toggle each relay's read and write settings as needed
+
+| Setting | Meaning |
+|---------|---------|
+| Read | Badge Box queries this relay for events |
+| Write | Badge Box publishes your events to this relay |
+
+---
+
+## About Page
+
+Visit `/about` for background on Badge Box and the project.
 
 ---
 
@@ -457,6 +580,20 @@ VITE_API_BASE_URL=http://localhost:8000
 - Check for relay connectivity issues
 - Try accepting again after a few seconds
 
+### Messaging Issues
+
+**"Messages not appearing"**
+- Verify you're signed in and approved the signing request
+- Encrypted messages need shared relays with the other person
+- Wait a few seconds for gift-wrapped events to arrive
+
+### Relay Issues
+
+**"Relay won't connect"**
+- Check the URL starts with `wss://`
+- Confirm the relay is online via its connection status
+- Remove and re-add the relay if it stays offline
+
 ### General Issues
 
 **Slow loading**
@@ -492,7 +629,15 @@ If you encounter issues not covered here:
 | **nsec** | Private key in bech32 format (starts with nsec1) |
 | **NIP** | Nostr Implementation Possibility - protocol specifications |
 | **NIP-07** | Browser extension signing specification |
+| **NIP-09** | Event deletion specification (used to withdraw requests or revoke denials) |
+| **NIP-17** | Private direct message specification |
+| **NIP-29** | Relay-based group chat specification (community chat) |
+| **NIP-46** | Remote signer specification (Amber, bunker URI, nsec.app) |
 | **NIP-58** | Badge specification |
+| **Gift wrap** | NIP-59 wrapping that hides DM sender and recipient metadata |
+| **DM** | Direct message, end-to-end encrypted between two users |
+| **Request** | Asking a badge issuer to award an existing badge (kind 30058) |
+| **Denial** | An issuer's response declining a badge request (kind 30059) |
 | **Relay** | Server that stores and distributes Nostr events |
 | **Event** | A signed data structure on Nostr |
 | **Kind** | Event type identifier (number) |

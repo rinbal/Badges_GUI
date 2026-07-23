@@ -1,5 +1,5 @@
 /**
- * Chat Store - Manages NIP-17/04 encrypted DM state
+ * Chat Store - Manages NIP-17 gift-wrapped DM state
  *
  * User view:  single conversation with Rinball (admin)
  * Admin view: all conversations grouped by sender (badge-gated)
@@ -16,11 +16,12 @@ import {
   sendDirectMessage,
   fetchDirectMessages,
   fetchAllConversations as fetchAllConvs,
+  subscribeDirectMessages,
   checkBadgeAccess,
   fetchNostrProfile
 } from '@/services/nostrChat'
 import { closePool, clearRelayCache } from '@/services/outbox'
-import { getBestEncryption } from '@/services/signer'
+import { signerHasNip44 } from '@/services/signer'
 
 function isSignerError(err) {
   const msg = (err?.message || '').toLowerCase()
@@ -48,7 +49,7 @@ export const useChatStore = defineStore('chat', () => {
   const chatSupported = computed(() => {
     const signer = authStore.getSigner()
     if (!signer) return false
-    return !!getBestEncryption(signer)
+    return signerHasNip44(signer)
   })
 
   const conversationList = computed(() => {
@@ -75,8 +76,8 @@ export const useChatStore = defineStore('chat', () => {
 
   function requireSigner() {
     const signer = authStore.getSigner()
-    if (!signer) throw new Error('No signer available. Please log in with nsec, NIP-07 extension, or Amber.')
-    if (!getBestEncryption(signer)) throw new Error('Your signer does not support encryption (NIP-04 or NIP-44).')
+    if (!signer) throw new Error('Please log in to use chat.')
+    if (!signerHasNip44(signer)) throw new Error('Private messages are not supported by your current login method.')
     return signer
   }
 
@@ -115,7 +116,9 @@ export const useChatStore = defineStore('chat', () => {
       const signer = requireSigner()
       const result = await sendDirectMessage(content, signer, ADMIN_PUBKEY_HEX)
 
-      messages.value.push({
+      // Echo through the deduped ingestion path so a fast relay echo to the
+      // live subscription cannot duplicate the message.
+      ingestLiveMessage({
         id: result.id,
         content: result.content,
         created_at: result.created_at,
@@ -152,19 +155,16 @@ export const useChatStore = defineStore('chat', () => {
       const signer = requireSigner()
       const result = await sendDirectMessage(content, signer, recipientPubkey)
 
-      const replyMsg = {
+      // Echo through the deduped ingestion path so a fast relay echo to the
+      // live subscription cannot duplicate the message.
+      ingestLiveMessage({
         id: result.id,
         content: result.content,
         created_at: result.created_at,
         sender: authStore.hex,
         recipient: recipientPubkey,
         isMine: true
-      }
-
-      if (!conversations.value.has(recipientPubkey)) {
-        conversations.value.set(recipientPubkey, [])
-      }
-      conversations.value.get(recipientPubkey).push(replyMsg)
+      })
 
       return { success: true }
     } catch (err) {
@@ -235,7 +235,52 @@ export const useChatStore = defineStore('chat', () => {
     selectedPartner.value = pubkey
   }
 
+  // ── Live incoming messages ─────────────────────────────────────────────────
+
+  let _liveSub = null
+
+  /** Merge a live-arriving message into local state, deduped by id. */
+  function ingestLiveMessage(msg) {
+    const peer = msg.isMine ? msg.recipient : msg.sender
+    if (!peer) return
+
+    // User view keeps the admin conversation in `messages`.
+    if (peer === ADMIN_PUBKEY_HEX && !messages.value.some(m => m.id === msg.id)) {
+      messages.value.push(msg)
+      messages.value.sort((a, b) => a.created_at - b.created_at)
+    }
+
+    // Admin view keeps every conversation grouped in `conversations`.
+    if (!conversations.value.has(peer)) conversations.value.set(peer, [])
+    const list = conversations.value.get(peer)
+    if (!list.some(m => m.id === msg.id)) {
+      list.push(msg)
+      list.sort((a, b) => a.created_at - b.created_at)
+    }
+  }
+
+  /** Start listening for incoming messages in real time (idempotent). */
+  async function startLiveMessages() {
+    if (_liveSub) return
+    const signer = authStore.getSigner()
+    if (!signer || !signerHasNip44(signer) || !authStore.hex) return
+    try {
+      _liveSub = await subscribeDirectMessages(signer, authStore.hex, ingestLiveMessage)
+    } catch (err) {
+      console.warn('Live chat subscription failed:', err)
+    }
+  }
+
+  /** Stop listening for incoming messages. */
+  function stopLiveMessages() {
+    if (_liveSub) {
+      try { _liveSub.close() } catch { /* ignore */ }
+      _liveSub = null
+    }
+  }
+
   function reset() {
+    stopLiveMessages()
     messages.value = []
     conversations.value = new Map()
     conversationProfiles.value = {}
@@ -252,6 +297,7 @@ export const useChatStore = defineStore('chat', () => {
     isLoading, isSending, error, isAdmin, adminChecked,
     chatSupported, conversationList, selectedMessages,
     checkAdminAccess, sendMessage, replyToUser,
-    fetchMessages, fetchAllConversations, selectConversation, reset
+    fetchMessages, fetchAllConversations, selectConversation,
+    startLiveMessages, stopLiveMessages, reset
   }
 })

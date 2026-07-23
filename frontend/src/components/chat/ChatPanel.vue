@@ -47,7 +47,7 @@
         <div class="panel-messages" ref="messagesRef">
           <!-- Loading -->
           <div v-if="chatStore.isLoading" class="panel-status">
-            <Icon name="loader-2" size="lg" :spin="true" />
+            <Icon name="loader" size="lg" :spin="true" />
             <p>Connecting to relays...</p>
           </div>
 
@@ -86,8 +86,11 @@
 
         <!-- Footer -->
         <div class="panel-footer">
-          <Icon name="lock" size="xs" />
-          <span>End-to-end encrypted</span>
+          <CommunityChatLink @navigate="$emit('close')" />
+          <div class="footer-secure">
+            <Icon name="lock" size="xs" />
+            <span>End-to-end encrypted</span>
+          </div>
         </div>
       </div>
     </div>
@@ -95,10 +98,11 @@
 </template>
 
 <script setup>
-import { ref, watch, nextTick } from 'vue'
+import { ref, watch, nextTick, onUnmounted } from 'vue'
 import { useChatStore } from '@/stores/chat'
 import MessageBubble from '@/components/chat/MessageBubble.vue'
 import MessageInput from '@/components/chat/MessageInput.vue'
+import CommunityChatLink from '@/components/chat/CommunityChatLink.vue'
 import Icon from '@/components/common/Icon.vue'
 
 const props = defineProps({
@@ -111,15 +115,22 @@ const chatStore = useChatStore()
 const messagesRef = ref(null)
 const prefillText = ref('')
 
-// Fetch messages when panel opens (retry-able)
+// Fetch messages and go live when the panel opens; stop listening when it closes
 watch(() => props.visible, (isVisible) => {
-  if (isVisible && chatStore.chatSupported && chatStore.messages.length === 0 && !chatStore.isLoading) {
-    chatStore.fetchMessages()
-  }
   if (isVisible) {
+    if (chatStore.chatSupported) {
+      if (chatStore.messages.length === 0 && !chatStore.isLoading) {
+        chatStore.fetchMessages()
+      }
+      chatStore.startLiveMessages()
+    }
     nextTick(() => scrollToBottom())
+  } else {
+    chatStore.stopLiveMessages()
   }
 })
+
+onUnmounted(() => chatStore.stopLiveMessages())
 
 // Auto-scroll on new messages
 watch(() => chatStore.messages.length, () => {
@@ -371,6 +382,10 @@ async function handleSend(content) {
 
 /* Footer */
 .panel-footer {
+  flex-shrink: 0;
+}
+
+.footer-secure {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -379,7 +394,6 @@ async function handleSend(content) {
   color: var(--color-text-subtle);
   font-size: 0.6875rem;
   border-top: 1px solid var(--color-border);
-  flex-shrink: 0;
 }
 
 /* Slide-in Transition */

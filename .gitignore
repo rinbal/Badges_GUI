@@ -50,6 +50,13 @@ yarn-error.log*
 # Frontend Build
 frontend/dist/
 frontend/.vite/
+dist/
+.vite/
+# Vite PWA dev-mode service worker output
+dev-dist/
+frontend/dev-dist/
+# Vite local env overrides
+*.local
 
 # Environment variables
 .env

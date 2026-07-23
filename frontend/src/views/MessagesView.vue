@@ -49,7 +49,7 @@
 
         <!-- Loading -->
         <div v-if="messagesStore.isLoading && messagesStore.conversationList.length === 0" class="sidebar-status">
-          <Icon name="loader-2" size="md" :spin="true" />
+          <Icon name="loader" size="md" :spin="true" />
           <span>Loading conversations...</span>
         </div>
 
@@ -123,7 +123,7 @@
           <!-- Messages -->
           <div class="thread-messages" ref="messagesRef">
             <div v-if="messagesStore.isLoadingConversation && messagesStore.selectedMessages.length === 0" class="thread-status">
-              <Icon name="loader-2" size="lg" :spin="true" />
+              <Icon name="loader" size="lg" :spin="true" />
               <p>Decrypting messages...</p>
             </div>
 

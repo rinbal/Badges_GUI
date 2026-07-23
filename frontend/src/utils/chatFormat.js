@@ -3,7 +3,7 @@
  *
  * Cleans and formats message content for display across all chat types:
  * - Support chat (MessageBubble)
- * - Public chatroom (ChannelMessage)
+ * - Group chat (MessageBubble)
  * - Private DMs (MessageBubble)
  */
 

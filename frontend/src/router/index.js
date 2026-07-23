@@ -13,6 +13,11 @@ const routes = [
     component: () => import('@/views/LoginView.vue')
   },
   {
+    path: '/about',
+    name: 'about',
+    component: () => import('@/views/AboutView.vue')
+  },
+  {
     path: '/creator',
     name: 'creator',
     component: () => import('@/views/CreatorView.vue'),
@@ -71,7 +76,14 @@ const routes = [
 
 const router = createRouter({
   history: createWebHistory(),
-  routes
+  routes,
+  // Start each new page at the top; restore position on back/forward, and
+  // honor in-page #hash anchors when present.
+  scrollBehavior(to, from, savedPosition) {
+    if (savedPosition) return savedPosition
+    if (to.hash) return { el: to.hash, behavior: 'smooth' }
+    return { top: 0 }
+  }
 })
 
 // Navigation guard

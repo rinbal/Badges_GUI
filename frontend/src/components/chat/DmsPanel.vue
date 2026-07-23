@@ -41,7 +41,7 @@
           <!-- Conversation list (shown when no conversation selected) -->
           <div v-if="!store.selectedPubkey" class="conv-list-pane">
             <div v-if="store.isLoading && store.conversationList.length === 0" class="pane-status">
-              <Icon name="loader-2" size="md" :spin="true" />
+              <Icon name="loader" size="md" :spin="true" />
               <span>Loading...</span>
             </div>
 
@@ -84,7 +84,7 @@
             <!-- Messages -->
             <div class="thread-messages" ref="messagesRef">
               <div v-if="store.isLoadingConversation && store.selectedMessages.length === 0" class="pane-status">
-                <Icon name="loader-2" size="md" :spin="true" />
+                <Icon name="loader" size="md" :spin="true" />
                 <span>Decrypting...</span>
               </div>
               <div v-else-if="store.selectedMessages.length === 0" class="pane-status">
@@ -104,19 +104,22 @@
             </div>
           </div>
         </div>
+
+        <LotusFooter />
       </div>
     </div>
   </Transition>
 </template>
 
 <script setup>
-import { ref, watch, nextTick } from 'vue'
+import { ref, watch, nextTick, onUnmounted } from 'vue'
 import { useMessagesStore } from '@/stores/messages'
 import { useAuthStore } from '@/stores/auth'
 import { useUIStore } from '@/stores/ui'
 import { nip19 } from 'nostr-core'
 import MessageBubble from '@/components/chat/MessageBubble.vue'
 import MessageInput from '@/components/chat/MessageInput.vue'
+import LotusFooter from '@/components/chat/LotusFooter.vue'
 import Icon from '@/components/common/Icon.vue'
 
 const props = defineProps({ visible: { type: Boolean, default: false } })
@@ -132,8 +135,15 @@ const newDmPubkey = ref('')
 const newDmInput = ref(null)
 
 watch(() => props.visible, (v) => {
-  if (v && !store.hasFetched) store.fetchInbox()
+  if (v) {
+    if (!store.hasFetched) store.fetchInbox()
+    store.startLiveMessages()
+  } else {
+    store.stopLiveMessages()
+  }
 })
+
+onUnmounted(() => store.stopLiveMessages())
 
 watch(() => store.selectedMessages.length, () => {
   nextTick(() => { if (messagesRef.value) messagesRef.value.scrollTop = messagesRef.value.scrollHeight })

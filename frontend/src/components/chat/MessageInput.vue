@@ -16,7 +16,7 @@
       :disabled="disabled || !text.trim() || sending"
       :title="sending ? 'Sending...' : 'Send message'"
     >
-      <Icon v-if="sending" name="loader-2" size="sm" :spin="true" />
+      <Icon v-if="sending" name="loader" size="sm" :spin="true" />
       <Icon v-else name="send" size="sm" />
     </button>
   </form>

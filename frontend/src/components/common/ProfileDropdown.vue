@@ -7,7 +7,7 @@
       :class="{ active: isOpen }"
     >
       <img
-        v-if="authStore.profilePicture"
+        v-if="authStore.profilePicture && !avatarError"
         :src="authStore.profilePicture"
         :alt="authStore.displayName"
         class="trigger-avatar"
@@ -23,124 +23,115 @@
         :class="{ open: isOpen }"
       />
     </button>
-    
+
     <!-- Dropdown Panel -->
     <Transition name="dropdown">
       <div v-if="isOpen" class="dropdown-panel">
-        <!-- Banner & Avatar Header -->
-        <div class="profile-header">
-          <div 
-            class="banner"
-            :style="bannerStyle"
-          ></div>
-          <div class="avatar-container">
-            <img 
-              v-if="authStore.profilePicture" 
-              :src="authStore.profilePicture" 
+        <!-- Social header -->
+        <header class="pcard">
+          <div class="pcard-banner" :style="bannerStyle"></div>
+
+          <div class="pcard-main">
+            <img
+              v-if="authStore.profilePicture && !avatarError"
+              :src="authStore.profilePicture"
               :alt="authStore.displayName"
-              class="avatar"
+              class="pcard-avatar"
               @error="handleAvatarError"
             />
-            <div v-else class="avatar-placeholder">
+            <div v-else class="pcard-avatar pcard-avatar--ph">
               <Icon name="user" size="lg" />
             </div>
+
+            <div class="pcard-id">
+              <h3 class="pcard-name">{{ authStore.displayName }}</h3>
+              <div v-if="authStore.profileNip05" class="pcard-nip05">
+                <Icon name="check" size="xs" />
+                <span>{{ authStore.profileNip05 }}</span>
+              </div>
+            </div>
+
+            <div class="pcard-links">
+              <a
+                v-if="authStore.profileWebsite"
+                :href="websiteUrl"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="pcard-link"
+                title="Website"
+              >
+                <Icon name="globe" size="sm" />
+              </a>
+              <a
+                v-if="authStore.profileLud16"
+                :href="`lightning:${authStore.profileLud16}`"
+                class="pcard-link pcard-link--zap"
+                title="Lightning address"
+              >
+                <Icon name="zap" size="sm" />
+              </a>
+            </div>
           </div>
-        </div>
-        
-        <!-- Profile Info -->
-        <div class="profile-info">
-          <h3 class="display-name">{{ authStore.displayName }}</h3>
-          
-          <div v-if="authStore.profileNip05" class="nip05">
-            <Icon name="check" size="xs" class="verified-icon" />
-            <span>{{ authStore.profileNip05 }}</span>
-          </div>
-          
-          <p v-if="authStore.profileAbout" class="about">
-            {{ truncatedAbout }}
-          </p>
-          
-          <div class="npub-row">
-            <code class="npub">{{ authStore.shortNpub }}</code>
-            <button @click="copyNpub" class="copy-btn" title="Copy full npub">
-              <Icon :name="copied ? 'check' : 'copy'" size="xs" />
+
+          <div v-if="authStore.profileAbout" class="pcard-about">
+            <p class="pcard-about-text" :class="{ clamped: !bioExpanded }">{{ authStore.profileAbout }}</p>
+            <button
+              v-if="bioTruncatable"
+              class="pcard-about-toggle"
+              @click="bioExpanded = !bioExpanded"
+            >
+              {{ bioExpanded ? 'Read less' : 'Read more' }}
             </button>
           </div>
 
-          <!-- Auth Method Indicator -->
-          <div class="auth-method">
-            <span v-if="authStore.isNip07" class="auth-badge auth-extension">
-              <Icon name="extension" size="sm" class="auth-icon" />
-              <span>Extension</span>
-            </span>
-            <span v-else-if="authStore.isAmber" class="auth-badge auth-amber">
-              <Icon name="key" size="sm" class="auth-icon" />
-              <span>Amber</span>
-            </span>
-            <span v-else-if="authStore.isNsec" class="auth-badge auth-nsec">
-              <Icon name="key" size="sm" class="auth-icon" />
-              <span>Private Key</span>
+          <div class="pcard-footer">
+            <button class="pcard-npub" @click="copyNpub" title="Copy npub">
+              <code>{{ authStore.shortNpub }}</code>
+              <Icon :name="copied ? 'check' : 'copy'" size="xs" class="pcard-npub-copy" />
+            </button>
+            <span v-if="authBadge" class="auth-badge" :class="authBadge.cls">
+              <Icon :name="authBadge.icon" size="xs" />
+              <span>{{ authBadge.label }}</span>
             </span>
           </div>
-          
-          <!-- Quick Links -->
-          <div class="quick-links">
-            <a
-              v-if="authStore.profileWebsite"
-              :href="websiteUrl"
-              target="_blank"
-              class="quick-link"
-              title="Website"
-            >
-              <Icon name="globe" size="sm" />
-            </a>
-            <a
-              v-if="authStore.profileLud16"
-              :href="`lightning:${authStore.profileLud16}`"
-              class="quick-link"
-              title="Lightning Address"
-            >
-              <Icon name="zap" size="sm" />
-            </a>
-          </div>
-        </div>
-        
-        <!-- Actions -->
-        <div class="dropdown-actions">
+        </header>
+
+        <!-- Actions, grouped with divider lines -->
+        <nav class="menu">
           <router-link
             :to="`/profile/${authStore.npub}`"
-            class="action-btn"
+            class="menu-item"
             @click="closeDropdown"
           >
-            <Icon name="user" size="sm" class="action-icon" />
+            <Icon name="user" size="sm" class="menu-icon" />
             <span>View Profile</span>
           </router-link>
-          <div class="action-divider-label">Chat</div>
-          <button @click="openCommunityPanel" class="action-btn">
-            <Icon name="hash" size="sm" class="action-icon" />
-            <span>Community</span>
-          </button>
-          <button @click="openDmsPanel" class="action-btn">
-            <Icon name="mail" size="sm" class="action-icon" />
+
+          <div class="menu-label">Chat</div>
+          <button @click="openDmsPanel" class="menu-item">
+            <Icon name="mail" size="sm" class="menu-icon" />
             <span>Messages</span>
           </button>
-          <button @click="openChat" class="action-btn">
-            <Icon name="message-circle" size="sm" class="action-icon" />
+          <button @click="openChat" class="menu-item">
+            <Icon name="message-circle" size="sm" class="menu-icon" />
             <span>Feedback & Support</span>
           </button>
-          <div class="action-divider-label">Settings</div>
-          <button @click="openRelays" class="action-btn">
-            <Icon name="server" size="sm" class="action-icon" />
+
+          <div class="menu-label">Settings</div>
+          <button @click="openRelays" class="menu-item">
+            <Icon name="server" size="sm" class="menu-icon" />
             <span>Relays</span>
             <span class="relay-status-badge" :class="relayStatusClass">
               {{ relayStore.connectedCount }}/{{ relayStore.relayCount }}
             </span>
           </button>
-          <button @click="handleLogout" class="action-btn action-logout">
-            <Icon name="logout" size="sm" class="action-icon" />
+
+          <div class="menu-sep"></div>
+          <button @click="handleLogout" class="menu-item menu-item--danger">
+            <Icon name="logout" size="sm" class="menu-icon" />
             <span>Logout</span>
           </button>
-        </div>
+        </nav>
       </div>
     </Transition>
 
@@ -170,12 +161,25 @@ const isOpen = ref(false)
 const copied = ref(false)
 const avatarError = ref(false)
 const showRelayManager = ref(false)
+const bioExpanded = ref(false)
+
+// Long bios collapse to two lines behind a "Read more" toggle.
+const bioTruncatable = computed(() => (authStore.profileAbout || '').length > 90)
 
 const relayStatusClass = computed(() => {
   if (relayStore.relayCount === 0) return 'offline'
   if (relayStore.connectedCount === relayStore.relayCount) return 'online'
   if (relayStore.connectedCount > 0) return 'partial'
   return 'offline'
+})
+
+// Compact label for the current login method, shown as a chip in the header.
+const authBadge = computed(() => {
+  if (authStore.isNip07) return { label: 'Extension', cls: 'auth-extension', icon: 'extension' }
+  if (authStore.isAmber) return { label: 'Amber', cls: 'auth-amber', icon: 'key' }
+  if (authStore.isRemoteLogin) return { label: 'Remote', cls: 'auth-amber', icon: 'key' }
+  if (authStore.isNsec) return { label: 'Private key', cls: 'auth-nsec', icon: 'key' }
+  return null
 })
 
 function openChat() {
@@ -185,11 +189,6 @@ function openChat() {
 
 function openDmsPanel() {
   uiStore.openDms()
-  closeDropdown()
-}
-
-function openCommunityPanel() {
-  uiStore.openCommunity()
   closeDropdown()
 }
 
@@ -211,11 +210,6 @@ const bannerStyle = computed(() => {
   }
 })
 
-const truncatedAbout = computed(() => {
-  const about = authStore.profileAbout || ''
-  return about.length > 100 ? about.slice(0, 100) + '...' : about
-})
-
 const websiteUrl = computed(() => {
   const website = authStore.profileWebsite
   if (!website) return '#'
@@ -223,11 +217,16 @@ const websiteUrl = computed(() => {
 })
 
 function toggleDropdown() {
-  isOpen.value = !isOpen.value
+  if (isOpen.value) {
+    closeDropdown()
+  } else {
+    isOpen.value = true
+  }
 }
 
 function closeDropdown() {
   isOpen.value = false
+  bioExpanded.value = false
 }
 
 function handleAvatarError() {
@@ -274,6 +273,7 @@ onUnmounted(() => {
   position: relative;
 }
 
+/* ── Trigger ─────────────────────────────────────────────────────────────── */
 .profile-trigger {
   display: flex;
   align-items: center;
@@ -319,12 +319,13 @@ onUnmounted(() => {
   transform: rotate(180deg);
 }
 
-/* Dropdown Panel */
+/* ── Panel ───────────────────────────────────────────────────────────────── */
 .dropdown-panel {
   position: absolute;
   top: calc(100% + 0.5rem);
   right: 0;
-  width: 280px;
+  width: 300px;
+  max-width: calc(100vw - 1.5rem);
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
@@ -333,135 +334,188 @@ onUnmounted(() => {
   z-index: 1000;
 }
 
-/* Profile Header with Banner */
-.profile-header {
-  position: relative;
-  padding-bottom: 2rem;
+/* ── Social header card ──────────────────────────────────────────────────── */
+.pcard-banner {
+  height: 58px;
+  background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
 }
 
-.banner {
-  height: 72px;
-  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-accent) 100%);
+.pcard-main {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.75rem;
+  padding: 0 1rem;
+  margin-top: -28px;
 }
 
-.avatar-container {
-  position: absolute;
-  bottom: 0;
-  left: 50%;
-  transform: translateX(-50%);
-}
-
-.avatar {
-  width: 64px;
-  height: 64px;
+.pcard-avatar {
+  width: 58px;
+  height: 58px;
   border-radius: 50%;
   object-fit: cover;
   border: 3px solid var(--color-surface);
-  box-shadow: var(--shadow-md);
+  background: var(--color-surface-elevated);
+  flex-shrink: 0;
 }
 
-.avatar-placeholder {
-  width: 64px;
-  height: 64px;
-  border-radius: 50%;
-  background: var(--color-surface-elevated);
-  border: 3px solid var(--color-surface);
+.pcard-avatar--ph {
   display: flex;
   align-items: center;
   justify-content: center;
   color: var(--color-text-muted);
 }
 
-/* Profile Info */
-.profile-info {
-  padding: 0.5rem 1rem 1rem;
-  text-align: center;
+.pcard-id {
+  flex: 1;
+  min-width: 0;
+  padding-bottom: 0.125rem;
 }
 
-.display-name {
+.pcard-name {
+  margin: 0;
   font-size: 1rem;
   font-weight: 600;
   color: var(--color-text);
-  margin: 0 0 0.25rem 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.nip05 {
-  display: inline-flex;
+.pcard-nip05 {
+  display: flex;
   align-items: center;
   gap: 0.25rem;
+  margin-top: 0.125rem;
   font-size: 0.75rem;
   color: var(--color-primary);
-  background: var(--color-primary-soft);
-  padding: 0.125rem 0.5rem;
-  border-radius: var(--radius-full);
-  margin-bottom: 0.5rem;
 }
 
-.verified-icon {
+.pcard-nip05 span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pcard-links {
+  display: flex;
+  gap: 0.375rem;
+  padding-bottom: 0.25rem;
   flex-shrink: 0;
 }
 
-.about {
+.pcard-link {
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--color-surface-elevated);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  text-decoration: none;
+  transition: all 0.15s ease;
+}
+
+.pcard-link:hover {
+  color: var(--color-primary);
+  border-color: var(--color-primary);
+  transform: translateY(-1px);
+}
+
+.pcard-link--zap {
+  color: var(--color-warning);
+}
+
+.pcard-link--zap:hover {
+  color: var(--color-warning);
+  border-color: var(--color-warning);
+}
+
+.pcard-about {
+  margin: 0.625rem 1rem 0;
+}
+
+.pcard-about-text {
+  margin: 0;
   font-size: 0.8125rem;
   color: var(--color-text-muted);
   line-height: 1.4;
-  margin: 0 0 0.75rem 0;
+  word-break: break-word;
 }
 
-.npub-row {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
+.pcard-about-text.clamped {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
-.npub {
-  font-family: var(--font-mono);
-  font-size: 0.6875rem;
-  color: var(--color-text-subtle);
-  background: var(--color-surface-elevated);
-  padding: 0.25rem 0.5rem;
-  border-radius: var(--radius-sm);
-}
-
-.copy-btn {
-  width: 24px;
-  height: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--color-surface-elevated);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
+.pcard-about-toggle {
+  margin-top: 0.25rem;
+  padding: 0;
+  background: none;
+  border: none;
+  color: var(--color-primary);
   font-size: 0.75rem;
-  transition: all 0.2s ease;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
 }
 
-.copy-btn:hover {
-  background: var(--color-surface-hover);
-  border-color: var(--color-primary);
+.pcard-about-toggle:hover {
+  text-decoration: underline;
 }
 
-/* Auth Method Indicator */
-.auth-method {
+.pcard-footer {
   display: flex;
-  justify-content: center;
-  margin-top: 0.75rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.625rem 1rem 0.875rem;
 }
 
-.auth-badge {
+.pcard-npub {
   display: inline-flex;
   align-items: center;
   gap: 0.375rem;
-  padding: 0.25rem 0.625rem;
+  min-width: 0;
+  padding: 0.25rem 0.5rem 0.25rem 0.625rem;
+  background: var(--color-surface-elevated);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-full);
+  color: var(--color-text-subtle);
+  font-family: var(--font-mono);
   font-size: 0.6875rem;
-  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
 }
 
-.auth-icon {
+.pcard-npub:hover {
+  border-color: var(--color-primary);
+  color: var(--color-text-muted);
+}
+
+.pcard-npub code {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pcard-npub-copy {
   flex-shrink: 0;
+}
+
+/* Auth method chip */
+.auth-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex-shrink: 0;
+  padding: 0.1875rem 0.5rem;
+  border-radius: var(--radius-full);
+  font-size: 0.625rem;
+  font-weight: 600;
 }
 
 .auth-extension {
@@ -482,84 +536,64 @@ onUnmounted(() => {
   border: 1px solid var(--color-border);
 }
 
-.quick-links {
-  display: flex;
-  justify-content: center;
-  gap: 0.5rem;
-  margin-top: 0.75rem;
-}
-
-.quick-link {
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--color-surface-elevated);
-  border: 1px solid var(--color-border);
-  border-radius: 50%;
-  text-decoration: none;
-  color: var(--color-text-muted);
-  transition: all 0.2s ease;
-}
-
-.quick-link:hover {
-  background: var(--color-primary-soft);
-  border-color: var(--color-primary);
-  color: var(--color-primary);
-  transform: translateY(-2px);
-}
-
-.quick-link[title="Lightning Address"] {
-  color: var(--color-warning);
-}
-
-.quick-link[title="Lightning Address"]:hover {
-  background: rgba(234, 179, 8, 0.15);
-  border-color: var(--color-warning);
-}
-
-/* Dropdown Actions */
-.dropdown-actions {
+/* ── Menu ────────────────────────────────────────────────────────────────── */
+.menu {
   border-top: 1px solid var(--color-border);
-  padding: 0.5rem;
+  padding: 0.375rem;
 }
 
-.action-divider-label {
-  padding: 0.375rem 1rem 0.125rem;
+.menu-label {
+  padding: 0.5rem 0.75rem 0.375rem;
+  margin-top: 0.25rem;
+  border-top: 1px solid var(--color-border);
   font-size: 0.6875rem;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.06em;
   color: var(--color-text-subtle);
 }
 
-.action-btn {
+.menu-sep {
+  height: 1px;
+  background: var(--color-border);
+  margin: 0.375rem 0.5rem;
+}
+
+.menu-item {
   display: flex;
   align-items: center;
   gap: 0.75rem;
   width: 100%;
-  padding: 0.75rem 1rem;
+  padding: 0.625rem 0.75rem;
   background: transparent;
   border: none;
   border-radius: var(--radius-md);
   color: var(--color-text);
   font-size: 0.875rem;
+  font-family: inherit;
   text-decoration: none;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background 0.15s ease;
 }
 
-.action-btn:hover {
+.menu-item:hover {
   background: var(--color-surface-hover);
 }
 
-.action-icon {
+.menu-icon {
   flex-shrink: 0;
+  color: var(--color-text-muted);
 }
 
-.action-logout:hover {
+.menu-item--danger {
+  color: var(--color-danger);
+}
+
+.menu-item--danger:hover {
   background: var(--color-danger-soft);
+}
+
+.menu-item--danger .menu-icon {
   color: var(--color-danger);
 }
 
@@ -588,7 +622,7 @@ onUnmounted(() => {
   color: var(--color-danger);
 }
 
-/* Transitions */
+/* ── Transitions ─────────────────────────────────────────────────────────── */
 .dropdown-enter-active,
 .dropdown-leave-active {
   transition: all 0.2s ease;
@@ -599,5 +633,11 @@ onUnmounted(() => {
   opacity: 0;
   transform: translateY(-8px);
 }
-</style>
 
+/* ── Mobile ──────────────────────────────────────────────────────────────── */
+@media (max-width: 480px) {
+  .dropdown-panel {
+    width: calc(100vw - 1.5rem);
+  }
+}
+</style>

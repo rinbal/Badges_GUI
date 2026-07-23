@@ -29,9 +29,6 @@
 
     <!-- DMs Panel (slides from LEFT) -->
     <DmsPanel :visible="uiStore.isDmsOpen" @close="uiStore.closeDms()" />
-
-    <!-- Community Panel (slides from BOTTOM) -->
-    <CommunityPanel :visible="uiStore.isCommunityOpen" @close="uiStore.closeCommunity()" />
   </div>
 </template>
 
@@ -43,7 +40,6 @@ import ToastContainer from '@/components/common/ToastContainer.vue'
 import GlobalModals from '@/components/shared/GlobalModals.vue'
 import ChatPanel from '@/components/chat/ChatPanel.vue'
 import DmsPanel from '@/components/chat/DmsPanel.vue'
-import CommunityPanel from '@/components/chat/CommunityPanel.vue'
 import Icon from '@/components/common/Icon.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useUIStore } from '@/stores/ui'

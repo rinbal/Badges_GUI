@@ -131,7 +131,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useUIStore } from '@/stores/ui'
 import { useRequestsStore } from '@/stores/requests'
-import { nip19 } from 'nostr-tools'
+import { nip19 } from 'nostr-core'
 import {
   IconX,
   IconAward,

@@ -4,43 +4,39 @@
  * Supports three auth methods:
  * - nip07:  Browser extension (nos2x, Alby) - signs in browser
  * - nsec:   Private key entered manually - backend signs
- * - amber:  Amber Android app via NIP-46 remote signing - signs on phone
+ * - nip46:  Remote signer (Amber, nsec.app, any bunker) - signs on the device,
+ *           connected over NIP-46. See services/nip46.js.
  */
 
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { api } from '@/api/client'
 import {
-  isNip07Available,
   waitForNip07,
   getPublicKey as getNip07PublicKey,
   signEvent as nip07SignEvent
 } from '@/utils/nip07'
-import { generateSecretKey, getPublicKey, nip19, SimplePool } from 'nostr-tools'
-import { BunkerSigner, parseBunkerInput } from 'nostr-tools/nip46'
+import { nip19 } from 'nostr-core'
 import { createSigner as createNostrCoreSigner } from '@/services/signer'
-
-// ── NIP-46 config ─────────────────────────────────────────────────────────────
-// Relays used for the NIP-46 handshake between BadgeBox and Amber.
-// All relays are included in the nostrconnect:// URI so Amber subscribes to all
-// of them. Signing requests go through whichever relay responds first, giving
-// redundancy if one relay is down or slow.
-const NIP46_RELAYS = [
-  'wss://relay.damus.io',
-  'wss://relay.nostr.band',
-  'wss://nos.lol'
-]
+import {
+  createNostrConnectURI,
+  awaitNostrConnect,
+  connectBunker,
+  restoreNip46Signer
+} from '@/services/nip46'
 
 // Module-level instances - not reactive (Pinia can't wrap WebSocket objects)
-let _bunkerSigner = null
-let _bunkerPool = null
-let _nostrCoreSigner = null  // Cached nostr-core Signer
+let _remoteSigner = null      // NIP-46 client (Amber / bunker) when authMethod === 'nip46'
+let _pendingHandshake = null  // in-flight nostrconnect:// handshake (QR pairing)
+let _nostrCoreSigner = null   // Cached nostr-core Signer
 
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const useAuthStore = defineStore('auth', () => {
   // State - Authentication
-  const authMethod = ref(sessionStorage.getItem('authMethod') || null) // 'nip07' | 'nsec' | 'amber' | null
+  const authMethod = ref(sessionStorage.getItem('authMethod') || null) // 'nip07' | 'nsec' | 'nip46' | null
+  // For NIP-46 logins, which pairing the user chose: 'amber' (QR) or 'remote' (pasted link).
+  const nip46Kind = ref(sessionStorage.getItem('nip46Kind') || null)
   const nsec = ref(sessionStorage.getItem('nsec') || null)
   const npub = ref(sessionStorage.getItem('npub') || null)
   const hex = ref(sessionStorage.getItem('hex') || null)
@@ -56,14 +52,17 @@ export const useAuthStore = defineStore('auth', () => {
   const isAuthenticated = computed(() => !!npub.value && !!authMethod.value)
   const isNip07 = computed(() => authMethod.value === 'nip07')
   const isNsec = computed(() => authMethod.value === 'nsec')
-  const isAmber = computed(() => authMethod.value === 'amber')
+  const isRemoteSigner = computed(() => authMethod.value === 'nip46')
+  // The two NIP-46 pairings, shown as distinct options in the UI.
+  const isAmber = computed(() => isRemoteSigner.value && nip46Kind.value === 'amber')
+  const isRemoteLogin = computed(() => isRemoteSigner.value && nip46Kind.value === 'remote')
 
   /**
    * True for any auth method where signing happens on the client side
-   * (NIP-07 extension or Amber app). The backend receives a signed event,
+   * (NIP-07 extension or a remote signer). The backend receives a signed event,
    * never an nsec key.
    */
-  const isClientSigning = computed(() => isNip07.value || isAmber.value)
+  const isClientSigning = computed(() => isNip07.value || isRemoteSigner.value)
 
   const shortNpub = computed(() => {
     if (!npub.value) return null
@@ -159,116 +158,103 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  // ── Amber / NIP-46 login ──────────────────────────────────────────────────
+  // ── Remote signer login (NIP-46: Amber, nsec.app, bunker) ─────────────────────
 
   /**
-   * Generate a NIP-46 connection URI and an ephemeral local keypair.
-   * Call this to start the Amber connect flow. Display the returned
-   * connectUri as a QR code; pass localSk to finalizeAmberLogin() on success.
+   * Begin the QR pairing flow. Returns a nostrconnect:// URI to render as a QR
+   * code / deep link. Follow with completeNostrConnect() to await approval.
    *
-   * @returns {{ localSk: Uint8Array, connectUri: string }}
+   * @returns {{ uri: string }}
    */
-  function prepareAmberConnect() {
-    const localSk = generateSecretKey()          // Uint8Array - stays in memory only
-    const localPk = getPublicKey(localSk)         // hex pubkey embedded in URI
-
-    const secretBytes = new Uint8Array(16)
-    crypto.getRandomValues(secretBytes)
-    const secret = Array.from(secretBytes).map(b => b.toString(16).padStart(2, '0')).join('')
-
-    const params = new URLSearchParams({
-      secret,
-      metadata: JSON.stringify({
-        name: 'BadgeBox',
-        url: window.location.origin,
-        description: 'Nostr Badge Platform'
-      })
-    })
-    // URLSearchParams doesn't deduplicate keys, so append each relay separately
-    // producing: ?secret=...&metadata=...&relay=wss://relay1&relay=wss://relay2&...
-    NIP46_RELAYS.forEach(r => params.append('relay', r))
-
-    const connectUri = `nostrconnect://${localPk}?${params.toString()}`
-    return { localSk, connectUri }
+  function beginNostrConnect() {
+    _pendingHandshake = createNostrConnectURI({ name: 'BadgeBox', url: window.location.origin })
+    return { uri: _pendingHandshake.uri }
   }
 
   /**
-   * Called by LoginView after BunkerSigner.fromURI() resolves.
-   * Sets auth state, persists reconnect data, and fetches the user profile.
-   *
-   * @param {BunkerSigner} signer
-   * @param {Uint8Array} localSk  - the ephemeral key used for this connection
+   * Await approval of the pending Amber QR pairing, then finalize login.
+   * Pass an AbortSignal to cancel. Throws AbortError on cancel.
    */
-  async function finalizeAmberLogin(signer, localSk) {
-    _bunkerSigner = signer
+  async function completeNostrConnect(signal) {
+    if (!_pendingHandshake) throw new Error('No pairing in progress.')
+    const { signer, record } = await awaitNostrConnect(_pendingHandshake, signal)
+    _pendingHandshake = null
+    await finalizeRemoteLogin(signer, record, 'amber')
+  }
+
+  /**
+   * Connect via a pasted bunker:// or nostrconnect:// link, then finalize login.
+   */
+  async function connectWithBunkerUri(uri) {
+    const { signer, record } = await connectBunker(uri)
+    await finalizeRemoteLogin(signer, record, 'remote')
+  }
+
+  /**
+   * Shared finalize path for any remote-signer connection. Sets auth state,
+   * persists the reconnect record (never the user key), and fetches the profile.
+   *
+   * @param {string} kind - 'amber' (QR pairing) or 'remote' (pasted link)
+   */
+  async function finalizeRemoteLogin(signer, record, kind) {
+    _remoteSigner = signer
+    _nostrCoreSigner = null
 
     const pubkeyHex = await signer.getPublicKey()
     const npubKey = nip19.npubEncode(pubkeyHex)
 
-    authMethod.value = 'amber'
+    authMethod.value = 'nip46'
+    nip46Kind.value = kind
     hex.value = pubkeyHex
     npub.value = npubKey
     nsec.value = null
 
-    sessionStorage.setItem('authMethod', 'amber')
+    sessionStorage.setItem('authMethod', 'nip46')
+    sessionStorage.setItem('nip46Kind', kind)
     sessionStorage.setItem('hex', pubkeyHex)
     sessionStorage.setItem('npub', npubKey)
     sessionStorage.removeItem('nsec')
 
-    // Store what's needed to restore the signer on next page load.
-    // bunkerPubkey is the Amber app's relay-facing identity key - used to reconstruct
-    // the bunker:// URI. It is always set after a successful fromURI() connection.
-    const localSkHex = Array.from(localSk).map(b => b.toString(16).padStart(2, '0')).join('')
-    const bunkerPubkey = signer.bp.pubkey
-    localStorage.setItem('amberSession', JSON.stringify({
-      localSkHex,
-      bunkerPubkey,
-      relayUrls: NIP46_RELAYS
-    }))
+    // Enough to silently rebuild the session on reload. Contains no user key,
+    // only this app's ephemeral pairing key + the signer's pubkey and relays.
+    localStorage.setItem('nip46Session', JSON.stringify({ ...record, userPubkey: pubkeyHex, kind }))
 
     // Fetch profile in background - don't block the login navigation on it
     fetchProfile(npubKey)
   }
 
   /**
-   * Silently restore an Amber signer from localStorage on page reload.
-   * No QR re-scan needed - uses the stored connection params.
+   * Silently restore a remote signer from localStorage on page reload.
+   * No QR re-scan needed - uses the stored pairing record.
    * Returns true on success, false if data is missing or reconnect fails.
    */
-  async function reconnectAmber() {
-    const stored = JSON.parse(localStorage.getItem('amberSession') || 'null')
-    if (!stored?.localSkHex || !stored?.bunkerPubkey) return false
+  async function reconnectRemoteSigner() {
+    const stored = JSON.parse(localStorage.getItem('nip46Session') || 'null')
+    if (!stored?.clientSecretKey || !stored?.remotePubkey) return false
 
     try {
-      const localSk = new Uint8Array(
-        stored.localSkHex.match(/.{2}/g).map(b => parseInt(b, 16))
-      )
-      // Support both old single-relay sessions (relayUrl) and new multi-relay sessions (relayUrls)
-      const relays = stored.relayUrls ?? (stored.relayUrl ? [stored.relayUrl] : NIP46_RELAYS)
-      const relayParams = relays.map(r => `relay=${encodeURIComponent(r)}`).join('&')
-      const bunkerUri = `bunker://${stored.bunkerPubkey}?${relayParams}`
-      const bp = await parseBunkerInput(bunkerUri)
-
-      _bunkerPool = new SimplePool()
-      _bunkerSigner = BunkerSigner.fromBunker(localSk, bp, { pool: _bunkerPool })
-
+      _remoteSigner = await restoreNip46Signer(stored, stored.userPubkey)
+      _nostrCoreSigner = null
+      if (stored.kind) {
+        nip46Kind.value = stored.kind
+        sessionStorage.setItem('nip46Kind', stored.kind)
+      }
       return true
     } catch (err) {
-      console.warn('Amber reconnect failed:', err)
-      localStorage.removeItem('amberSession')
-      _bunkerSigner = null
-      _bunkerPool = null
+      console.warn('Remote signer reconnect failed:', err)
+      localStorage.removeItem('nip46Session')
+      _remoteSigner = null
       return false
     }
   }
 
   /**
    * Call once on app startup (App.vue onMounted).
-   * Restores an Amber signer if the last session used Amber.
+   * Restores a remote signer if the last session used one.
    */
   async function initAuth() {
-    if (authMethod.value === 'amber') {
-      const ok = await reconnectAmber()
+    if (authMethod.value === 'nip46') {
+      const ok = await reconnectRemoteSigner()
       if (!ok) logout()
     }
   }
@@ -284,9 +270,9 @@ export const useAuthStore = defineStore('auth', () => {
     if (authMethod.value === 'nip07') {
       return await nip07SignEvent(unsignedEvent)
     }
-    if (authMethod.value === 'amber') {
-      if (!_bunkerSigner) throw new Error('Amber is not connected')
-      return await _bunkerSigner.signEvent(unsignedEvent)
+    if (authMethod.value === 'nip46') {
+      if (!_remoteSigner) throw new Error('Remote signer is not connected')
+      return await _remoteSigner.signEvent(unsignedEvent)
     }
     return null // nsec - backend signs using X-Nsec header
   }
@@ -301,11 +287,14 @@ export const useAuthStore = defineStore('auth', () => {
   function getSigner() {
     if (_nostrCoreSigner) return _nostrCoreSigner
 
+    // The NIP-46 client already implements the nostr-core Signer interface.
+    if (authMethod.value === 'nip46') {
+      _nostrCoreSigner = _remoteSigner
+      return _nostrCoreSigner
+    }
+
     try {
-      _nostrCoreSigner = createNostrCoreSigner(authMethod.value, {
-        nsec: nsec.value,
-        bunkerSigner: _bunkerSigner
-      })
+      _nostrCoreSigner = createNostrCoreSigner(authMethod.value, { nsec: nsec.value })
       return _nostrCoreSigner
     } catch {
       return null
@@ -348,12 +337,12 @@ export const useAuthStore = defineStore('auth', () => {
   // ── Logout ────────────────────────────────────────────────────────────────
 
   function logout() {
-    if (_bunkerSigner) {
-      _bunkerSigner.close()
-      _bunkerSigner = null
+    if (_remoteSigner) {
+      _remoteSigner.close()
+      _remoteSigner = null
     }
-    _bunkerPool = null
-    localStorage.removeItem('amberSession')
+    _pendingHandshake = null
+    localStorage.removeItem('nip46Session')
 
     // Clear cached signer
     _nostrCoreSigner = null
@@ -365,12 +354,14 @@ export const useAuthStore = defineStore('auth', () => {
     }).catch(() => {})
 
     authMethod.value = null
+    nip46Kind.value = null
     nsec.value = null
     npub.value = null
     hex.value = null
     profile.value = null
 
     sessionStorage.removeItem('authMethod')
+    sessionStorage.removeItem('nip46Kind')
     sessionStorage.removeItem('nsec')
     sessionStorage.removeItem('npub')
     sessionStorage.removeItem('hex')
@@ -391,7 +382,9 @@ export const useAuthStore = defineStore('auth', () => {
     isAuthenticated,
     isNip07,
     isNsec,
+    isRemoteSigner,
     isAmber,
+    isRemoteLogin,
     isClientSigning,
     shortNpub,
     displayName,
@@ -406,9 +399,9 @@ export const useAuthStore = defineStore('auth', () => {
     checkNip07Available,
     loginWithExtension,
     login,
-    prepareAmberConnect,
-    finalizeAmberLogin,
-    reconnectAmber,
+    beginNostrConnect,
+    completeNostrConnect,
+    connectWithBunkerUri,
     initAuth,
     logout,
     fetchProfile,

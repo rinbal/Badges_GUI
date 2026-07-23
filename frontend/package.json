@@ -11,8 +11,7 @@
   "dependencies": {
     "@tabler/icons-vue": "^3.36.1",
     "axios": "^1.6.0",
-    "nostr-core": "^0.7.0",
-    "nostr-tools": "^2.23.1",
+    "nostr-core": "^1.0.2",
     "pinia": "^2.1.7",
     "qrcode": "^1.5.4",
     "vue": "^3.4.0",

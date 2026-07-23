@@ -4,8 +4,7 @@
  * Smart relay routing based on user relay lists.
  * Foundation for all Nostr communication in BadgeBox:
  *   - DM chat (NIP-17)
- *   - Public chatrooms (NIP-28)
- *   - Future general chat
+ *   - NIP-29 group chat (pinned to the group host relay)
  *
  * How it works:
  *   1. Fetch user's relay list (kind 10002) from known relays
@@ -20,34 +19,31 @@ import { nip65, RelayPool } from 'nostr-core'
 
 // ── Default Relay Sets ───────────────────────────────────────────────────────
 
+// General write-capable free relays. Used as the outbox safety net for reads
+// and writes when a user has no published NIP-65 list. All verified reachable.
 export const FALLBACK_RELAYS = [
   'wss://relay.damus.io',
   'wss://nos.lol',
   'wss://relay.primal.net',
   'wss://nostr.mom',
-  'wss://offchain.pub',
-  'wss://purplepag.es'
+  'wss://relay.0xchat.com'
 ]
 
-// DM-optimized relays (good NIP-17 support)
+// DM-optimized free relays (good NIP-17 support).
 export const DM_RELAYS = [
   'wss://relay.damus.io',
   'wss://nos.lol',
   'wss://relay.primal.net',
   'wss://relay.0xchat.com',
-  'wss://offchain.pub',
   'wss://relay.nos.social'
 ]
 
-// Public chat relays (high availability, good for kind 42)
-export const PUBLIC_CHAT_RELAYS = [
-  'wss://relay.damus.io',
-  'wss://nos.lol',
-  'wss://relay.primal.net',
-  'wss://relay.0xchat.com',
-  'wss://offchain.pub',
-  'wss://nostr.mom',
-  'wss://relay.snort.social'
+// Indexer relays that aggregate profile (kind 0) and relay-list (kind 10002)
+// metadata. Queried when discovering a pubkey's NIP-65 relays, since they carry
+// these lists even when the author's own relays are not yet known.
+export const INDEXER_RELAYS = [
+  'wss://purplepag.es',
+  'wss://relay.nos.social'
 ]
 
 // ── Relay List Cache ─────────────────────────────────────────────────────────
@@ -55,6 +51,7 @@ export const PUBLIC_CHAT_RELAYS = [
 const CACHE_TTL = 30 * 60 * 1000        // 30 minutes for valid relay lists
 const CACHE_TTL_EMPTY = 3 * 60 * 1000   // 3 minutes for empty results (retry sooner)
 const relayListCache = new Map()         // pubkey -> { read: [], write: [], fetchedAt, empty }
+const dmInboxCache = new Map()           // pubkey -> { relays: [], fetchedAt, empty } (NIP-17 kind 10050)
 
 // ── Relay Health Tracking ────────────────────────────────────────────────────
 
@@ -120,7 +117,7 @@ export async function getUserRelays(pubkey) {
 
   const pool = getPool()
   try {
-    const events = await pool.querySync(FALLBACK_RELAYS, {
+    const events = await pool.querySync([...FALLBACK_RELAYS, ...INDEXER_RELAYS], {
       kinds: [10002],
       authors: [pubkey]
     }, { maxWait: 5000 })
@@ -175,36 +172,48 @@ export async function getReadRelaysFor(authorPubkey) {
 }
 
 /**
- * Get relays for DM exchange between two parties.
- * Combines both parties' write relays with DM fallback relays.
+ * Get a pubkey's DM inbox relays (NIP-17 kind 10050). This is where gift wraps
+ * addressed to that user should be published and read. Falls back to the shared
+ * DM relays when the user has not published an inbox list. Cached per pubkey.
  */
-export async function getDmRelays(senderPubkey, recipientPubkey) {
-  const [senderRelays, recipientRelays] = await Promise.all([
-    getUserRelays(senderPubkey),
-    getUserRelays(recipientPubkey)
-  ])
+export async function getDmInboxRelays(pubkey) {
+  const cached = dmInboxCache.get(pubkey)
+  if (cached) {
+    const ttl = cached.empty ? CACHE_TTL_EMPTY : CACHE_TTL
+    if (Date.now() - cached.fetchedAt < ttl) return cached.relays
+  }
 
-  return filterHealthy(dedup([
-    ...senderRelays.write,
-    ...recipientRelays.write,
-    ...DM_RELAYS
-  ]))
+  try {
+    const events = await getPool().querySync(
+      FALLBACK_RELAYS,
+      { kinds: [10050], authors: [pubkey] },
+      { maxWait: 5000 }
+    )
+    if (events.length > 0) {
+      const latest = events.sort((a, b) => b.created_at - a.created_at)[0]
+      const listed = dedup(latest.tags.filter(t => t[0] === 'relay' && t[1]).map(t => t[1]))
+      if (listed.length > 0) {
+        dmInboxCache.set(pubkey, { relays: listed, fetchedAt: Date.now(), empty: false })
+        return listed
+      }
+    }
+  } catch { /* fall through to the shared DM relays */ }
+
+  const fallback = filterHealthy([...DM_RELAYS])
+  dmInboxCache.set(pubkey, { relays: fallback, fetchedAt: Date.now(), empty: true })
+  return fallback
 }
 
 /**
- * Get relays for fetching DMs addressed to a pubkey.
- * Combines the user's own write relays with DM fallback relays.
+ * Get relays to READ my own gift-wrap inbox from.
+ * My NIP-17 inbox relays, unioned with my write relays for redundancy.
  */
 export async function getDmReadRelays(myPubkey) {
-  const myRelays = await getUserRelays(myPubkey)
-  return filterHealthy(dedup([...myRelays.write, ...DM_RELAYS]))
-}
-
-/**
- * Get relays for public chatrooms.
- */
-export function getPublicChatRelays() {
-  return filterHealthy([...PUBLIC_CHAT_RELAYS])
+  const [inbox, myRelays] = await Promise.all([
+    getDmInboxRelays(myPubkey),
+    getUserRelays(myPubkey)
+  ])
+  return filterHealthy(dedup([...inbox, ...myRelays.write, ...DM_RELAYS]))
 }
 
 // ── Publish & Query Helpers ──────────────────────────────────────────────────
@@ -241,13 +250,11 @@ export async function publishEvent(event, authorPubkey) {
 }
 
 /**
- * Publish a DM event (kind 1059 gift wrap).
- * Routes to both sender's and recipient's relays.
+ * Publish a gift wrap (kind 1059) to a reader's NIP-17 inbox relays.
  */
-export async function publishDm(event, senderPubkey, recipientPubkey) {
-  const relays = await getDmRelays(senderPubkey, recipientPubkey)
-  const pool = getPool()
-  return pool.publish(relays, event)
+export async function publishGiftWrap(wrap, readerPubkey) {
+  const relays = await getDmInboxRelays(readerPubkey)
+  return getPool().publish(relays, wrap)
 }
 
 /**
@@ -258,17 +265,6 @@ export async function queryEvents(filter, targetPubkey, opts = {}) {
     ? await getReadRelaysFor(targetPubkey)
     : FALLBACK_RELAYS
   return trackedQuerySync(relays, filter, { maxWait: opts.maxWait || 6000 })
-}
-
-/**
- * Query DMs addressed to a pubkey.
- */
-export async function queryDms(myPubkey, opts = {}) {
-  const relays = await getDmReadRelays(myPubkey)
-  return trackedQuerySync(relays, {
-    kinds: [1059],
-    '#p': [myPubkey]
-  }, { maxWait: opts.maxWait || 6000 })
 }
 
 /**

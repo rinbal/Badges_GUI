@@ -100,6 +100,13 @@
     </section>
 
     <!-- =========================================
+         2b. Community Chat (embedded NIP-29 group)
+         ========================================= -->
+    <section class="community-chat-section">
+      <GroupChat />
+    </section>
+
+    <!-- =========================================
          3. How It Works
          ========================================= -->
     <section class="how-it-works">
@@ -202,16 +209,6 @@
             <p>Chat with the developer</p>
           </div>
         </button>
-
-        <button class="action-card action-card-community" @click="uiStore.openCommunity()">
-          <div class="action-icon">
-            <Icon name="hash" size="lg" />
-          </div>
-          <div class="action-content">
-            <h3>Community Chat</h3>
-            <p>Public chatroom for everyone</p>
-          </div>
-        </button>
       </div>
     </section>
 
@@ -263,159 +260,28 @@
     </section>
 
     <!-- =========================================
-         6. Protocol Section
-         ========================================= -->
-    <section class="protocol-section">
-      <div class="protocol-header">
-        <Icon name="bolt" size="lg" class="protocol-icon" />
-        <h2>Built on Open Standards</h2>
-        <p>Interoperable with any Nostr client that supports NIP-58</p>
-      </div>
-
-      <div class="protocol-cards">
-        <!-- NIP-58 Core -->
-        <div class="protocol-card">
-          <div class="protocol-card-header">
-            <span class="protocol-card-emoji">🏅</span>
-            <h3>NIP-58 Core</h3>
-            <button
-              class="info-btn"
-              @click="toggleProtocolInfo('nip58')"
-              :class="{ active: activeProtocolInfo === 'nip58' }"
-              aria-label="Toggle NIP-58 info"
-            >
-              <Icon name="info" size="xs" />
-            </button>
-          </div>
-          <div v-if="activeProtocolInfo === 'nip58'" class="info-accordion">
-            <p>NIP-58 defines how badges work on Nostr. Creators publish badge definitions, award them to users, and recipients can display them on their profile.</p>
-            <a
-              href="https://github.com/nostr-protocol/nips/blob/master/58.md"
-              target="_blank"
-              rel="noopener noreferrer"
-              class="info-link"
-            >
-              Read the spec <Icon name="external-link" size="xs" />
-            </a>
-          </div>
-          <div class="kind-chips">
-            <button class="kind-chip" @click="showKindInfo('30009')">
-              <code>30009</code>
-              <span>Definition</span>
-            </button>
-            <button class="kind-chip" @click="showKindInfo('8')">
-              <code>8</code>
-              <span>Award</span>
-            </button>
-            <button class="kind-chip" @click="showKindInfo('30008')">
-              <code>30008</code>
-              <span>Profile</span>
-            </button>
-          </div>
-        </div>
-
-        <!-- Request Extension -->
-        <div class="protocol-card protocol-card-extension">
-          <div class="protocol-card-header">
-            <span class="protocol-card-emoji">✨</span>
-            <h3>Request Extension</h3>
-            <a
-              class="new-tag"
-              href="https://github.com/nostr-protocol/nips/pull/2204"
-              target="_blank"
-              rel="noopener noreferrer"
-              title="View proposed NIP on GitHub"
-            >NEW on NOSTR</a>
-            <button
-              class="info-btn"
-              @click="toggleProtocolInfo('request')"
-              :class="{ active: activeProtocolInfo === 'request' }"
-              aria-label="Toggle request extension info"
-            >
-              <Icon name="info" size="xs" />
-            </button>
-          </div>
-          <div v-if="activeProtocolInfo === 'request'" class="info-accordion">
-            <p>A brand new Nostr-native protocol, not yet part of any NIP. Users can request badges from creators, submit proof of eligibility, track their requests, and get notified when approved.</p>
-            <a
-              class="info-link"
-              href="https://github.com/nostr-protocol/nips/pull/2204"
-              target="_blank"
-              rel="noopener noreferrer"
-            >📝 View open PR on GitHub</a>
-          </div>
-          <div class="kind-chips">
-            <button class="kind-chip" @click="showKindInfo('30058')">
-              <code>30058</code>
-              <span>Request</span>
-            </button>
-            <button class="kind-chip" @click="showKindInfo('30059')">
-              <code>30059</code>
-              <span>Response</span>
-            </button>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- Kind Info Modal -->
-    <Transition name="modal">
-      <div
-        v-if="activeKindInfo"
-        class="kind-modal-overlay"
-        @click="activeKindInfo = null"
-        @keydown.escape="activeKindInfo = null"
-      >
-        <div class="kind-modal" @click.stop>
-          <button
-            class="modal-close"
-            @click="activeKindInfo = null"
-            aria-label="Close modal"
-          >
-            <Icon name="x" size="sm" />
-          </button>
-          <code class="kind-code">kind: {{ activeKindInfo }}</code>
-          <h4>{{ kindInfoData[activeKindInfo]?.title }}</h4>
-          <p>{{ kindInfoData[activeKindInfo]?.description }}</p>
-        </div>
-      </div>
-    </Transition>
-
-    <!-- =========================================
-         7. Live Community Chat
-         ========================================= -->
-    <section class="community-section">
-      <div class="community-header">
-        <div class="community-header-left">
-          <h2>The BadgeBox Lounge</h2>
-        </div>
-        <button class="expand-link" @click="uiStore.openCommunity()">
-          Full screen
-          <Icon name="maximize-2" size="sm" />
-        </button>
-      </div>
-      <p class="community-subtitle">Real conversations happening right now on the Nostr network. Jump in.</p>
-      <LiveChatEmbed />
-    </section>
-
-    <!-- =========================================
-         8. Footer
+         6. Footer
          ========================================= -->
     <footer class="home-footer">
       <p class="footer-line">
         Built by
         <a href="https://github.com/rinbal" target="_blank" rel="noopener noreferrer">rinbal</a>
+        <span class="footer-dot">·</span>
+        <router-link to="/about">About BadgeBox</router-link>
       </p>
      <!-- <p class="footer-line footer-secondary">
         Payment infrastructure by
         <a href="https://aurorapay.me" target="_blank" rel="noopener noreferrer">AuroraPay</a>
       </p> -->
+      <p class="footer-line footer-version">
+        <AppVersion />
+      </p>
     </footer>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { useBadgesStore } from '@/stores/badges'
 import { useRequestsStore } from '@/stores/requests'
@@ -425,7 +291,8 @@ import Icon from '@/components/common/Icon.vue'
 import GradientText from '@/components/common/GradientText.vue'
 import SurfBadgeCard from '@/components/surf/SurfBadgeCard.vue'
 import BadgeCardSkeleton from '@/components/surf/BadgeCardSkeleton.vue'
-import LiveChatEmbed from '@/components/chat/LiveChatEmbed.vue'
+import GroupChat from '@/components/chat/GroupChat.vue'
+import AppVersion from '@/components/common/AppVersion.vue'
 
 // Stores
 const authStore = useAuthStore()
@@ -439,8 +306,6 @@ const isAuthenticated = computed(() => authStore.isAuthenticated)
 // Local State
 const isLoadingShowcase = ref(true)
 const showcaseBadgesRaw = ref([])
-const activeProtocolInfo = ref(null) // 'nip58' | 'request' | null
-const activeKindInfo = ref(null) // '30009' | '8' | etc | null
 
 // Computed: Filter badges to only those with images (show more for carousel)
 const showcaseBadges = computed(() => {
@@ -465,39 +330,7 @@ const marqueeStyle = computed(() => {
   }
 })
 
-// Kind info data
-const kindInfoData = {
-  '30009': {
-    title: 'Badge Definition',
-    description: 'The blueprint for a badge. Contains the name, description, image, and criteria. Created by badge issuers.'
-  },
-  '8': {
-    title: 'Badge Award',
-    description: 'Issued when someone awards a badge to a recipient. Links the badge definition to the person receiving it.'
-  },
-  '30008': {
-    title: 'Profile Badges',
-    description: 'A user\'s curated collection of accepted badges. Controls which badges appear on their Nostr profile.'
-  },
-  '30058': {
-    title: 'Badge Request',
-    description: 'Sent by users to request a badge from a creator. Can include proof of eligibility and a personal message.'
-  },
-  '30059': {
-    title: 'Request Response',
-    description: 'The creator\'s response to a request. Can approve (triggers badge award) or deny with a reason.'
-  }
-}
-
 // Methods
-function toggleProtocolInfo(section) {
-  activeProtocolInfo.value = activeProtocolInfo.value === section ? null : section
-}
-
-function showKindInfo(kind) {
-  activeKindInfo.value = kind
-}
-
 function handleBadgeClick(badge) {
   if (!isAuthenticated.value) {
     uiStore.openLoginPrompt(badge)
@@ -508,15 +341,6 @@ function handleBadgeClick(badge) {
 
 function openLoginModal() {
   uiStore.openLoginPrompt()
-}
-
-// Keyboard handler for Escape
-function handleKeydown(e) {
-  if (e.key === 'Escape') {
-    if (activeKindInfo.value) {
-      activeKindInfo.value = null
-    }
-  }
 }
 
 // Fetch showcase badges (public endpoint - works for all users)
@@ -543,9 +367,6 @@ onMounted(async () => {
   // Always fetch showcase badges
   fetchShowcaseBadges()
 
-  // Keyboard listener
-  window.addEventListener('keydown', handleKeydown)
-
   // Fetch user data when authenticated
   if (isAuthenticated.value) {
     try {
@@ -558,10 +379,6 @@ onMounted(async () => {
       // Graceful degradation - counts show 0
     }
   }
-})
-
-onUnmounted(() => {
-  window.removeEventListener('keydown', handleKeydown)
 })
 </script>
 
@@ -956,9 +773,8 @@ onUnmounted(() => {
   color: #9d4edd;
 }
 
-.action-card-community .action-icon {
-  background: rgba(34, 197, 94, 0.12);
-  color: var(--color-success);
+.community-chat-section {
+  margin-top: 3rem;
 }
 
 .action-content h3 {
@@ -1042,298 +858,7 @@ onUnmounted(() => {
 }
 
 /* =========================================
-   6. Protocol Section
-   ========================================= */
-.protocol-section {
-  padding: 2rem;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  margin-top: 2rem;
-}
-
-.protocol-header {
-  text-align: center;
-  margin-bottom: 1.5rem;
-}
-
-.protocol-icon {
-  color: var(--color-accent);
-  margin-bottom: 0.5rem;
-}
-
-.protocol-header h2 {
-  font-size: 1.375rem;
-  margin: 0 0 0.5rem 0;
-}
-
-.protocol-header p {
-  color: var(--color-text-muted);
-  margin: 0;
-  font-size: 0.9375rem;
-}
-
-.protocol-cards {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 1rem;
-}
-
-.protocol-card {
-  padding: 1.25rem;
-  background: var(--color-surface-elevated);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  transition: border-color 0.2s ease;
-}
-
-.protocol-card:hover {
-  border-color: var(--color-primary-soft);
-}
-
-.protocol-card-extension {
-  background: linear-gradient(135deg, var(--color-surface-elevated) 0%, var(--color-primary-soft) 100%);
-}
-
-.protocol-card-header {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
-}
-
-.protocol-card-emoji {
-  font-size: 1.25rem;
-}
-
-.protocol-card-header h3 {
-  font-size: 1rem;
-  font-weight: 600;
-  margin: 0;
-  flex: 1;
-}
-
-.new-tag {
-  padding: 0.125rem 0.5rem;
-  background: var(--color-primary);
-  color: white;
-  font-size: 0.625rem;
-  text-decoration: none;
-  cursor: pointer;
-  font-weight: 700;
-  border-radius: var(--radius-full);
-  letter-spacing: 0.05em;
-  transition: opacity 0.15s;
-}
-
-.new-tag:hover {
-  opacity: 0.85;
-}
-
-.info-btn {
-  width: 24px;
-  height: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-full);
-  cursor: pointer;
-  color: var(--color-text-muted);
-  transition: all 0.2s ease;
-}
-
-.info-btn:hover,
-.info-btn.active {
-  background: var(--color-primary);
-  border-color: var(--color-primary);
-  color: white;
-}
-
-.info-accordion {
-  padding: 1rem;
-  background: var(--color-surface);
-  border-radius: var(--radius-md);
-  margin-bottom: 1rem;
-  animation: slideDown 0.2s ease;
-}
-
-@keyframes slideDown {
-  from {
-    opacity: 0;
-    transform: translateY(-8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.info-accordion p {
-  font-size: 0.8125rem;
-  color: var(--color-text-muted);
-  margin: 0 0 0.75rem 0;
-  line-height: 1.5;
-}
-
-.info-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  font-size: 0.75rem;
-  font-weight: 500;
-  color: var(--color-primary);
-  text-decoration: none;
-}
-
-.info-link:hover {
-  text-decoration: underline;
-}
-
-.info-status {
-  font-size: 0.75rem;
-  color: var(--color-text-subtle);
-}
-
-.kind-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-
-.kind-chip {
-  display: flex;
-  align-items: center;
-  gap: 0.375rem;
-  padding: 0.5rem 0.75rem;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.kind-chip:hover {
-  border-color: var(--color-primary);
-  transform: translateY(-1px);
-}
-
-.kind-chip:active {
-  transform: scale(0.98);
-}
-
-.kind-chip code {
-  font-family: var(--font-mono);
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--color-primary);
-  background: var(--color-primary-soft);
-  padding: 0.125rem 0.375rem;
-  border-radius: 4px;
-}
-
-.kind-chip span {
-  font-size: 0.75rem;
-  color: var(--color-text-muted);
-}
-
-/* Kind Info Modal */
-.kind-modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.6);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-  padding: 1rem;
-}
-
-.kind-modal {
-  position: relative;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  padding: 1.5rem;
-  max-width: 340px;
-  width: 100%;
-  box-shadow: var(--shadow-xl);
-}
-
-.modal-close {
-  position: absolute;
-  top: 0.75rem;
-  right: 0.75rem;
-  width: 28px;
-  height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--color-surface-elevated);
-  border: none;
-  border-radius: var(--radius-full);
-  cursor: pointer;
-  color: var(--color-text-muted);
-  transition: all 0.2s ease;
-}
-
-.modal-close:hover {
-  background: var(--color-surface-hover);
-  color: var(--color-text);
-}
-
-.kind-code {
-  display: inline-block;
-  font-family: var(--font-mono);
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: var(--color-primary);
-  background: var(--color-primary-soft);
-  padding: 0.25rem 0.75rem;
-  border-radius: var(--radius-md);
-  margin-bottom: 0.75rem;
-}
-
-.kind-modal h4 {
-  font-size: 1.125rem;
-  font-weight: 600;
-  margin: 0 0 0.5rem 0;
-}
-
-.kind-modal p {
-  font-size: 0.875rem;
-  color: var(--color-text-muted);
-  margin: 0;
-  line-height: 1.5;
-}
-
-/* Modal Transition */
-.modal-enter-active,
-.modal-leave-active {
-  transition: opacity 0.2s ease;
-}
-
-.modal-enter-from,
-.modal-leave-to {
-  opacity: 0;
-}
-
-.modal-enter-active .kind-modal,
-.modal-leave-active .kind-modal {
-  transition: transform 0.2s ease;
-}
-
-.modal-enter-from .kind-modal {
-  transform: scale(0.95);
-}
-
-.modal-leave-to .kind-modal {
-  transform: scale(0.95);
-}
-
-/* =========================================
-   7. Footer
+   6. Footer
    ========================================= */
 .home-footer {
   margin-top: 3rem;
@@ -1358,6 +883,14 @@ onUnmounted(() => {
   color: var(--color-primary);
 }
 
+.footer-dot {
+  margin: 0 0.5rem;
+  color: var(--color-text-subtle);
+}
+.footer-version {
+  margin-top: 0.75rem;
+}
+
 .footer-secondary {
   margin-top: 0.5rem;
   font-size: 0.8125rem;
@@ -1374,10 +907,6 @@ onUnmounted(() => {
 
   .actions-grid {
     grid-template-columns: repeat(2, 1fr);
-  }
-
-  .protocol-cards {
-    grid-template-columns: 1fr;
   }
 }
 
@@ -1461,75 +990,5 @@ onUnmounted(() => {
     gap: 0.75rem;
     align-items: center;
   }
-
-  /* Protocol section */
-  .protocol-section {
-    padding: 1.5rem;
-  }
-
-  .protocol-header h2 {
-    font-size: 1.25rem;
-  }
-
-  .community-section {
-    padding: 1.5rem;
-  }
-}
-
-/* =========================================
-   Community Live Chat Section
-   ========================================= */
-.community-section {
-  margin-top: 3rem;
-  padding: 2rem;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-xl);
-}
-
-.community-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 0.375rem;
-}
-
-.community-header-left {
-  display: flex;
-  align-items: center;
-  gap: 0.625rem;
-}
-
-.community-header h2 {
-  margin: 0;
-  font-size: 1.5rem;
-  font-weight: 700;
-  background: linear-gradient(135deg, var(--color-primary), #06b6d4);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-.community-subtitle {
-  color: var(--color-text-muted);
-  font-size: 0.9375rem;
-  margin: 0 0 1.25rem;
-}
-
-.expand-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.375rem;
-  background: none;
-  border: none;
-  color: var(--color-text-muted);
-  font-size: 0.8125rem;
-  font-family: inherit;
-  cursor: pointer;
-  transition: color var(--transition-fast);
-}
-
-.expand-link:hover {
-  color: var(--color-primary);
 }
 </style>

@@ -154,28 +154,28 @@ class DeleteBadgeRequest(BaseModel):
 class AcceptBadgeRequest(BaseModel):
     """Request to accept a badge
 
-    For NIP-07 users: Include signed_event (profile badges event kind 30008)
+    For NIP-07 users: Include signed_event (profile badges event kind 10008)
     For nsec users: Omit signed_event (backend will create and sign using X-Nsec header)
     """
     a_tag: str = Field(..., description="Badge definition A-tag")
     award_event_id: str = Field(..., description="Badge award event ID (64-char hex)")
     signed_event: Optional[SignedNostrEvent] = Field(
         None,
-        description="Pre-signed profile badges event (kind 30008)"
+        description="Pre-signed profile badges event (kind 10008)"
     )
 
 
 class RemoveBadgeRequest(BaseModel):
     """Request to remove an accepted badge
 
-    For NIP-07 users: Include signed_event (updated profile badges event kind 30008)
+    For NIP-07 users: Include signed_event (updated profile badges event kind 10008)
     For nsec users: Omit signed_event (backend will create and sign using X-Nsec header)
     """
     a_tag: str = Field(..., description="Badge definition A-tag")
     award_event_id: str = Field(..., description="Badge award event ID")
     signed_event: Optional[SignedNostrEvent] = Field(
         None,
-        description="Pre-signed profile badges event (kind 30008)"
+        description="Pre-signed profile badges event (kind 10008)"
     )
 
 

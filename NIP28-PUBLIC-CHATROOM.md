@@ -1,3 +1,5 @@
+DEPRECATED PLAN - MOVED ON TO NIP-29
+
 # NIP-28 Public Chatroom — Research & Implementation Plan
 
 **Status:** Research complete, ready for implementation

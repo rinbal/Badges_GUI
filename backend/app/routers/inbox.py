@@ -117,7 +117,7 @@ async def accept_badge(
     """
     Accept a badge
 
-    Accepts a pending badge and adds it to the profile badges event (kind 30008).
+    Accepts a pending badge and adds it to the profile badges event (kind 10008).
 
     Supports two flows:
     - NIP-07: Include signed_event in request body (profile badges event)

@@ -255,18 +255,16 @@ export const useUIStore = defineStore('ui', () => {
   }
 
   // =========================================================================
-  // Chat Panels (Support, DMs, Community)
+  // Chat Panels (Support, DMs)
   // Only one panel open at a time.
   // =========================================================================
 
   const isChatOpen = ref(false)       // Support chat (right slide)
   const isDmsOpen = ref(false)        // Private DMs (left slide)
-  const isCommunityOpen = ref(false)  // Public chatroom (bottom slide)
 
   function closeAllPanels() {
     isChatOpen.value = false
     isDmsOpen.value = false
-    isCommunityOpen.value = false
   }
 
   function openChat() {
@@ -289,15 +287,6 @@ export const useUIStore = defineStore('ui', () => {
 
   function closeDms() {
     isDmsOpen.value = false
-  }
-
-  function openCommunity() {
-    closeAllPanels()
-    isCommunityOpen.value = true
-  }
-
-  function closeCommunity() {
-    isCommunityOpen.value = false
   }
 
   // =========================================================================
@@ -368,15 +357,12 @@ export const useUIStore = defineStore('ui', () => {
     // Chat Panels
     isChatOpen,
     isDmsOpen,
-    isCommunityOpen,
     closeAllPanels,
     openChat,
     closeChat,
     toggleChat,
     openDms,
     closeDms,
-    openCommunity,
-    closeCommunity,
 
     // Global Loading
     isGlobalLoading,

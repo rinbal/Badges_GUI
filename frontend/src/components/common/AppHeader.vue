@@ -205,16 +205,6 @@ watch(() => authStore.isAuthenticated, (isAuth) => {
   color: #a855f7;
 }
 
-.nav-link[href="/community"].router-link-active {
-  background: rgba(6, 182, 212, 0.1);
-  color: #06b6d4;
-}
-
-.nav-link[href="/messages"].router-link-active {
-  background: rgba(34, 197, 94, 0.1);
-  color: #22c55e;
-}
-
 .nav-link[href="/chat/admin"].router-link-active {
   background: rgba(239, 68, 68, 0.1);
   color: #ef4444;
