@@ -19,6 +19,7 @@ import {
   createAppDataEvent,
   npubToHex
 } from '@/utils/nip07'
+import { notifyBadgeAwarded } from '@/services/notify'
 
 // NIP-78 d-tag for user templates
 const TEMPLATES_D_TAG = 'badgebox-templates'
@@ -295,6 +296,15 @@ export const useBadgesStore = defineStore('badges', () => {
         return { success: false, error: error.value, data: response.data }
       }
 
+      // Best-effort: DM each recipient that they received the badge.
+      const signer = authStore.getSigner()
+      if (signer) {
+        const hexRecipients = recipients.map(r => r.startsWith('npub1') ? npubToHex(r) : r)
+        for (const pk of hexRecipients) {
+          notifyBadgeAwarded(signer, pk, badge.name)
+        }
+      }
+
       return { success: true, data: response.data }
     } catch (err) {
       const errMessage = err.message || err.response?.data?.detail || 'Unknown error'
@@ -336,7 +346,7 @@ export const useBadgesStore = defineStore('badges', () => {
   }
 
   /**
-   * Accept a badge - adds it to profile badges (kind 30008)
+   * Accept a badge - adds it to profile badges (kind 10008)
    * For NIP-07: Signs the profile badges event in browser
    * For nsec: Backend handles signing
    */
@@ -405,7 +415,7 @@ export const useBadgesStore = defineStore('badges', () => {
   }
 
   /**
-   * Remove a badge - removes it from profile badges (kind 30008)
+   * Remove a badge - removes it from profile badges (kind 10008)
    * For NIP-07: Signs the updated profile badges event in browser
    * For nsec: Backend handles signing
    */

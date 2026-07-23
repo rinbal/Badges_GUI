@@ -18,6 +18,18 @@ from recipient_acceptance import BadgeAcceptanceManager
 from relay_manager import RelayManager
 from ..config import settings
 
+# NIP-58 Profile Badges: read both the current kind 10008 and the legacy 30008.
+# New Profile Badges events are written as kind 10008 (see recipient_acceptance).
+PROFILE_BADGES_KINDS = [10008, 30008]
+
+
+def _latest_profile_badges_event(events: List[Dict]) -> Optional[Dict]:
+    """Return the newest Profile Badges event (kind 10008 or legacy 30008)."""
+    candidates = [e for e in events if e.get("kind") in PROFILE_BADGES_KINDS]
+    if not candidates:
+        return None
+    return max(candidates, key=lambda e: e.get("created_at", 0))
+
 
 class InboxService:
     """Service for badge inbox operations (receiver side)"""
@@ -98,19 +110,20 @@ class InboxService:
     async def get_accepted_badges(self) -> List[Dict[str, Any]]:
         """Get list of accepted badges"""
         filter_params = {
-            "kinds": [30008],
+            "kinds": PROFILE_BADGES_KINDS,
             "authors": [self.recipient_hex],
-            "limit": 1
+            # limit 2: at most one current 10008 and one legacy 30008 per author
+            "limit": 2
         }
-        
+
         profile_event = None
-        
+
         for relay in self.relay_urls:
             events = await self._query_relay(
                 relay, f"accepted_{self.recipient_hex[:8]}", filter_params
             )
-            if events:
-                profile_event = events[0]
+            profile_event = _latest_profile_badges_event(events)
+            if profile_event:
                 break
         
         if not profile_event:
@@ -170,19 +183,21 @@ class InboxService:
         """Get list of pending (unaccepted) badges"""
         # First get accepted badge a-tags
         accepted_a_tags = set()
-        
+
         filter_params = {
-            "kinds": [30008],
+            "kinds": PROFILE_BADGES_KINDS,
             "authors": [self.recipient_hex],
-            "limit": 1
+            # limit 2: at most one current 10008 and one legacy 30008 per author
+            "limit": 2
         }
-        
+
         for relay in self.relay_urls:
             events = await self._query_relay(
                 relay, f"profile_{self.recipient_hex[:8]}", filter_params
             )
-            if events:
-                for tag in events[0].get("tags", []):
+            profile_event = _latest_profile_badges_event(events)
+            if profile_event:
+                for tag in profile_event.get("tags", []):
                     if tag[0] == "a":
                         accepted_a_tags.add(tag[1])
                 break

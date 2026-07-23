@@ -447,8 +447,8 @@ async def get_badge_owners(
     """
     Discover all users who have accepted a specific badge.
 
-    Queries Nostr relays for kind 30008 (Profile Badges) events
-    that contain the specified badge a_tag.
+    Queries Nostr relays for Profile Badges events (current kind 10008 and
+    legacy kind 30008) that contain the specified badge a_tag.
 
     Args:
         a_tag: Badge identifier in format "30009:pubkey:identifier"

@@ -229,7 +229,7 @@ const detectedTypeLabel = computed(() => {
   }
 })
 
-// Auto-search watcher — direct key types (npub / hex / nip05) only
+// Auto-search watcher - direct key types (npub / hex / nip05) only
 watch(isValidInput, (valid) => {
   if (autoSearchTimeout) clearTimeout(autoSearchTimeout)
   resolveError.value = ''
@@ -241,7 +241,7 @@ watch(isValidInput, (valid) => {
   }
 })
 
-// Name search watcher — debounced profile lookup by name
+// Name search watcher - debounced profile lookup by name
 watch(searchValue, () => {
   if (nameSearchTimeout) clearTimeout(nameSearchTimeout)
   nameSearchResults.value = []

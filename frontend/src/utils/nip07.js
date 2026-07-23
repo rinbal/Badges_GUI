@@ -131,18 +131,17 @@ export function createBadgeAwardEvent(aTag, recipients) {
 }
 
 /**
- * Create an unsigned profile badges event (kind 30008)
+ * Create an unsigned profile badges event (kind 10008)
+ * Current NIP-58 Profile Badges: a replaceable NIP-51 list of ordered a/e pairs,
+ * with no `d` tag. Supersedes the legacy kind 30008 (still read for display).
  * @param {Array} badgeTags - Array of badge tags [["a", aTag], ["e", eventId], ...]
  * @returns {Object} - Unsigned event ready for signing
  */
 export function createProfileBadgesEvent(badgeTags) {
   return {
     created_at: Math.floor(Date.now() / 1000),
-    kind: 30008,
-    tags: [
-      ['d', 'profile_badges'],
-      ...badgeTags
-    ],
+    kind: 10008,
+    tags: [...badgeTags],
     content: ''
   }
 }

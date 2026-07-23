@@ -1,4 +1,4 @@
-# Netlify configuration — example / template
+# Netlify configuration - example / template
 #
 # If you are forking or self-hosting this project on Netlify:
 #   1. Copy this file:  cp example_netlify.toml netlify.toml
@@ -28,3 +28,9 @@
     X-XSS-Protection = "1; mode=block"
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
+
+# Ensure the PWA service worker updates propagate immediately
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "no-cache"

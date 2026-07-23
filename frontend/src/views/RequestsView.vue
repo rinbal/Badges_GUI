@@ -141,7 +141,7 @@
             <Icon name="send" size="xl" />
           </div>
           <h3>No badge requests sent yet</h3>
-          <p>All your badge requests appear here — pending, accepted, denied, or withdrawn — so you always have a full history.</p>
+          <p>All your badge requests appear here: pending, accepted, denied, or withdrawn. A full history in one place.</p>
           <div class="empty-hint">
             <Icon name="info" size="sm" class="hint-icon" />
             <span>Browse badges on the Surf tab and tap "Request Badge" to apply for ones you'd like to earn.</span>

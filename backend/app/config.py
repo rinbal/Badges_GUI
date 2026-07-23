@@ -41,7 +41,9 @@ class Settings(BaseSettings):
             return [
                 "wss://relay.damus.io",
                 "wss://nos.lol",
-                "wss://nostr.wine",
+                "wss://relay.primal.net",
+                "wss://relay.0xchat.com",
+                "wss://nostr.mom",
             ]
     
     @property
