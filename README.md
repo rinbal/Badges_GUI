@@ -15,8 +15,10 @@ Badge Box enables you to:
 
 - **Create custom badges** with names, descriptions, and images
 - **Award badges** to any Nostr user by their public key
+- **Request badges** from issuers and receive DM notifications on award or denial
 - **Receive badges** from others and choose which to display
 - **View badge profiles** for any Nostr user
+- **Message and connect** via private DMs and the community group chat
 
 All badges are cryptographically signed and stored across decentralized Nostr relays, making them verifiable and censorship-resistant.
 
@@ -81,9 +83,24 @@ Install a Nostr browser extension like:
 
 Your private key stays safely in the extension. Badge Box only requests signatures when needed.
 
+### Remote Signer (NIP-46)
+
+Pair a remote signer such as Amber, nsec.app, or a bunker URI via QR code. Your key never leaves the signer ; Badge Box requests signatures remotely.
+
 ### Private Key (nsec)
 
 Enter your Nostr private key (starts with `nsec1...`) directly. The key is stored only in your browser session and cleared when you close the browser.
+
+---
+
+## Messaging & Community
+
+All messaging is client-side (no backend API) and end-to-end encrypted.
+
+- **Private DMs** - encrypted direct messages using NIP-17 gift-wrapped events (NIP-59 + NIP-44), reached from the **Messages** panel in the profile menu
+- **Feedback & Support** - 1:1 encrypted chat with the Badge Box admin (NIP-17)
+- **Community chat** - a NIP-29 relay-based group embedded on the home page (host relay `wss://groups.0xchat.com`) ; anonymous users can read, signed-in users join and post
+- **Open in Lotus** - deep-link the community into the Lotus client for voice, video, and file sharing
 
 ---
 
@@ -96,6 +113,10 @@ Badge Box implements the NIP-58 badge specification using three Nostr event type
 | 30009 | Badge Definition - defines badge metadata (name, image, description) |
 | 8 | Badge Award - records that a badge was awarded to specific users |
 | 30008 | Profile Badges - user's list of accepted badges to display |
+| 30058 | Badge Request - a requester asks an issuer for a badge (app-native NIP-58 extension) |
+| 30059 | Badge Denial - an issuer declines a request |
+
+> Note: Badge Box currently writes Profile Badges as kind 30008. A later NIP-58 revision defines kind 10008 for this ; a future migration may adopt it.
 
 ### Badge Lifecycle
 
@@ -156,8 +177,15 @@ Badge_Box/
 
 **Protocol:**
 - Nostr - Decentralized event storage
-- NIP-58 - Badge specification
-- NIP-07 - Browser extension signing
+- NIP-58 - Badges (kinds 8/30008/30009) plus request/denial extension (30058/30059)
+- NIP-09 - Event deletion
+- NIP-17 / NIP-59 / NIP-44 - Private encrypted DMs
+- NIP-29 - Relay-based group chat
+- NIP-42 - Relay authentication
+- NIP-07 / NIP-46 - Browser extension and remote signers
+- NIP-65 / NIP-11 - Relay lists and relay info
+- NIP-50 - Search
+- NIP-78 - Template sync
 
 ---
 

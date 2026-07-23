@@ -2,8 +2,32 @@ import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import { VitePWA } from 'vite-plugin-pwa'
 import { fileURLToPath, URL } from 'node:url'
+import { execSync } from 'node:child_process'
+
+// Version + commit for the app footer. Read from git tags (the GitHub releases)
+// at build time. Falls back gracefully when git is unavailable (e.g. a shallow
+// CI checkout), in which case the footer resolves the version from the GitHub
+// Releases API at runtime instead.
+function gitInfo() {
+  let version = ''
+  let commit = ''
+  try {
+    version = execSync('git describe --tags --abbrev=0').toString().trim()
+  } catch { /* no tags in this checkout */ }
+  try {
+    commit = execSync('git rev-parse --short HEAD').toString().trim()
+  } catch { /* not a git checkout */ }
+  if (!commit && process.env.COMMIT_REF) commit = process.env.COMMIT_REF.slice(0, 7)
+  return { version, commit }
+}
+
+const { version: APP_VERSION, commit: APP_COMMIT } = gitInfo()
 
 export default defineConfig({
+  define: {
+    __APP_VERSION__: JSON.stringify(APP_VERSION),
+    __APP_COMMIT__: JSON.stringify(APP_COMMIT)
+  },
   plugins: [
     vue(),
     VitePWA({

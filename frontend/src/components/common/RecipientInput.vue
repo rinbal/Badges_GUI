@@ -89,8 +89,20 @@ npub1xyz789..."
         <button v-if="recipients.length > 0" class="clear-all" @click="clearAll">Clear all</button>
       </div>
       <div class="list-items">
-        <div v-for="(npub, index) in recipients" :key="index" class="recipient-item">
-          <span class="npub">{{ formatNpub(npub) }}</span>
+        <div v-for="(npub, index) in recipients" :key="npub" class="recipient-item">
+          <div class="recipient-profile">
+            <div v-if="profileCache[npub]?.picture" class="recipient-avatar">
+              <img :src="profileCache[npub].picture" @error="e => e.target.style.display = 'none'" />
+            </div>
+            <div v-else class="recipient-avatar placeholder">
+              <span>{{ profileCache[npub]?.initials || '?' }}</span>
+            </div>
+            <div class="recipient-info">
+              <span v-if="profileCache[npub]?.displayName" class="recipient-name">{{ profileCache[npub].displayName }}</span>
+              <span v-else-if="profileCache[npub]?.loading" class="recipient-name loading">Loading...</span>
+              <span class="npub">{{ formatNpub(npub) }}</span>
+            </div>
+          </div>
           <button class="remove-btn" @click="removeRecipient(index)" title="Remove" aria-label="Remove recipient">×</button>
         </div>
       </div>
@@ -107,7 +119,8 @@ npub1xyz789..."
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, reactive } from 'vue'
+import { api } from '@/api/client'
 
 const props = defineProps({
   modelValue: {
@@ -129,6 +142,9 @@ const emit = defineEmits(['update:modelValue'])
 const mode = ref('single')
 const singleInput = ref('')
 
+// Profile cache: npub -> { displayName, picture, initials, loading, loaded }
+const profileCache = reactive({})
+
 const recipients = computed(() =>
   props.modelValue
     .split(/[\n,]/)
@@ -138,6 +154,48 @@ const recipients = computed(() =>
 
 // Get unique recipients (for duplicate detection)
 const uniqueRecipients = computed(() => [...new Set(recipients.value)])
+
+// Watch recipients and fetch profiles for new ones
+watch(recipients, (newRecipients) => {
+  for (const npub of newRecipients) {
+    if (!profileCache[npub]) {
+      fetchProfile(npub)
+    }
+  }
+}, { immediate: true })
+
+async function fetchProfile(npub) {
+  profileCache[npub] = { loading: true, loaded: false, displayName: null, picture: null, initials: '?' }
+
+  try {
+    const response = await api.getProfile(npub)
+    const data = response.data
+    const displayName = data.display_name || data.name || null
+    const initials = displayName ? displayName.charAt(0).toUpperCase() : '?'
+
+    profileCache[npub] = {
+      loading: false,
+      loaded: true,
+      displayName,
+      name: data.name || null,
+      picture: data.picture || null,
+      nip05: data.nip05 || null,
+      hex: data.hex || null,
+      initials
+    }
+  } catch {
+    profileCache[npub] = {
+      loading: false,
+      loaded: true,
+      displayName: null,
+      picture: null,
+      initials: '?'
+    }
+  }
+}
+
+// Expose profile cache for parent components (summary modal)
+defineExpose({ profileCache })
 
 // Single input validation states
 const singleInputValid = computed(() => {
@@ -516,7 +574,7 @@ function clearAll() {
 }
 
 .list-items {
-  max-height: 140px;
+  max-height: 200px;
   overflow-y: auto;
 }
 
@@ -524,7 +582,7 @@ function clearAll() {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.625rem 0.75rem;
+  padding: 0.5rem 0.75rem;
   gap: 0.75rem;
   border-bottom: 1px solid var(--color-border);
 }
@@ -533,9 +591,64 @@ function clearAll() {
   border-bottom: none;
 }
 
+.recipient-profile {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.recipient-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: var(--color-surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.recipient-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.recipient-avatar.placeholder {
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.recipient-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.0625rem;
+  min-width: 0;
+}
+
+.recipient-name {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.recipient-name.loading {
+  color: var(--color-text-muted);
+  font-style: italic;
+  font-weight: 400;
+}
+
 .npub {
   font-family: var(--font-mono);
-  font-size: 0.75rem;
+  font-size: 0.6875rem;
   color: var(--color-text-muted);
   flex: 1;
   min-width: 0;

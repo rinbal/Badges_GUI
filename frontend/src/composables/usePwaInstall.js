@@ -137,7 +137,7 @@ export function usePwaInstall() {
         steps: [
           { text: 'Tap the Share button', icon: 'upload' },
           { text: "Scroll down and tap 'Add to Home Screen'", icon: 'plus' },
-          { text: "Tap 'Add' — done!", icon: 'check' }
+          { text: "Tap 'Add' - done!", icon: 'check' }
         ],
         hasNativePrompt: false
       },
@@ -147,7 +147,7 @@ export function usePwaInstall() {
         steps: [
           { text: "Click 'File' in the menu bar", icon: 'menu' },
           { text: "Select 'Add to Dock...'", icon: 'plus' },
-          { text: "Click 'Add' — that's it!", icon: 'check' }
+          { text: "Click 'Add' - that's it!", icon: 'check' }
         ],
         hasNativePrompt: false
       },
@@ -157,7 +157,7 @@ export function usePwaInstall() {
         steps: [
           { text: "Click the \u22EF menu in the address bar", icon: 'menu' },
           { text: "Select 'Install this site as an app'", icon: 'download' },
-          { text: "Click 'Install' — you're all set!", icon: 'check' }
+          { text: "Click 'Install' - you're all set!", icon: 'check' }
         ],
         hasNativePrompt: false
       },
@@ -167,7 +167,7 @@ export function usePwaInstall() {
         steps: [
           { text: "Tap the menu \u2630 icon", icon: 'menu' },
           { text: "Tap 'Add page to' then 'Home screen'", icon: 'plus' },
-          { text: "Confirm — done!", icon: 'check' }
+          { text: "Confirm - done!", icon: 'check' }
         ],
         hasNativePrompt: false
       },

@@ -135,22 +135,37 @@ async def fetch_profile_name(recipient_hex, relay_urls):
 
 
 # =====================================================================
-# Fetch accepted badges (Kind 30008)
+# Profile Badges kinds: current 10008, legacy 30008 (read both, newest wins)
+# =====================================================================
+PROFILE_BADGES_KINDS = [10008, 30008]
+
+
+def latest_profile_badges_event(events):
+    """Return the newest Profile Badges event (kind 10008 or legacy 30008)."""
+    candidates = [e for e in events if e.get("kind") in PROFILE_BADGES_KINDS]
+    if not candidates:
+        return None
+    return max(candidates, key=lambda e: e.get("created_at", 0))
+
+
+# =====================================================================
+# Fetch accepted badges (Kind 10008, legacy 30008)
 # =====================================================================
 async def fetch_accepted_badges(recipient_hex, relay_urls):
     flt = {
-        "kinds": [30008],
+        "kinds": PROFILE_BADGES_KINDS,
         "authors": [recipient_hex],
-        "limit": 1
+        # limit 2: at most one current 10008 and one legacy 30008 per author
+        "limit": 2
     }
 
     accepted = set()
 
     for relay in relay_urls:
         events = await query_relay(relay, "accepted_" + recipient_hex[:8], flt)
-        if events:
-            tags = events[0].get("tags", [])
-            for t in tags:
+        profile_event = latest_profile_badges_event(events)
+        if profile_event:
+            for t in profile_event.get("tags", []):
                 if t[0] == "a":
                     accepted.add(t[1])
             break
@@ -161,19 +176,20 @@ async def fetch_accepted_badges(recipient_hex, relay_urls):
 # Load accepted badges with readable info (badge name, issuer name)
 # =====================================================================
 async def load_accepted_badges(recipient_hex, relay_urls):
-    # Request the Kind 30008 profile-badges event
+    # Request the profile-badges event (current kind 10008, legacy 30008)
     filter_params = {
-        "kinds": [30008],
+        "kinds": PROFILE_BADGES_KINDS,
         "authors": [recipient_hex],
-        "limit": 1
+        # limit 2: at most one current 10008 and one legacy 30008 per author
+        "limit": 2
     }
 
     profile_event = None
 
     for relay in relay_urls:
         events = await query_relay(relay, "accepted_badges_" + recipient_hex[:8], filter_params)
-        if events:
-            profile_event = events[0]
+        profile_event = latest_profile_badges_event(events)
+        if profile_event:
             break
 
     if not profile_event:

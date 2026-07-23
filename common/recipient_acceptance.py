@@ -1,6 +1,13 @@
 """
 Recipient Badge Acceptance System
-Implements NIP-58 Profile Badges (kind 30008) for badge display
+Implements NIP-58 Profile Badges for badge display.
+
+Profile Badges kinds:
+- PROFILE_BADGES_KIND (10008): current NIP-58 standard, a replaceable NIP-51
+  list with no `d` tag. All new Profile Badges events are written with this kind.
+- LEGACY_PROFILE_BADGES_KIND (30008): the deprecated addressable event that used
+  `d=profile_badges`. We no longer write it, but we still read it so badges
+  accepted with older clients keep showing and get migrated on the next write.
 """
 
 import json
@@ -15,9 +22,14 @@ from nostr.key import PrivateKey
 from nostr.event import Event
 from relay_manager import RelayManager
 
+# NIP-58 Profile Badges kinds. Write the current one, read both.
+PROFILE_BADGES_KIND = 10008
+LEGACY_PROFILE_BADGES_KIND = 30008
+PROFILE_BADGES_KINDS = [PROFILE_BADGES_KIND, LEGACY_PROFILE_BADGES_KIND]
+
 
 class BadgeAcceptanceManager:
-    """Manages badge acceptance and Profile Badges (kind 30008) creation"""
+    """Manages badge acceptance and Profile Badges (kind 10008) creation"""
     
     def __init__(self, recipient_nsec: str):
         """Initialize with recipient's private key"""
@@ -40,18 +52,18 @@ class BadgeAcceptanceManager:
         relay_urls: Optional[List[str]] = None
     ) -> Dict[str, Any]:
         """
-        Create a Profile Badges event (kind 30008) to display awarded badges
-        
+        Create a Profile Badges event (kind 10008) to display awarded badges
+
         Args:
             badge_awards: List of badge award events to display
             relay_urls: Optional relay URLs for 'e' tags
-        
+
         Returns:
             Signed Profile Badges event
         """
-        # Create tags for Profile Badges event
-        tags = [["d", "profile_badges"]]
-        
+        # kind 10008 is a replaceable NIP-51 list: ordered a/e pairs, no 'd' tag
+        tags = []
+
         # Add badge definition and award pairs
         for award in badge_awards:
             # Extract badge definition reference from award's 'a' tag
@@ -67,12 +79,12 @@ class BadgeAcceptanceManager:
         
         # Create the event
         event = {
-            "kind": 30008,
+            "kind": PROFILE_BADGES_KIND,
             "created_at": int(time.time()),
             "content": f"Profile badges: {len(badge_awards)} badges displayed",
             "tags": tags
         }
-        
+
         # Sign the event
         ev = Event(
             public_key=self.recipient_hex,
@@ -111,21 +123,20 @@ class BadgeAcceptanceManager:
         Returns:
             Signed Profile Badges event
         """
-        # Create tags
+        # kind 10008 has no 'd' tag; just the a/e pair for this badge
         tags = [
-            ["d", "profile_badges"],
             ["a", badge_definition_a_tag]
         ]
-        
+
         # Add award event reference
         e_tag = ["e", badge_award_event_id]
         if relay_url:
             e_tag.append(relay_url)
         tags.append(e_tag)
-        
+
         # Create and sign event
         event = {
-            "kind": 30008,
+            "kind": PROFILE_BADGES_KIND,
             "created_at": int(time.time()),
             "content": "Profile badges: 1 badge displayed",
             "tags": tags
@@ -287,8 +298,8 @@ class BadgeAcceptanceManager:
             # Use existing pairs if merge fails
             merged_pairs = existing_pairs
         
-        # Create the merged Profile Badges event structure
-        tags = [["d", "profile_badges"]]
+        # Create the merged Profile Badges event structure (kind 10008, no 'd' tag)
+        tags = []
         for a_val, e_val in merged_pairs:
             tags.append(["a", a_val])
             e_tag = ["e", e_val]
@@ -297,16 +308,16 @@ class BadgeAcceptanceManager:
             tags.append(e_tag)
         
         profile_badges_event = {
-            "kind": 30008,
+            "kind": PROFILE_BADGES_KIND,
             "content": f"Profile badges: {len(merged_pairs)} badges displayed",
             "tags": tags
         }
-        
+
         instructions = f"""
 🏅 BADGE ACCEPTANCE INSTRUCTIONS (WITH MERGE)
 ============================================
 
-To display this badge in your profile, you need to create/update a Profile Badges event (kind 30008).
+To display this badge in your profile, you need to create/update a Profile Badges event (kind 10008).
 
 📋 BADGE INFORMATION:
 - Badge Definition: {badge_definition_a_tag}
@@ -318,7 +329,7 @@ To display this badge in your profile, you need to create/update a Profile Badge
 🔧 MANUAL ACCEPTANCE (WITH MERGE):
 
 1. Open your nostr client that supports NIP-58 badges
-2. Create a new event with kind 30008
+2. Create a new event with kind 10008
 3. Use these exact tags (includes all your badges):
 {chr(10).join([f"   - {tag[0]}: {tag[1]}" for tag in tags])}
 
@@ -504,53 +515,63 @@ To display this badge in your profile, you need to create/update a Profile Badge
     
     async def fetch_existing_profile_badges(self, relay_urls: List[str]) -> Optional[Dict[str, Any]]:
         """
-        Fetch existing Profile Badges event (kind 30008) for this recipient
-        
+        Fetch the recipient's current Profile Badges event.
+
+        Reads both the current kind 10008 and the legacy kind 30008 and returns
+        whichever is newest, so a list built by an older client still seeds the
+        merge (and is migrated to kind 10008 on the next write).
+
         Args:
             relay_urls: List of relay URLs to query
-            
+
         Returns:
             Latest Profile Badges event or None if not found
         """
         filter_payload = {
-            "kinds": [30008],
+            "kinds": PROFILE_BADGES_KINDS,
             "authors": [self.recipient_hex],
-            "#d": ["profile_badges"],
-            "limit": 1
+            # limit 2: at most one 10008 and one legacy 30008 exist per author
+            "limit": 2
         }
-        
+
         for relay in relay_urls:
             try:
                 async with websockets.connect(relay, open_timeout=5) as ws:
                     req_id = f"fetch_profile_badges_{int(time.time())}"
                     await ws.send(json.dumps(["REQ", req_id, filter_payload]))
-                    
+
+                    candidates = []
                     start_time = time.time()
                     while time.time() - start_time < 4:
                         try:
                             response = await asyncio.wait_for(ws.recv(), timeout=2)
                             data = json.loads(response)
-                            
+
                             if isinstance(data, list) and data[0] == "EVENT" and len(data) >= 3:
                                 if data[1] == req_id:
                                     event = data[2]
-                                    if isinstance(event, dict) and event.get("kind") == 30008:
-                                        print(f"✅ Found existing Profile Badges on {relay}")
-                                        return event
-                            
+                                    if isinstance(event, dict) and event.get("kind") in PROFILE_BADGES_KINDS:
+                                        candidates.append(event)
+
                             elif isinstance(data, list) and data[0] == "EOSE" and len(data) >= 2:
                                 if data[1] == req_id:
                                     break
-                                    
+
                         except asyncio.TimeoutError:
                             break
                         except Exception:
                             continue
-                            
+
+                    if candidates:
+                        # Newest wins across the current and legacy kinds
+                        latest = max(candidates, key=lambda e: e.get("created_at", 0))
+                        print(f"✅ Found existing Profile Badges (kind {latest.get('kind')}) on {relay}")
+                        return latest
+
             except Exception as e:
                 print(f"⚠️ Failed to query {relay}: {e}")
                 continue
-        
+
         print("ℹ️ No existing Profile Badges found")
         return None
     
@@ -652,9 +673,9 @@ To display this badge in your profile, you need to create/update a Profile Badge
         Returns:
             Signed Profile Badges event
         """
-        # Start with required 'd' tag
-        tags = [["d", "profile_badges"]]
-        
+        # kind 10008 is a replaceable NIP-51 list: ordered a/e pairs, no 'd' tag
+        tags = []
+
         # Add all badge pairs as a/e interleaved tags
         for a_val, e_val in badge_pairs:
             tags.append(["a", a_val])
@@ -662,10 +683,10 @@ To display this badge in your profile, you need to create/update a Profile Badge
             if relay_urls:
                 e_tag.append(relay_urls[0])  # Add first relay URL
             tags.append(e_tag)
-        
+
         # Create and sign event
         event = {
-            "kind": 30008,
+            "kind": PROFILE_BADGES_KIND,
             "created_at": int(time.time()),
             "content": f"Profile badges: {len(badge_pairs)} badges displayed",
             "tags": tags

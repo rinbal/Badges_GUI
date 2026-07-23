@@ -50,6 +50,20 @@ yarn-error.log*
 # Frontend Build
 frontend/dist/
 frontend/.vite/
+# Generated feeds (scripts/build-feed.mjs, regenerated on every build/deploy)
+# RSS/Atom/JSON output derived from Release_Notes/. Never hand-edited, so it
+# stays out of source control like other build artifacts.
+frontend/public/feed.xml
+frontend/public/rss.xml
+frontend/public/feed.json
+frontend/public/feeds/
+dist/
+.vite/
+# Vite PWA dev-mode service worker output
+dev-dist/
+frontend/dev-dist/
+# Vite local env overrides
+*.local
 
 # Environment variables
 .env

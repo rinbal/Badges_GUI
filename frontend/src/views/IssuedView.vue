@@ -125,7 +125,7 @@
               </div>
 
               <div v-else-if="badge.holders === null" class="no-holders fetch-error">
-                <p>Oops, couldn't load — relays seem busy right now. Come try again in a few minutes.</p>
+                <p>Oops, couldn't load. Relays seem busy right now. Try again in a few minutes.</p>
                 <button class="btn-small" @click="loadHolders(badge)">
                   <Icon name="refresh" size="sm" />
                   Try Again

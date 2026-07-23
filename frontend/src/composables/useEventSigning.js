@@ -87,7 +87,7 @@ export function useEventSigning() {
   }
 
   /**
-   * Sign a profile badges event (kind 30008)
+   * Sign a profile badges event (kind 10008)
    * @param {Array} badgeTags - Array of badge tags [["a", aTag], ["e", eventId], ...]
    * @returns {Promise<Object|null>} - Signed event for NIP-07, null for nsec
    */

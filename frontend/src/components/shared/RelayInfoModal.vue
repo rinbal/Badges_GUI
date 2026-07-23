@@ -34,7 +34,7 @@
                 <span class="item-icon">🙏</span>
                 <div class="item-text">
                   <strong>Don't refresh right away</strong>
-                  <span>If a tab looks empty or incomplete, just wait — it's still fetching from the relay network.</span>
+                  <span>If a tab looks empty or incomplete, just wait. It's still fetching from the relay network.</span>
                 </div>
               </div>
             </div>
